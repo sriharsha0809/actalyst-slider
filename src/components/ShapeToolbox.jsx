@@ -1,0 +1,382 @@
+import React from 'react'
+import { useSlides } from '../context/SlidesContext.jsx'
+import { nanoid } from '../utils/nanoid.js'
+
+export default function ShapeToolbox() {
+  const { dispatch } = useSlides()
+
+  const createTextElement = (text, x, y, w, h, fontSize = 28, bgColor = 'transparent', align = 'left') => ({
+    id: nanoid(),
+    type: 'text',
+    x, y, w, h,
+    rotation: 0,
+    text,
+    bgColor,
+    styles: { 
+      fontFamily: 'Inter, system-ui, sans-serif', 
+      fontSize, 
+      color: '#111827', 
+      bold: false, 
+      italic: false, 
+      underline: false, 
+      align 
+    }
+  })
+
+  const slideLayouts = [
+    {
+      name: 'Title Slide',
+      description: 'First slide',
+      preview: (
+        <div className="w-full h-full bg-white p-2 flex flex-col items-center justify-center">
+          <div className="w-3/4 h-2 bg-blue-400 mb-2"></div>
+          <div className="w-1/2 h-1.5 bg-blue-300"></div>
+        </div>
+      )
+    },
+    {
+      name: 'Title + Subtitle',
+      description: 'Most common',
+      preview: (
+        <div className="w-full h-full bg-white p-2">
+          <div className="w-full h-1.5 bg-blue-400 mb-2"></div>
+          <div className="w-full h-8 bg-gray-200 rounded"></div>
+        </div>
+      )
+    },
+    {
+      name: 'Section Header',
+      description: 'New section',
+      preview: (
+        <div className="w-full h-full bg-gradient-to-br from-purple-200 to-blue-200 p-2 flex flex-col justify-center">
+          <div className="w-3/4 h-2 bg-purple-500 mb-1"></div>
+          <div className="w-1/2 h-1 bg-purple-400"></div>
+        </div>
+      )
+    },
+    {
+      name: 'Title Only',
+      description: 'Minimal layout',
+      preview: (
+        <div className="w-full h-full bg-white p-2">
+          <div className="w-full h-1.5 bg-blue-400"></div>
+        </div>
+      )
+    },
+    {
+      name: 'Two Content',
+      description: 'Side by side',
+      preview: (
+        <div className="w-full h-full bg-white p-2">
+          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="flex gap-1 h-8">
+            <div className="flex-1 bg-gray-200 rounded"></div>
+            <div className="flex-1 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      )
+    },
+    {
+      name: 'Comparison',
+      description: 'Labeled boxes',
+      preview: (
+        <div className="w-full h-full bg-white p-2">
+          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="flex gap-1 h-8">
+            <div className="flex-1">
+              <div className="h-1 bg-green-400 mb-0.5"></div>
+              <div className="h-6 bg-gray-200 rounded"></div>
+            </div>
+            <div className="flex-1">
+              <div className="h-1 bg-red-400 mb-0.5"></div>
+              <div className="h-6 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      name: 'Blank Slide',
+      description: 'Custom content',
+      preview: (
+        <div className="w-full h-full bg-white border-2 border-dashed border-gray-300"></div>
+      )
+    },
+    {
+      name: 'Content + Caption',
+      description: 'Text beside',
+      preview: (
+        <div className="w-full h-full bg-white p-2">
+          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="flex gap-1 h-8">
+            <div className="w-2/3 bg-gray-200 rounded"></div>
+            <div className="w-1/3 bg-gray-100 rounded"></div>
+          </div>
+        </div>
+      )
+    },
+    {
+      name: 'Picture + Caption',
+      description: 'Large image',
+      preview: (
+        <div className="w-full h-full bg-white p-2">
+          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="flex gap-1 h-8">
+            <div className="w-3/4 bg-gradient-to-br from-blue-200 to-purple-200 rounded"></div>
+            <div className="w-1/4 bg-gray-100 rounded"></div>
+          </div>
+        </div>
+      )
+    },
+    {
+      name: 'Title + Picture',
+      description: 'Image focus',
+      preview: (
+        <div className="w-full h-full bg-white p-2">
+          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="w-full h-8 bg-gradient-to-br from-green-200 to-blue-200 rounded"></div>
+        </div>
+      )
+    },
+    {
+      name: 'Quote Slide',
+      description: 'Quotations',
+      preview: (
+        <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-orange-100 p-2 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-8 h-1 bg-orange-400 mx-auto mb-1"></div>
+            <div className="w-6 h-0.5 bg-orange-300 mx-auto"></div>
+          </div>
+        </div>
+      )
+    },
+    {
+      name: 'Chart / Graph',
+      description: 'Data visuals',
+      preview: (
+        <div className="w-full h-full bg-white p-2">
+          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="w-full h-8 bg-gray-100 rounded flex items-end justify-around p-1">
+            <div className="w-1 bg-blue-400 h-4"></div>
+            <div className="w-1 bg-green-400 h-6"></div>
+            <div className="w-1 bg-red-400 h-3"></div>
+            <div className="w-1 bg-yellow-400 h-5"></div>
+          </div>
+        </div>
+      )
+    },
+    {
+      name: 'SmartArt / Process',
+      description: 'Workflows',
+      preview: (
+        <div className="w-full h-full bg-white p-2">
+          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="flex items-center justify-around h-8">
+            <div className="w-3 h-3 bg-blue-300 rounded-full"></div>
+            <div className="w-2 h-0.5 bg-gray-400"></div>
+            <div className="w-3 h-3 bg-green-300 rounded-full"></div>
+            <div className="w-2 h-0.5 bg-gray-400"></div>
+            <div className="w-3 h-3 bg-purple-300 rounded-full"></div>
+          </div>
+        </div>
+      )
+    },
+    {
+      name: 'Thank You',
+      description: 'Closing slide',
+      preview: (
+        <div className="w-full h-full bg-gradient-to-br from-pink-200 to-purple-200 p-2 flex flex-col items-center justify-center">
+          <div className="w-3/4 h-2 bg-purple-500 mb-1"></div>
+          <div className="w-1/2 h-1 bg-purple-400"></div>
+        </div>
+      )
+    }
+  ]
+
+  const getTemplateElements = (layoutName) => {
+    switch (layoutName) {
+      case 'Title Slide':
+        return {
+          elements: [
+            createTextElement('Click to add title', 200, 150, 560, 100, 48, 'transparent', 'center'),
+            createTextElement('Click to add subtitle', 250, 280, 460, 60, 32, 'transparent', 'center')
+          ],
+          background: '#ffffff'
+        }
+      case 'Title + Subtitle':
+        return {
+          elements: [
+            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
+            createTextElement('Click to add content', 80, 180, 800, 280, 24, 'transparent', 'left')
+          ],
+          background: '#ffffff'
+        }
+      case 'Section Header':
+        return {
+          elements: [
+            createTextElement('Section Title', 100, 180, 760, 100, 44, 'transparent', 'center'),
+            createTextElement('Section Description', 150, 300, 660, 60, 28, 'transparent', 'center')
+          ],
+          background: 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)'
+        }
+      case 'Title Only':
+        return {
+          elements: [
+            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left')
+          ],
+          background: '#ffffff'
+        }
+      case 'Two Content':
+        return {
+          elements: [
+            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
+            createTextElement('Content 1', 80, 180, 380, 280, 24, 'transparent', 'left'),
+            createTextElement('Content 2', 500, 180, 380, 280, 24, 'transparent', 'left')
+          ],
+          background: '#ffffff'
+        }
+      case 'Comparison':
+        return {
+          elements: [
+            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
+            createTextElement('Option A', 80, 160, 380, 40, 28, '#d4edda', 'center'),
+            createTextElement('Content A', 80, 220, 380, 240, 24, 'transparent', 'left'),
+            createTextElement('Option B', 500, 160, 380, 40, 28, '#f8d7da', 'center'),
+            createTextElement('Content B', 500, 220, 380, 240, 24, 'transparent', 'left')
+          ],
+          background: '#ffffff'
+        }
+      case 'Blank Slide':
+        return {
+          elements: [],
+          background: '#ffffff'
+        }
+      case 'Content + Caption':
+        return {
+          elements: [
+            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
+            createTextElement('Main Content', 80, 180, 520, 280, 24, 'transparent', 'left'),
+            createTextElement('Caption text', 640, 180, 240, 280, 20, 'transparent', 'left')
+          ],
+          background: '#ffffff'
+        }
+      case 'Picture + Caption':
+        return {
+          elements: [
+            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
+            createTextElement('Image Area\n(Add image here)', 80, 180, 600, 280, 24, '#e3f2fd', 'center'),
+            createTextElement('Caption', 720, 180, 160, 280, 20, 'transparent', 'left')
+          ],
+          background: '#ffffff'
+        }
+      case 'Title + Picture':
+        return {
+          elements: [
+            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
+            createTextElement('Image Area\n(Add image here)', 80, 180, 800, 280, 28, '#e8f5e9', 'center')
+          ],
+          background: '#ffffff'
+        }
+      case 'Quote Slide':
+        return {
+          elements: [
+            createTextElement('"Click to add quote"', 150, 180, 660, 120, 32, 'transparent', 'center'),
+            createTextElement('- Author Name', 300, 320, 360, 40, 24, 'transparent', 'center')
+          ],
+          background: 'linear-gradient(135deg, #fff9e6 0%, #ffe6cc 100%)'
+        }
+      case 'Chart / Graph':
+        return {
+          elements: [
+            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
+            createTextElement('Chart Area\n(Add chart/graph here)', 80, 180, 800, 280, 24, '#f5f5f5', 'center')
+          ],
+          background: '#ffffff'
+        }
+      case 'SmartArt / Process':
+        return {
+          elements: [
+            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
+            createTextElement('Step 1', 100, 240, 180, 80, 20, '#bbdefb', 'center'),
+            createTextElement('Step 2', 390, 240, 180, 80, 20, '#c8e6c9', 'center'),
+            createTextElement('Step 3', 680, 240, 180, 80, 20, '#e1bee7', 'center')
+          ],
+          background: '#ffffff'
+        }
+      case 'Thank You':
+        return {
+          elements: [
+            createTextElement('Thank You!', 200, 200, 560, 100, 48, 'transparent', 'center'),
+            createTextElement('Questions?', 300, 320, 360, 60, 32, 'transparent', 'center')
+          ],
+          background: 'linear-gradient(135deg, #fce4ec 0%, #e1bee7 100%)'
+        }
+      default:
+        return {
+          elements: [
+            createTextElement('Click to add title', 100, 80, 600, 100, 44, 'transparent', 'left'),
+            createTextElement('Click to add subtitle', 100, 220, 600, 80, 28, 'transparent', 'left')
+          ],
+          background: '#ffffff'
+        }
+    }
+  }
+
+  const applyLayout = (layout) => {
+    const template = getTemplateElements(layout.name)
+    const newSlide = {
+      id: nanoid(),
+      background: template.background,
+      elements: template.elements
+    }
+    
+    // Add new slide with template
+    dispatch({ type: 'ADD_SLIDE_WITH_TEMPLATE', slide: newSlide })
+  }
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="font-semibold text-gray-800 mb-3 text-base">Slide Layouts</div>
+      <div className="grid grid-cols-2 gap-2">
+        {slideLayouts.map((layout, index) => (
+          <button
+            key={index}
+            onClick={() => applyLayout(layout)}
+            className="group flex flex-col"
+          >
+            <div className="aspect-video rounded-lg border-2 border-gray-200 hover:border-brand-500 transition-all overflow-hidden shadow-sm hover:shadow-md bg-gray-50">
+              {layout.preview}
+            </div>
+            <div className="mt-1 text-center">
+              <div className="text-xs font-medium text-gray-700 group-hover:text-brand-600">
+                {layout.name}
+              </div>
+              <div className="text-[10px] text-gray-500">
+                {layout.description}
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ToolButton({ children, onClick }) {
+  return (
+    <button onClick={onClick} className="px-3 py-2 rounded-lg border border-gray-200 hover:border-brand-500 hover:bg-brand-50 shadow-soft text-sm">
+      {children}
+    </button>
+  )
+}
+
+function BackgroundPicker() {
+  const { state, dispatch } = useSlides()
+  const slide = state.slides.find(s => s.id === state.currentSlideId)
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <input type="color" value={slide?.background || '#ffffff'} onChange={(e)=>dispatch({type:'SET_BACKGROUND', color: e.target.value})} className="h-9 w-9 p-1 rounded-md border" />
+      <input type="text" value={slide?.background || '#ffffff'} onChange={(e)=>dispatch({type:'SET_BACKGROUND', color: e.target.value})} className="flex-1 rounded-md border-gray-300" />
+    </div>
+  )
+}
