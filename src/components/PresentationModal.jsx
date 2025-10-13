@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
 
-export default function PresentationModal({ onClose }) {
+export default function PresentationModal({ mode = 'auto', onClose }) {
   const { state, dispatch } = useSlides()
   const idx = state.slides.findIndex(s => s.id === state.currentSlideId)
   const [isPaused, setIsPaused] = useState(false)
@@ -35,9 +35,9 @@ export default function PresentationModal({ onClose }) {
     setIsPaused(!isPaused)
   }
 
-  // Auto-advance slides every 5 seconds
+  // Auto-advance slides every 5 seconds (only in auto mode)
   useEffect(() => {
-    if (!isPaused) {
+    if (mode === 'auto' && !isPaused) {
       setTimeRemaining(5) // Reset timer when slide changes
       
       // Countdown timer
@@ -63,7 +63,7 @@ export default function PresentationModal({ onClose }) {
         timerRef.current = null
       }
     }
-  }, [isPaused, idx, state.slides, dispatch])
+  }, [mode, isPaused, idx, state.slides, dispatch])
 
   // Clean up intervals on unmount
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function PresentationModal({ onClose }) {
       if (e.key === 'Escape') onClose()
       if (e.key === 'ArrowRight' || e.key === 'PageDown') goToNext()
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') goToPrevious()
-      if (e.key === ' ') { // Spacebar to pause/resume
+      if (e.key === ' ' && mode === 'auto') { // Spacebar to pause/resume (only in auto mode)
         e.preventDefault()
         togglePause()
       }
@@ -124,12 +124,13 @@ export default function PresentationModal({ onClose }) {
         {/* Slide Counter */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm">
           {idx + 1} / {state.slides.length}
-          {isPaused && <span className="ml-2 text-yellow-300">⏸️ PAUSED</span>}
-          {!isPaused && <span className="ml-2 text-green-300">⏱️ {timeRemaining}s</span>}
+          {mode === 'manual' && <span className="ml-2 text-blue-300">📖 Manual</span>}
+          {mode === 'auto' && isPaused && <span className="ml-2 text-yellow-300">⏸️ PAUSED</span>}
+          {mode === 'auto' && !isPaused && <span className="ml-2 text-green-300">⏱️ {timeRemaining}s</span>}
         </div>
         
-        {/* Progress Bar */}
-        {!isPaused && (
+        {/* Progress Bar (only in auto mode) */}
+        {mode === 'auto' && !isPaused && (
           <div className="absolute bottom-0 left-0 w-full h-1 bg-black/20">
             <div 
               className="h-full bg-white transition-all duration-1000 ease-linear"
@@ -138,23 +139,25 @@ export default function PresentationModal({ onClose }) {
           </div>
         )}
         
-        {/* Pause/Resume Button */}
-        <button
-          onClick={togglePause}
-          className="absolute top-4 left-4 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all"
-          title={isPaused ? "Resume (Space)" : "Pause (Space)"}
-        >
-          {isPaused ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5,3 19,12 5,21"></polygon>
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="4" width="4" height="16"></rect>
-              <rect x="14" y="4" width="4" height="16"></rect>
-            </svg>
-          )}
-        </button>
+        {/* Pause/Resume Button (only in auto mode) */}
+        {mode === 'auto' && (
+          <button
+            onClick={togglePause}
+            className="absolute top-4 left-4 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all"
+            title={isPaused ? "Resume (Space)" : "Pause (Space)"}
+          >
+            {isPaused ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5,3 19,12 5,21"></polygon>
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+              </svg>
+            )}
+          </button>
+        )}
         
         {/* Close Button */}
         <button

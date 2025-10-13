@@ -3,7 +3,7 @@ import { useSlides, factories } from '../context/SlidesContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 
 
-export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
+export default function Toolbar({ activeTab, onToggleSidebar, onPresent, onSlideShow }) {
   const { state, dispatch } = useSlides()
   const { getThemeColors, isDark } = useTheme()
   const colors = getThemeColors()
@@ -50,12 +50,16 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
       }
       if (e.key === 'F5') {
         e.preventDefault()
-        onPresent()
+        onSlideShow() // F5 triggers auto slideshow
+      }
+      if (e.key === 'F6') {
+        e.preventDefault() 
+        onPresent() // F6 triggers manual present
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [dispatch, onPresent])
+  }, [dispatch, onPresent, onSlideShow])
 
   const getActiveEditorHandle = () => window.currentTextEditorRef?.current ?? null
 
@@ -895,16 +899,18 @@ const setListStyle = (listType) => {
 
           <div className={`h-6 w-px mx-2 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
 
-          {/* Slide Show Button */}
+          {/* Present Button (Manual) */}
+          
+          {/* Slide Show Button (Auto) */}
           <button 
-            onClick={onPresent}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} shadow-sm shine-button pulse-glow relative z-10`}
-            title="Start Slide Show (F5)"
+            onClick={onSlideShow}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} shadow-sm`}
+            title="Start Auto Slide Show (F5)"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="relative z-20">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z"/>
             </svg>
-            <span className="font-medium relative z-20">Slide Show</span>
+            <span className="font-medium">Slide Show</span>
           </button>
           
           <div className="flex-1"></div>
@@ -1010,13 +1016,13 @@ const setListStyle = (listType) => {
       <div className="ml-auto flex items-center gap-2">
         <button 
           onClick={onPresent} 
-          className={`px-4 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} font-medium`}
-          title="Start Presentation"
+          className={`px-4 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} font-medium shine-button pulse-glow relative z-10`}
+          title="Start Manual Presentation (F6)"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="mr-2">
-            <path d="M8 5v14l11-7z"/>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="mr-2 relative z-20">
+            <path d="M15 3l4 6-4 6-1.5-1.5L16 10H4V8h12l-2.5-3.5z"/>
           </svg>
-          Present
+          <span className="relative z-20">Present</span>
         </button>
       </div>
 

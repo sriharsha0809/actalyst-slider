@@ -17,6 +17,7 @@ function AppContent() {
   const [showLandingPage, setShowLandingPage] = useState(true)
   const [showSidebar, setShowSidebar] = useState(true)
   const [presenting, setPresenting] = useState(false)
+  const [presentationMode, setPresentationMode] = useState(null) // 'manual' or 'auto'
   const [activeTab, setActiveTab] = useState('Home')
   const [showFileMenu, setShowFileMenu] = useState(false)
   const [fileName, setFileName] = useState('Untitled Presentation')
@@ -70,7 +71,14 @@ function AppContent() {
             <Toolbar 
               activeTab={activeTab}
               onToggleSidebar={() => setShowSidebar(s => !s)} 
-              onPresent={() => setPresenting(true)} 
+              onPresent={() => {
+                setPresenting(true)
+                setPresentationMode('manual')
+              }}
+              onSlideShow={() => {
+                setPresenting(true) 
+                setPresentationMode('auto')
+              }}
             />
 
             {/* Canvas + Shape toolbox */}
@@ -86,7 +94,15 @@ function AppContent() {
         </div>
       </div>
 
-      {presenting && <PresentationModal onClose={() => setPresenting(false)} />}
+      {presenting && (
+        <PresentationModal 
+          mode={presentationMode}
+          onClose={() => {
+            setPresenting(false)
+            setPresentationMode(null)
+          }} 
+        />
+      )}
       <FileMenu 
         isOpen={showFileMenu} 
         onClose={() => { setShowFileMenu(false); setActiveTab('Home'); }} 
