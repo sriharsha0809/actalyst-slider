@@ -36,8 +36,8 @@ export default function Sidebar() {
                 className="rounded-lg overflow-hidden transition-transform duration-200 hover:-translate-y-0.5"
                 style={thumbnailStyle}
               >
-                <div className="aspect-video flex items-center justify-center text-gray-100 text-sm font-medium">
-                  Slide {i + 1}
+                <div className="aspect-video relative overflow-hidden">
+                  <SlideThumbnail slide={s} slideNumber={i + 1} isActive={isActive} />
                 </div>
               </div>
             </button>
@@ -47,6 +47,281 @@ export default function Sidebar() {
             </div>
           </div>
         )})}
+      </div>
+    </div>
+  )
+}
+
+// SlideThumbnail component to render miniature version of slide content
+function SlideThumbnail({ slide, slideNumber, isActive }) {
+  const renderElement = (el, scale = 0.25) => {
+    const elementStyle = {
+      position: 'absolute',
+      left: `${el.x * scale}px`,
+      top: `${el.y * scale}px`,
+      width: `${el.w * scale}px`,
+      height: `${el.h * scale}px`,
+      transform: `rotate(${el.rotation || 0}deg)`,
+      pointerEvents: 'none'
+    }
+
+    switch (el.type) {
+      case 'text':
+        return (
+          <div
+            key={el.id}
+            style={{
+              ...elementStyle,
+              backgroundColor: el.bgColor || 'transparent',
+              color: el.styles?.color || '#111827',
+              fontSize: `${(el.styles?.fontSize || 28) * scale}px`,
+              fontWeight: el.styles?.bold ? 700 : 400,
+              fontStyle: el.styles?.italic ? 'italic' : 'normal',
+              textDecoration: el.styles?.underline ? 'underline' : 'none',
+              textAlign: el.styles?.align || 'left',
+              fontFamily: el.styles?.fontFamily || 'Inter, system-ui, sans-serif',
+              display: 'flex',
+              alignItems: el.styles?.valign === 'middle' ? 'center' : el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
+              padding: `${2 * scale}px`,
+              borderRadius: '2px',
+              overflow: 'hidden',
+              lineHeight: '1.2'
+            }}
+          >
+            <div className="truncate text-[8px]" style={{ fontSize: `${Math.max((el.styles?.fontSize || 28) * scale, 6)}px` }}>
+              {el.text || el.html || 'Text'}
+            </div>
+          </div>
+        )
+      
+      case 'image':
+        return (
+          <div
+            key={el.id}
+            style={{
+              ...elementStyle,
+              backgroundImage: el.src ? `url(${el.src})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundColor: '#f3f4f6',
+              border: '1px solid #e5e7eb',
+              borderRadius: '2px'
+            }}
+          >
+            {!el.src && (
+              <div className="w-full h-full flex items-center justify-center text-gray-400" style={{ fontSize: '8px' }}>
+                📷
+              </div>
+            )}
+          </div>
+        )
+      
+      case 'rect':
+      case 'square':
+        return (
+          <div
+            key={el.id}
+            style={{
+              ...elementStyle,
+              backgroundColor: el.fill || '#fde68a',
+              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#f59e0b'}`,
+              borderRadius: '2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: el.textColor || '#111827',
+              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
+              fontWeight: '500'
+            }}
+          >
+            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
+              {el.text || ''}
+            </span>
+          </div>
+        )
+      
+      case 'circle':
+        return (
+          <div
+            key={el.id}
+            style={{
+              ...elementStyle,
+              backgroundColor: el.fill || '#ddd6fe',
+              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#8b5cf6'}`,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: el.textColor || '#111827',
+              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
+              fontWeight: '500'
+            }}
+          >
+            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
+              {el.text || ''}
+            </span>
+          </div>
+        )
+      
+      case 'triangle':
+        return (
+          <div
+            key={el.id}
+            style={{
+              ...elementStyle,
+              backgroundColor: el.fill || '#fecaca',
+              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#ef4444'}`,
+              clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: el.textColor || '#111827',
+              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
+              fontWeight: '500'
+            }}
+          >
+            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
+              {el.text || ''}
+            </span>
+          </div>
+        )
+      
+      case 'diamond':
+        return (
+          <div
+            key={el.id}
+            style={{
+              ...elementStyle,
+              backgroundColor: el.fill || '#d8b4fe',
+              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#8b5cf6'}`,
+              clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: el.textColor || '#111827',
+              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
+              fontWeight: '500'
+            }}
+          >
+            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
+              {el.text || ''}
+            </span>
+          </div>
+        )
+      
+      case 'star':
+        return (
+          <div
+            key={el.id}
+            style={{
+              ...elementStyle,
+              backgroundColor: el.fill || '#fef3c7',
+              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#f59e0b'}`,
+              clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: el.textColor || '#111827',
+              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
+              fontWeight: '500'
+            }}
+          >
+            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
+              {el.text || ''}
+            </span>
+          </div>
+        )
+      
+      case 'message':
+        return (
+          <div key={el.id} style={elementStyle}>
+            <div
+              style={{
+                width: '100%',
+                height: '85%',
+                backgroundColor: el.fill || '#d1fae5',
+                border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#10b981'}`,
+                borderRadius: '3px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: el.textColor || '#111827',
+                fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
+                fontWeight: '500'
+              }}
+            >
+              <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
+                {el.text || 'Message'}
+              </span>
+            </div>
+            {/* Message tail - simplified for thumbnail */}
+            <div
+              style={
+                {
+                  position: 'absolute',
+                  bottom: 0,
+                  left: `${10 * scale}px`,
+                  width: 0,
+                  height: 0,
+                  borderLeft: `${5 * scale}px solid transparent`,
+                  borderRight: `${5 * scale}px solid transparent`,
+                  borderTop: `${7 * scale}px solid ${el.stroke || '#10b981'}`
+                }
+              }
+            />
+          </div>
+        )
+      
+      case 'chart':
+        return (
+          <div
+            key={el.id}
+            style={{
+              ...elementStyle,
+              backgroundColor: '#ffffff',
+              border: '1px solid #e5e7eb',
+              borderRadius: '2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#6b7280',
+              fontSize: `${Math.max(8 * scale, 6)}px`
+            }}
+          >
+            📊
+          </div>
+        )
+      
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div
+      className="w-full h-full relative"
+      style={{
+        backgroundColor: slide.background || '#ffffff',
+        transform: 'scale(1)',
+        transformOrigin: 'top left'
+      }}
+    >
+      {/* Slide content */}
+      {slide.elements && slide.elements.length > 0 ? (
+        slide.elements.map(el => renderElement(el))
+      ) : (
+        // Empty slide placeholder
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-gray-400 text-xs mb-1">Slide {slideNumber}</div>
+            <div className="text-gray-300 text-[10px]">Empty Slide</div>
+          </div>
+        </div>
+      )}
+      
+      {/* Slide number overlay */}
+      <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[8px] px-1 py-0.5 rounded">
+        {slideNumber}
       </div>
     </div>
   )

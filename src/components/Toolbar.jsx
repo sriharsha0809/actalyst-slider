@@ -898,13 +898,13 @@ const setListStyle = (listType) => {
           {/* Slide Show Button */}
           <button 
             onClick={onPresent}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} shadow-sm`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} shadow-sm shine-button pulse-glow relative z-10`}
             title="Start Slide Show (F5)"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="relative z-20">
               <path d="M8 5v14l11-7z"/>
             </svg>
-            <span className="font-medium">Slide Show</span>
+            <span className="font-medium relative z-20">Slide Show</span>
           </button>
           
           <div className="flex-1"></div>

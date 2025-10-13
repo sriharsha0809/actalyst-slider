@@ -460,23 +460,38 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     return 'none'
   }
 
-  const handleFontFamilyChange = async (fontFamily) => {
+  const handleFontFamilyChange = (fontFamily) => {
     const editor = editorRef.current
     if (!editor) return
 
     const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) return
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return
 
     const range = selection.getRangeAt(0)
     if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return
 
-    // Use the applyFontFamily method from the imperative handle
-    const success = await applyFontFamily(fontFamily)
-    if (success) {
-      // Update the current font family state
+    captureSnapshot()
+    
+    // Simple and direct approach using execCommand
+    try {
+      document.execCommand('fontName', false, fontFamily)
+      
+      // Clean up any font tags that might be created
+      const fontTags = editor.querySelectorAll('font')
+      fontTags.forEach(fontTag => {
+        const span = document.createElement('span')
+        span.style.fontFamily = fontFamily
+        span.innerHTML = fontTag.innerHTML
+        fontTag.replaceWith(span)
+      })
+      
+      emitChange()
+      captureSnapshot()
       setCurrentFontFamily(fontFamily)
-      // Refresh the toolbar state
       refreshActiveFormats()
+    } catch (error) {
+      console.warn('Font application failed:', error)
+      restoreSnapshot()
     }
   }
 
