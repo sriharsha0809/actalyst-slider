@@ -344,14 +344,14 @@ export default function ShapeToolbox() {
             onClick={() => applyLayout(layout)}
             className="group flex flex-col"
           >
-            <div className="aspect-video rounded-lg border-2 border-gray-200 hover:border-brand-500 transition-all overflow-hidden shadow-sm hover:shadow-md bg-gray-50">
+            <div className="aspect-video rounded-lg bg-white/20 backdrop-blur-md border border-white/30 hover:bg-white/30 hover:border-white/40 transition-all duration-300 overflow-hidden shadow-lg hover:shadow-xl">
               {layout.preview}
             </div>
             <div className="mt-1 text-center">
-              <div className="text-xs font-medium text-gray-700 group-hover:text-brand-600">
+              <div className="text-xs font-medium text-gray-800 group-hover:text-brand-600">
                 {layout.name}
               </div>
-              <div className="text-[10px] text-gray-500">
+              <div className="text-[10px] text-gray-600">
                 {layout.description}
               </div>
             </div>

@@ -11,8 +11,29 @@ export default function SlideCanvas() {
   // Store editor ref globally for toolbar access
   window.currentTextEditorRef = useRef(null)
 
+  // Listen for custom updateElement events from shape components
+  React.useEffect(() => {
+    const handleUpdateElement = (event) => {
+      dispatch({ type: 'UPDATE_ELEMENT', id: event.detail.id, patch: event.detail.patch })
+    }
+    
+    window.addEventListener('updateElement', handleUpdateElement)
+    return () => window.removeEventListener('updateElement', handleUpdateElement)
+  }, [dispatch])
+
+  const frameStyle = useMemo(() => ({
+    padding: '4px',
+    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08))',
+    border: '0, 0, 255, 0.45',
+    borderRadius: '0px 0px 28px 28px',
+    boxShadow: '0 24px 48px rgba(17, 25, 40, 0.35)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+  }), [])
+
   const stageStyle = useMemo(() => ({
     background: slide?.background || '#ffffff',
+    borderRadius: '0px 0px 24px 24px',
   }), [slide?.background])
 
   const onMouseDown = (e) => {
@@ -23,7 +44,7 @@ export default function SlideCanvas() {
 
   return (
     <div className="w-full h-full flex items-center justify-center" onMouseDown={onMouseDown}>
-      <div className="relative aspect-video w-full h-full shadow-lg" style={{ padding: '3px', background: '#000000' }}>
+<div className="relative aspect-video w-full h-full shadow-lg rounded-[28px]" style={frameStyle}>
         <div ref={stageRef} className="relative bg-white w-full h-full" style={stageStyle}>
           {slide?.elements.map((el) => (
             <ElementBox key={el.id} el={el} selected={state.selectedElementId === el.id} onSelect={() => dispatch({ type: 'SELECT_ELEMENT', id: el.id })} onDelete={() => dispatch({ type: 'DELETE_ELEMENT', id: el.id })} onChange={(patch) => dispatch({ type: 'UPDATE_ELEMENT', id: el.id, patch })} editingTextId={editingTextId} setEditingTextId={setEditingTextId} />
@@ -164,16 +185,214 @@ function renderElement(el, opts={}) {
     case 'chart':
       return <ChartElement el={el} />
     case 'rect':
-      return <div className="w-full h-full rounded-md" style={{ background: el.fill, border: `2px solid ${el.stroke}` }} />
+      return <ShapeWithText el={el} shapeClass="rounded-md" />
+    case 'square':
+      return <ShapeWithText el={el} shapeClass="rounded-md" />
     case 'circle':
-      return <div className="w-full h-full rounded-full" style={{ background: el.fill, border: `2px solid ${el.stroke}` }} />
-    case 'arrow':
-      return <div className="w-full h-3 bg-emerald-500 mt-[calc(50%-6px)]" style={{ background: el.color }} />
+      return <ShapeWithText el={el} shapeClass="rounded-full" />
+    case 'triangle':
+      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 0% 100%, 100% 100%)" />
+    case 'diamond':
+      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" />
+    case 'star':
+      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" />
+    case 'message':
+      return <MessageShape el={el} />
     case 'image':
       return <img src={el.src} alt="" className="w-full h-full object-contain pointer-events-none" draggable={false} />
     default:
       return null
   }
+}
+
+function ShapeWithText({ el, shapeClass, clipPath }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [text, setText] = useState(el.text || '')
+  const inputRef = useRef(null)
+
+  React.useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  React.useEffect(() => {
+    setText(el.text || '')
+  }, [el.text])
+
+  const handleDoubleClick = (e) => {
+    e.stopPropagation()
+    setIsEditing(true)
+  }
+
+  const handleBlur = () => {
+    setIsEditing(false)
+    if (text !== el.text) {
+      // Update the element with new text
+      window.dispatchEvent(new CustomEvent('updateElement', { 
+        detail: { id: el.id, patch: { text } } 
+      }))
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleBlur()
+    }
+    if (e.key === 'Escape') {
+      setText(el.text || '')
+      setIsEditing(false)
+    }
+  }
+
+  const shapeStyle = {
+    background: el.fill,
+    border: `2px solid ${el.stroke}`,
+    ...(clipPath && { clipPath })
+  }
+
+  return (
+    <div 
+      className={`w-full h-full ${shapeClass}`}
+      style={shapeStyle}
+      onDoubleClick={handleDoubleClick}
+    >
+      {isEditing ? (
+        <textarea
+          ref={inputRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          className="w-full h-full resize-none outline-none bg-transparent text-center p-2"
+          style={{
+            color: el.textColor,
+            fontSize: el.fontSize,
+            fontFamily: 'Inter, system-ui, sans-serif'
+          }}
+        />
+      ) : (
+        <div 
+          className="w-full h-full flex items-center justify-center p-2 cursor-pointer"
+          style={{
+            color: el.textColor,
+            fontSize: el.fontSize,
+            fontFamily: 'Inter, system-ui, sans-serif',
+            wordWrap: 'break-word',
+            textAlign: 'center'
+          }}
+        >
+          {text || 'Double-click to edit'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MessageShape({ el }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [text, setText] = useState(el.text || 'Message')
+  const inputRef = useRef(null)
+
+  React.useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  React.useEffect(() => {
+    setText(el.text || 'Message')
+  }, [el.text])
+
+  const handleDoubleClick = (e) => {
+    e.stopPropagation()
+    setIsEditing(true)
+  }
+
+  const handleBlur = () => {
+    setIsEditing(false)
+    if (text !== el.text) {
+      window.dispatchEvent(new CustomEvent('updateElement', { 
+        detail: { id: el.id, patch: { text } } 
+      }))
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleBlur()
+    }
+    if (e.key === 'Escape') {
+      setText(el.text || 'Message')
+      setIsEditing(false)
+    }
+  }
+
+  return (
+    <div 
+      className="w-full h-full relative"
+      onDoubleClick={handleDoubleClick}
+    >
+      {/* Message bubble shape */}
+      <div 
+        className="w-full h-full rounded-lg relative"
+        style={{
+          background: el.fill,
+          border: `2px solid ${el.stroke}`
+        }}
+      >
+        {isEditing ? (
+          <textarea
+            ref={inputRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="w-full h-full resize-none outline-none bg-transparent p-2"
+            style={{
+              color: el.textColor,
+              fontSize: el.fontSize,
+              fontFamily: 'Inter, system-ui, sans-serif'
+            }}
+          />
+        ) : (
+          <div 
+            className="w-full h-full flex items-center justify-center p-2 cursor-pointer"
+            style={{
+              color: el.textColor,
+              fontSize: el.fontSize,
+              fontFamily: 'Inter, system-ui, sans-serif',
+              wordWrap: 'break-word',
+              textAlign: 'center'
+            }}
+          >
+            {text}
+          </div>
+        )}
+      </div>
+      {/* Message tail */}
+      <div 
+        className="absolute bottom-0 left-4 w-0 h-0"
+        style={{
+          borderLeft: '10px solid transparent',
+          borderRight: '10px solid transparent',
+          borderTop: `15px solid ${el.stroke}`
+        }}
+      />
+      <div 
+        className="absolute bottom-1 left-5 w-0 h-0"
+        style={{
+          borderLeft: '8px solid transparent',
+          borderRight: '8px solid transparent',
+          borderTop: `12px solid ${el.fill}`
+        }}
+      />
+    </div>
+  )
 }
 
 function ChartElement({ el }) {
@@ -187,37 +406,49 @@ function ChartElement({ el }) {
     
     return (
       <div className="w-full h-full bg-white p-4 flex flex-col">
-        <div className="flex-1 flex items-end gap-2 relative" style={{ minHeight: '200px' }}>
+        {/* Chart area with proper height */}
+        <div className="flex-1 flex items-end gap-1 relative" style={{ minHeight: '180px', height: '180px' }}>
           {data.map((value, index) => {
-            const heightPercent = ((value - minValue) / range) * 90 + 10
+            // Calculate height as percentage of the chart area
+            const heightPercent = range > 0 ? ((value - minValue) / range) * 100 : 50
+            const actualHeight = Math.max((heightPercent / 100) * 180, 2) // Minimum 2px height
+            
             return (
               <div 
                 key={index} 
-                className="flex-1 flex flex-col justify-end items-center relative"
+                className="flex-1 flex flex-col justify-end items-center relative group"
                 onMouseEnter={() => setHoveredIndex(index)}
                 onMouseLeave={() => setHoveredIndex(null)}
+                style={{ height: '180px' }}
               >
+                {/* Bar container */}
                 <div 
-                  className="w-full rounded-t cursor-pointer transition-all hover:opacity-80"
+                  className="w-full rounded-t cursor-pointer transition-all hover:opacity-80 relative"
                   style={{ 
-                    height: `${heightPercent}%`,
-                    backgroundColor: colors[index % colors.length]
+                    height: `${actualHeight}px`,
+                    backgroundColor: colors[index % colors.length],
+                    minHeight: '2px'
                   }}
                 />
                 
+                {/* Tooltip */}
                 {hoveredIndex === index && (
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-3 py-1.5 rounded text-xs whitespace-nowrap z-10">
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-3 py-1.5 rounded text-xs whitespace-nowrap z-10 shadow-lg">
                     {labels[index]}: {value}
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
                   </div>
                 )}
               </div>
             )
           })}
         </div>
-        <div className="flex justify-around border-t border-gray-300 pt-2 mt-2">
+        
+        {/* X-axis labels */}
+        <div className="flex justify-around border-t border-gray-300 pt-2 mt-2 h-8">
           {labels.map((label, index) => (
-            <span key={index} className="text-[10px] text-gray-600 text-center flex-1">{label}</span>
+            <span key={index} className="text-[10px] text-gray-600 text-center flex-1 truncate" title={label}>
+              {label}
+            </span>
           ))}
         </div>
       </div>
@@ -391,6 +622,9 @@ function TableElement({ el, editing, onChange, stopEditing }) {
                   fontStyle: cell.styles.italic ? 'italic' : 'normal',
                   textDecoration: cell.styles.underline ? 'underline' : 'none',
                   textAlign: cell.styles.align,
+                  display: 'flex',
+                  alignItems: cell.styles.valign === 'middle' ? 'center' : 
+                            cell.styles.valign === 'bottom' ? 'flex-end' : 'flex-start'
                 }}
               />
             ) : (
@@ -405,6 +639,9 @@ function TableElement({ el, editing, onChange, stopEditing }) {
                   textDecoration: cell.styles.underline ? 'underline' : 'none',
                   textAlign: cell.styles.align,
                   whiteSpace: 'pre-wrap',
+                  display: 'flex',
+                  alignItems: cell.styles.valign === 'middle' ? 'center' : 
+                            cell.styles.valign === 'bottom' ? 'flex-end' : 'flex-start'
                 }}
               >
                 {cell.text}
@@ -483,6 +720,20 @@ function EditableText({ el, editing, onChange, stopEditing }) {
     }).join('\n')
   }
 
+  // Helper function to get vertical alignment styles
+  const getVerticalAlignStyle = () => {
+    const valign = el.styles?.valign || 'top'
+    switch (valign) {
+      case 'top':
+        return { justifyContent: 'flex-start' }
+      case 'middle':
+        return { justifyContent: 'center' }
+      case 'bottom':
+        return { justifyContent: 'flex-end' }
+      default:
+        return { justifyContent: 'flex-start' }
+    }
+  }
   if (!editing) {
     // If HTML content exists, render it
     if (el.html) {
@@ -493,8 +744,11 @@ function EditableText({ el, editing, onChange, stopEditing }) {
             backgroundColor: bgColor, 
             fontFamily: el.styles.fontFamily, 
             fontSize: el.styles.fontSize, 
-            textAlign: el.styles.align, 
-            whiteSpace: 'pre-wrap' 
+            textAlign: el.styles.align || 'left', 
+            whiteSpace: 'pre-wrap',
+            display: 'flex',
+            flexDirection: 'column',
+            ...getVerticalAlignStyle(),
           }}
           dangerouslySetInnerHTML={{ __html: el.html }}
         />
@@ -503,7 +757,20 @@ function EditableText({ el, editing, onChange, stopEditing }) {
     
     // Otherwise render plain text with list formatting
     return (
-      <div className="w-full h-full select-none p-2" style={{ backgroundColor: bgColor, fontFamily: el.styles.fontFamily, color: el.styles.color, fontSize: el.styles.fontSize, fontWeight: el.styles.bold ? 700 : 400, fontStyle: el.styles.italic ? 'italic' : 'normal', textDecoration: el.styles.underline ? 'underline' : 'none', textAlign: el.styles.align, whiteSpace: 'pre-wrap' }}>
+      <div className="w-full h-full select-none p-2" style={{ 
+        backgroundColor: bgColor, 
+        fontFamily: el.styles.fontFamily, 
+        color: el.styles.color, 
+        fontSize: el.styles.fontSize, 
+        fontWeight: el.styles.bold ? 700 : 400, 
+        fontStyle: el.styles.italic ? 'italic' : 'normal', 
+        textDecoration: el.styles.underline ? 'underline' : 'none', 
+        textAlign: el.styles.align || 'left', 
+        whiteSpace: 'pre-wrap',
+        display: 'flex',
+        flexDirection: 'column',
+        ...getVerticalAlignStyle(),
+      }}>
         {formatTextWithList(el.text)}
       </div>
     )
@@ -512,7 +779,16 @@ function EditableText({ el, editing, onChange, stopEditing }) {
   return (
     <textarea ref={inputRef} value={val} onChange={(e)=>setVal(e.target.value)} onBlur={()=>{ onChange({ text: val }); stopEditing() }}
       className="w-full h-full resize-none outline-none p-2"
-      style={{ backgroundColor: bgColor, fontFamily: el.styles.fontFamily, color: el.styles.color, fontSize: el.styles.fontSize, fontWeight: el.styles.bold ? 700 : 400, fontStyle: el.styles.italic ? 'italic' : 'normal', textDecoration: el.styles.underline ? 'underline' : 'none', textAlign: el.styles.align }}
+      style={{ 
+        backgroundColor: bgColor, 
+        fontFamily: el.styles.fontFamily, 
+        color: el.styles.color, 
+        fontSize: el.styles.fontSize, 
+        fontWeight: el.styles.bold ? 700 : 400, 
+        fontStyle: el.styles.italic ? 'italic' : 'normal', 
+        textDecoration: el.styles.underline ? 'underline' : 'none', 
+        textAlign: el.styles.align || 'left',
+      }}
     />
   )
 }

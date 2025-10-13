@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { SlidesProvider } from './context/SlidesContext.jsx'
+import { ThemeProvider, useTheme } from './context/ThemeContext.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import NavigationTabs from './components/NavigationTabs.jsx'
 import SlidePreview from './components/SlidePreview.jsx'
@@ -10,17 +11,39 @@ import ChartEditor from './components/ChartEditor.jsx'
 import SlideReorder from './components/SlideReorder.jsx'
 import PresentationModal from './components/PresentationModal.jsx'
 import FileMenu from './components/FileMenu.jsx'
+import LandingPage from './components/LandingPage.jsx'
 
-export default function App() {
+function AppContent() {
+  const [showLandingPage, setShowLandingPage] = useState(true)
   const [showSidebar, setShowSidebar] = useState(true)
   const [presenting, setPresenting] = useState(false)
   const [activeTab, setActiveTab] = useState('Home')
   const [showFileMenu, setShowFileMenu] = useState(false)
   const [fileName, setFileName] = useState('Untitled Presentation')
+  
+  const { getThemeColors } = useTheme()
+  const colors = getThemeColors()
+
+  const handleFileOpen = (newFileName) => {
+    setFileName(newFileName)
+  }
+
+  const handleSave = (savedFileName) => {
+    setFileName(savedFileName)
+  }
+
+  const handleEnterApp = () => {
+    setShowLandingPage(false)
+  }
+
+  // Show landing page first
+  if (showLandingPage) {
+    return <LandingPage onEnterApp={handleEnterApp} />
+  }
 
   return (
     <SlidesProvider>
-      <div className="flex h-dvh w-dvw overflow-hidden flex-col">
+      <div className={`flex h-dvh w-dvw overflow-hidden flex-col transition-all duration-500 ${colors.mainBg}`}>
         {/* Navigation Tabs */}
         <NavigationTabs 
           activeTab={activeTab}
@@ -37,7 +60,7 @@ export default function App() {
 
         <div className="flex flex-1 min-h-0">
           {/* Sidebar */}
-          <div className={(showSidebar ? 'w-64' : 'w-0') + ' transition-all duration-200 border-r border-gray-200 overflow-hidden shadow-lg'} style={{ background: 'linear-gradient(135deg, #A7AAE1 0%, #FDAAAA 100%)' }}>
+          <div className={`${showSidebar ? 'w-64' : 'w-0'} transition-all duration-500 border-r ${colors.border} overflow-hidden ${colors.shadow} animate-slideInLeft`} style={{ background: colors.sidebarBg }}>
             <Sidebar />
           </div>
 
@@ -51,11 +74,11 @@ export default function App() {
             />
 
             {/* Canvas + Shape toolbox */}
-            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 px-6 pt-6" style={{ backgroundColor: '#E1E9C9', paddingBottom: '30px' }}>
-              <div className="bg-white rounded-lg shadow-soft p-1 overflow-hidden">
+            <div className={`flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 px-6 pt-6 transition-all duration-500 ${colors.mainBg}`} style={{ paddingBottom: '30px' }}>
+              <div className={`${colors.cardBg} rounded-lg ${colors.shadow} p-1 overflow-hidden animate-slideInUp`} style={{animationDelay: '0.2s'}}>
                 <SlideCanvas />
               </div>
-              <div className="bg-white rounded-xl p-4 order-first lg:order-none overflow-y-auto" style={{ boxShadow: '0 0 30px rgba(0, 0, 0, 0.15)', maxHeight: 'calc(100vh - 30px - 100px)' }}>
+              <div className={`${colors.cardBg} rounded-xl p-4 order-first lg:order-none overflow-y-auto animate-slideInRight`} style={{ boxShadow: '0 0 30px rgba(0, 0, 0, 0.15)', maxHeight: 'calc(100vh - 30px - 100px)', animationDelay: '0.4s' }}>
                 {activeTab === 'Insert' ? <ChartEditor /> : activeTab === 'Design' ? <SlideReorder /> : <ShapeToolbox />}
               </div>
             </div>
@@ -64,7 +87,20 @@ export default function App() {
       </div>
 
       {presenting && <PresentationModal onClose={() => setPresenting(false)} />}
-      <FileMenu isOpen={showFileMenu} onClose={() => { setShowFileMenu(false); setActiveTab('Home'); }} />
+      <FileMenu 
+        isOpen={showFileMenu} 
+        onClose={() => { setShowFileMenu(false); setActiveTab('Home'); }} 
+        onFileOpen={handleFileOpen}
+        onSave={handleSave}
+      />
     </SlidesProvider>
+  )
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   )
 }

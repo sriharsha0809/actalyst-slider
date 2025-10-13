@@ -186,7 +186,7 @@ function reducer(state, action) {
     }
     case 'ADD_ELEMENT': {
       return updateCurrentSlide(state, slide => ({ ...slide, elements: [...slide.elements, action.element] }))
-    }
+    } 
     case 'UPDATE_ELEMENT': {
       return updateCurrentSlide(state, slide => ({
         ...slide,
@@ -207,6 +207,18 @@ function reducer(state, action) {
         elements: action.elements,
         background: action.background || slide.background 
       }))
+    }
+    case 'LOAD_PRESENTATION': {
+      const newState = {
+        ...state,
+        slides: action.data.slides || [defaultSlide()],
+        currentSlideId: action.data.currentSlideId || action.data.slides?.[0]?.id || null,
+        selectedElementId: null,
+        clipboard: null,
+        history: [{ slides: action.data.slides || [defaultSlide()], currentSlideId: action.data.currentSlideId || action.data.slides?.[0]?.id || null }],
+        historyIndex: 0,
+      }
+      return newState
     }
     default:
       return state
@@ -241,9 +253,13 @@ export function useSlides() {
 
 export const factories = {
   text: defaultText,
-  rect: () => ({ id: nanoid(), type: 'rect', x: 100, y: 100, w: 200, h: 120, rotation: 0, fill: '#fde68a', stroke: '#f59e0b' }),
-  circle: () => ({ id: nanoid(), type: 'circle', x: 140, y: 140, w: 160, h: 160, rotation: 0, fill: '#bfdbfe', stroke: '#3b82f6' }),
-  arrow: () => ({ id: nanoid(), type: 'arrow', x: 180, y: 180, w: 200, h: 12, rotation: 0, color: '#10b981' }),
+  rect: () => ({ id: nanoid(), type: 'rect', x: 100, y: 100, w: 200, h: 120, rotation: 0, fill: '#fde68a', stroke: '#f59e0b', text: '', textColor: '#111827', fontSize: 16 }),
+  square: () => ({ id: nanoid(), type: 'square', x: 100, y: 100, w: 150, h: 150, rotation: 0, fill: '#fde68a', stroke: '#f59e0b', text: '', textColor: '#111827', fontSize: 16 }),
+  circle: () => ({ id: nanoid(), type: 'circle', x: 140, y: 140, w: 160, h: 160, rotation: 0, fill: '#bfdbfe', stroke: '#3b82f6', text: '', textColor: '#111827', fontSize: 16 }),
+  triangle: () => ({ id: nanoid(), type: 'triangle', x: 100, y: 100, w: 150, h: 150, rotation: 0, fill: '#fecaca', stroke: '#ef4444', text: '', textColor: '#111827', fontSize: 16 }),
+  diamond: () => ({ id: nanoid(), type: 'diamond', x: 100, y: 100, w: 150, h: 150, rotation: 0, fill: '#d8b4fe', stroke: '#8b5cf6', text: '', textColor: '#111827', fontSize: 16 }),
+  star: () => ({ id: nanoid(), type: 'star', x: 100, y: 100, w: 150, h: 150, rotation: 0, fill: '#fef3c7', stroke: '#f59e0b', text: '', textColor: '#111827', fontSize: 16 }),
+  message: () => ({ id: nanoid(), type: 'message', x: 180, y: 180, w: 200, h: 80, rotation: 0, fill: '#d1fae5', stroke: '#10b981', text: 'Message', textColor: '#111827', fontSize: 14 }),
   image: (src, w=320, h=240) => ({ id: nanoid(), type: 'image', x: 120, y: 120, w, h, rotation: 0, src }),
   table: (rows, cols, x, y, w, h) => ({
     id: nanoid(),

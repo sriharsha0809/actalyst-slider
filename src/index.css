@@ -6,6 +6,56 @@
   --canvas-bg: #ffffff;
 }
 
+/***** Dark Theme Font Dropdown Styles *****/
+.dark-theme-dropdown {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.dark-theme-dropdown option {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  padding: 8px 12px !important;
+  border: none !important;
+}
+
+.dark-theme-dropdown option:hover,
+.dark-theme-dropdown option:focus {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+.light-theme-dropdown {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  color: #000000 !important;
+}
+
+.light-theme-dropdown option {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  padding: 8px 12px !important;
+}
+
+.mini-toolbar-dropdown {
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.mini-toolbar-dropdown option {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  padding: 8px 12px !important;
+  border: none !important;
+}
+
+.mini-toolbar-dropdown option:hover,
+.mini-toolbar-dropdown option:focus {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
 /***** Utilities *****/
 @layer utilities {
   .scrollbar-thin {

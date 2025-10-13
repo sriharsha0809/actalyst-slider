@@ -1,8 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useSlides, factories } from '../context/SlidesContext.jsx'
+import { useTheme } from '../context/ThemeContext.jsx'
+
 
 export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
   const { state, dispatch } = useSlides()
+  const { getThemeColors, isDark } = useTheme()
+  const colors = getThemeColors()
+  
+  // Helper function for glassmorphism button styling
+  const btn = (active) => {
+    return `px-2 py-1 rounded-md ${active ? colors.glassButtonActive : colors.glassButton} ${colors.toolbarText}`
+  }
+  
+  // Helper function for element selection button styling (when element is selected)
+  const elementBtn = (elementType) => {
+    const isSelected = selected && selected.type === elementType
+    return `flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-300 ${
+      isSelected 
+        ? 'bg-white text-black border-2 border-black shadow-xl backdrop-blur-md' 
+        : `${colors.glassButton} ${colors.toolbarTextSecondary}`
+    }`
+  }
+  
   const currentSlide = state.slides.find(s => s.id === state.currentSlideId)
   const selected = currentSlide?.elements.find(e => e.id === state.selectedElementId)
   const [showListDropdown, setShowListDropdown] = useState(false)
@@ -14,6 +34,7 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
   const [hoverCols, setHoverCols] = useState(1)
   const [showChartDialog, setShowChartDialog] = useState(false)
   const [chartType, setChartType] = useState('bar')
+  const [inlineFormats, setInlineFormats] = useState({ bold: false, italic: false, underline: false })
   const fileInputRef = useRef(null)
 
   // Keyboard shortcuts for undo/redo and slide show
@@ -36,16 +57,145 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [dispatch, onPresent])
 
-  const applyInlineFormat = (command, value = null) => {
-    // Check if we have an active editor
-    if (window.currentTextEditorRef && window.currentTextEditorRef.current) {
-      // Use a small delay to ensure the editor is ready
-      setTimeout(() => {
-        window.currentTextEditorRef.current.applyFormat(command, value)
-      }, 10)
-    } else {
-      console.warn('No active text editor found')
+  const getActiveEditorHandle = () => window.currentTextEditorRef?.current ?? null
+
+  const readCommandState = (command) => {
+    try {
+      return document.queryCommandState(command)
+    } catch (error) {
+      return false
     }
+  }
+
+  const updateInlineFormats = () => {
+    if (!selected || selected.type !== 'text') {
+      setInlineFormats({ bold: false, italic: false, underline: false })
+      return
+    }
+
+    const editorHandle = getActiveEditorHandle()
+    const fallback = {
+      bold: !!selected?.styles?.bold,
+      italic: !!selected?.styles?.italic,
+      underline: !!selected?.styles?.underline,
+    }
+
+    if (!editorHandle) {
+      setInlineFormats(fallback)
+      return
+    }
+
+    if (typeof editorHandle.hasSelection === 'function' && editorHandle.hasSelection()) {
+      setInlineFormats({
+        bold: readCommandState('bold'),
+        italic: readCommandState('italic'),
+        underline: readCommandState('underline'),
+      })
+      return
+    }
+
+    const editorNode = editorHandle.editorNode ?? null
+    const selection = window.getSelection()
+    if (!editorNode || !selection || selection.rangeCount === 0) {
+      setInlineFormats(fallback)
+      return
+    }
+
+    const range = selection.getRangeAt(0)
+    if (editorNode.contains(range.startContainer) && editorNode.contains(range.endContainer)) {
+      setInlineFormats({
+        bold: readCommandState('bold'),
+        italic: readCommandState('italic'),
+        underline: readCommandState('underline'),
+      })
+    } else {
+      setInlineFormats(fallback)
+    }
+  }
+
+  const applyInlineFormat = (command, value = null) => {
+    const editorHandle = getActiveEditorHandle()
+    if (!editorHandle) {
+      console.warn('No active text editor found')
+      return false
+    }
+
+    setTimeout(() => {
+      editorHandle.applyFormat(command, value)
+      updateInlineFormats()
+    }, 10)
+
+    return true
+  }
+
+  const hasActiveEditorSelection = () => {
+    const editorHandle = getActiveEditorHandle()
+    if (!editorHandle) return false
+    if (typeof editorHandle.hasSelection === 'function') {
+      return editorHandle.hasSelection()
+    }
+
+    const editorNode = editorHandle.editorNode ?? null
+    if (!editorNode) return false
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return false
+    const range = selection.getRangeAt(0)
+    return editorNode.contains(range.startContainer) && editorNode.contains(range.endContainer)
+  }
+
+  const preventToolbarMouseDown = (event) => {
+    event.preventDefault()
+  }
+
+  const getCurrentAlignment = () => {
+    // Always use the element's stored alignment as the source of truth
+    return selected?.styles?.align || 'left'
+  }
+
+  const getCurrentListStyle = () => {
+    const editorHandle = getActiveEditorHandle()
+    if (editorHandle && editorHandle.editorNode) {
+      const editorNode = editorHandle.editorNode
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+        let element = range.startContainer
+        if (element.nodeType === Node.TEXT_NODE) {
+          element = element.parentElement
+        }
+        
+        // Check if we're inside a list
+        while (element && element !== editorNode) {
+          if (element.tagName === 'UL') {
+            const listStyle = element.style.listStyleType || 'disc'
+            return listStyle === 'disc' ? 'bullet' : 'bullet'
+          }
+          if (element.tagName === 'OL') {
+            const listStyle = element.style.listStyleType || 'decimal'
+            if (listStyle === 'upper-roman') return 'roman'
+            if (listStyle === 'upper-alpha') return 'alpha'
+            return 'number'
+          }
+          element = element.parentElement
+        }
+      }
+    }
+    return selected?.styles?.listStyle || 'none'
+  }
+
+  const handleInlineStyleToggle = (styleKey, command) => {
+    if (!selected || selected.type !== 'text') return
+
+    if (hasActiveEditorSelection() && applyInlineFormat(command)) {
+      setTimeout(updateInlineFormats, 20)
+      return
+    }
+
+    toggleStyle(styleKey)
+    setInlineFormats((prev) => ({
+      ...prev,
+      [styleKey]: !selected?.styles?.[styleKey],
+    }))
   }
 
   const toggleStyle = (key) => {
@@ -58,18 +208,72 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
 
   const setAlign = (align) => {
     if (!selected || selected.type !== 'text') return
+
+    // Update the element styles directly
     const styles = { ...selected.styles, align }
     dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles } })
+    
+    // If there's an active rich text editor, also apply the alignment to it
+    const editorHandle = getActiveEditorHandle()
+    if (editorHandle && editorHandle.editorNode) {
+      setTimeout(() => {
+        editorHandle.editorNode.style.textAlign = align
+        // Also try execCommand for any selected content
+        const selection = window.getSelection()
+        if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+          try {
+            if (align === 'left') {
+              document.execCommand('justifyLeft', false, null)
+            } else if (align === 'center') {
+              document.execCommand('justifyCenter', false, null)
+            } else if (align === 'right') {
+              document.execCommand('justifyRight', false, null)
+            } else if (align === 'justify') {
+              document.execCommand('justifyFull', false, null)
+            }
+          } catch (error) {
+            console.warn('ExecCommand alignment failed:', error)
+          }
+        }
+        editorHandle.editorNode.focus()
+      }, 10)
+    }
   }
+  const setVAlign = (valign /* 'top' | 'middle' | 'bottom' */) => {
+  if (!selected || selected.type !== 'text') return;
+  const styles = { ...selected.styles, valign };
+  dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles } });
+};
+
 
   const setFontFamily = (fontFamily) => {
     if (!selected) return
-    
+
+    const editorHandle = getActiveEditorHandle()
+
+    // If we have an active selection in the rich text editor, apply to selected text only
+    if (selected.type === 'text' && editorHandle?.applyFontFamily && hasActiveEditorSelection()) {
+      editorHandle.applyFontFamily(fontFamily)
+      return
+    }
+
+    // For text elements, set the default font family for new content
     if (selected.type === 'text') {
+      // Update element's default font family for new content
       const styles = { ...selected.styles, fontFamily }
       dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles } })
-    } else if (selected.type === 'table') {
-      // For tables, update all cells with the new font family
+      
+      // If there's an active editor, set the editor's style for future typing
+      if (editorHandle && editorHandle.editorNode) {
+        setTimeout(() => {
+          editorHandle.editorNode.style.fontFamily = fontFamily
+        }, 10)
+      }
+      return
+    }
+
+    // For tables, apply to all cells
+    if (selected.type === 'table') {
       const updatedCells = selected.cells.map(cell => ({
         ...cell,
         styles: { ...cell.styles, fontFamily }
@@ -95,23 +299,149 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
     dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { bgColor: e.target.value } })
   }
 
-  const setListStyle = (listType) => {
-    if (!selected || selected.type !== 'text') return
-    const styles = { ...selected.styles, listStyle: listType }
-    dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles } })
-    setShowListDropdown(false)
-  }
+  // Utilities to work on the contenteditable of the selected element
+const getEditableEl = () => {
+  const editorHandle = getActiveEditorHandle()
+  return editorHandle?.editorNode || null
+}
 
-  const getListLabel = () => {
-    const listStyle = selected?.styles?.listStyle
-    switch (listStyle) {
-      case 'bullet': return '• Dots'
-      case 'number': return '1. Numbers'
-      case 'roman': return 'I. Roman'
-      case 'alpha': return 'A. Alphabets'
-      default: return 'List Items'
+const selectAllIn = (el) => {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+};
+
+// Finds all UL/OL directly inside the editable
+const findTopLists = (root) => {
+  const lists = [];
+  root.childNodes.forEach((n) => {
+    if (n.nodeType === 1 && (n.tagName === 'UL' || n.tagName === 'OL')) lists.push(n);
+  });
+  return lists;
+};
+
+const unwrapListsToPlainText = (root) => {
+  const lists = root.querySelectorAll('ul, ol');
+  lists.forEach((list) => {
+    const frag = document.createDocumentFragment();
+    list.querySelectorAll(':scope > li').forEach((li, idx, arr) => {
+      // move li children as plain text + newline
+      while (li.firstChild) frag.appendChild(li.firstChild);
+      if (idx < arr.length - 1) frag.appendChild(document.createTextNode('\n'));
+    });
+    list.replaceWith(frag);
+  });
+};
+
+const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-roman', 'upper-alpha' */) => {
+  // style top-level lists in the box
+  findTopLists(root).forEach((list) => {
+    if (list.tagName === 'UL' && (cssType === 'disc' || cssType === 'circle' || cssType === 'square')) {
+      list.style.listStyleType = cssType;
+      list.style.paddingInlineStart = '1.25em';
+      list.style.margin = '0';
+    } else if (list.tagName === 'OL') {
+      list.style.listStyleType = cssType;
+      list.style.paddingInlineStart = '1.25em';
+      list.style.margin = '0';
     }
+  });
+};
+
+const setListStyle = (listType) => {
+  if (!selected || selected.type !== 'text') return
+
+  const editorHandle = getActiveEditorHandle()
+  
+  // If we have an active rich text editor, handle it through the editor
+  if (editorHandle && editorHandle.editorNode) {
+    const editorNode = editorHandle.editorNode
+    
+    // Focus the editor first
+    editorNode.focus()
+    
+    // Select all content if no selection exists
+    const selection = window.getSelection()
+    if (!selection || selection.isCollapsed) {
+      selectAllIn(editorNode)
+    }
+    
+    setTimeout(() => {
+      try {
+        if (listType === 'none') {
+          // Remove any existing lists
+          document.execCommand('insertOrderedList', false, null)
+          document.execCommand('insertUnorderedList', false, null)
+          unwrapListsToPlainText(editorNode)
+        } else if (listType === 'bullet') {
+          // Remove any existing ordered lists first
+          if (editorNode.querySelector('ol')) {
+            document.execCommand('insertOrderedList', false, null)
+          }
+          document.execCommand('insertUnorderedList', false, null)
+          applyListStyleType(editorNode, 'disc')
+        } else if (listType === 'number') {
+          // Remove any existing unordered lists first
+          if (editorNode.querySelector('ul')) {
+            document.execCommand('insertUnorderedList', false, null)
+          }
+          document.execCommand('insertOrderedList', false, null)
+          applyListStyleType(editorNode, 'decimal')
+        } else if (listType === 'roman') {
+          // Remove any existing unordered lists first
+          if (editorNode.querySelector('ul')) {
+            document.execCommand('insertUnorderedList', false, null)
+          }
+          document.execCommand('insertOrderedList', false, null)
+          applyListStyleType(editorNode, 'upper-roman')
+        } else if (listType === 'alpha') {
+          // Remove any existing unordered lists first
+          if (editorNode.querySelector('ul')) {
+            document.execCommand('insertUnorderedList', false, null)
+          }
+          document.execCommand('insertOrderedList', false, null)
+          applyListStyleType(editorNode, 'upper-alpha')
+        }
+        
+        // Trigger change event to save the content
+        const event = new Event('input', { bubbles: true })
+        editorNode.dispatchEvent(event)
+        
+      } catch (error) {
+        console.warn('List formatting error:', error)
+      }
+    }, 10)
   }
+  
+  // Update the element styles for UI state tracking
+  const styles = { ...(selected.styles || {}), listStyle: listType }
+  dispatch({
+    type: 'UPDATE_ELEMENT',
+    id: selected.id,
+    patch: { styles },
+  })
+}
+
+  useEffect(() => {
+    updateInlineFormats()
+  }, [selected?.id, selected?.styles?.bold, selected?.styles?.italic, selected?.styles?.underline])
+
+  useEffect(() => {
+    const handleSelectionUpdate = () => {
+      updateInlineFormats()
+      // Force re-render to update alignment and list button states
+      if (selected?.type === 'text') {
+        // Trigger a state update to refresh button highlighting
+        const currentAlign = getCurrentAlignment()
+        const currentList = getCurrentListStyle()
+        // These calls will trigger re-renders with updated button states
+      }
+    }
+    document.addEventListener('selectionchange', handleSelectionUpdate)
+    return () => document.removeEventListener('selectionchange', handleSelectionUpdate)
+  }, [selected?.id, selected?.styles?.bold, selected?.styles?.italic, selected?.styles?.underline, selected?.styles?.align, selected?.styles?.listStyle])
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0]
@@ -165,16 +495,16 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
   }
 
   return (
-    <div className="w-full border-b px-1 py-1 flex items-center gap-2 sticky top-0 z-10" style={{background: 'linear-gradient(135deg, #A7AAE1 0%, #FDAAAA 100%)' , borderColor: '#FFCDB2', minHeight: '56px' }}>
-      <button onClick={onToggleSidebar} className="px-2 py-1 rounded-lg hover:bg-gray-100">☰</button>
+    <div className={`w-full border-b px-1 py-1 flex items-center gap-2 sticky top-0 z-10 transition-all duration-500 ${colors.border} animate-slideInDown`} style={{background: colors.toolbarBg, minHeight: '60px',maxHeight: '86px',height:'86px'}}>
+      <button onClick={onToggleSidebar} className={`px-2 py-1 rounded-lg ${colors.glassButton} ${colors.toolbarText}`}>☰</button>
 
-      <div className="h-6 w-px bg-gray-200 mx-1" />
+      <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
 
       {/* Undo and Redo Buttons - Always Visible */}
       <button 
         onClick={() => dispatch({ type: 'UNDO' })}
         disabled={state.historyIndex <= 0}
-        className={`px-2 py-1 rounded-lg border border-gray-300 ${state.historyIndex <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}`}
+        className={`px-2 py-1 rounded-lg ${state.historyIndex <= 0 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText}`}
         title="Undo (Ctrl+Z)"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -185,35 +515,44 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
       <button 
         onClick={() => dispatch({ type: 'REDO' })}
         disabled={state.historyIndex >= state.history.length - 1}
-        className={`px-2 py-1 rounded-lg border border-gray-300 ${state.historyIndex >= state.history.length - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}`}
+        className={`px-2 py-1 rounded-lg ${state.historyIndex >= state.history.length - 1 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText}`}
         title="Redo (Ctrl+Y)"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M21 7v6h-6"/>
-          <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/>
+          <path d="M3 17a9 9 0 919-9 9 9 0 016 2.3l3 2.7"/>
         </svg>
       </button>
 
       {activeTab !== 'Insert' && (
         <>
-          <div className="h-6 w-px bg-gray-200 mx-1" />
+          <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
 
-          <button onClick={() => dispatch({ type: 'ADD_SLIDE' })} className="px-3 py-1.5 rounded-lg bg-brand-500 text-white hover:bg-brand-600 shadow">+ New Slide</button>
+          <button onClick={() => dispatch({ type: 'ADD_SLIDE' })} className={`px-3 py-1.5 rounded-lg ${colors.glassButton} ${colors.toolbarText} font-medium`}>+ New Slide</button>
           
-          <button onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.text() })} className="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-white hover:border-brand-500 shadow-sm">+ Text</button>
+          <button 
+            onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.text() })} 
+            className={`px-3 py-1.5 rounded-lg font-medium transition-all duration-300 ${
+              selected && selected.type === 'text'
+                ? 'bg-white text-black border-2 border-black shadow-xl backdrop-blur-md'
+                : `${colors.glassButton} ${colors.toolbarText}`
+            }`}
+          >
+            + Text
+          </button>
 
-          <div className="h-6 w-px bg-gray-200 mx-1" />
+          <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
         </>
       )}
-
+      
       {activeTab === 'Insert' && (
         <>
-          <div className="h-6 w-px bg-gray-200 mx-1" />
+          <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
           
           {/* Image Button */}
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center gap-1 px-4 py-2 rounded-lg border border-gray-300 hover:bg-white hover:border-brand-500 shadow-sm"
+            className={elementBtn('image')}
           >
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="#e0f2fe" stroke="#0ea5e9" strokeWidth="1.5"/>
@@ -221,7 +560,7 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
               <path d="M21 15 L16 10 L5 21" fill="#86efac" stroke="#22c55e" strokeWidth="1.5"/>
               <path d="M21 15 L21 19 C21 20.1 20.1 21 19 21 L5 21 L16 10 L21 15 Z" fill="#86efac"/>
             </svg>
-            <span className="text-xs text-gray-700">Image</span>
+            <span className="text-xs">Image</span>
           </button>
           <input 
             ref={fileInputRef}
@@ -235,7 +574,7 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
           <div className="relative">
             <button 
               onClick={() => setShowTableGrid(!showTableGrid)}
-              className="flex flex-col items-center gap-1 px-4 py-2 rounded-lg border border-gray-300 hover:bg-white hover:border-brand-500 shadow-sm"
+              className={elementBtn('table')}
             >
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -244,7 +583,7 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
                 <line x1="9" y1="3" x2="9" y2="21"/>
                 <line x1="15" y1="3" x2="15" y2="21"/>
               </svg>
-              <span className="text-xs text-gray-700">Table</span>
+              <span className="text-xs">Table</span>
             </button>
             
             {/* Table Grid Selector */}
@@ -296,7 +635,7 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
           {/* Chart Button */}
           <button 
             onClick={() => setShowChartDialog(true)}
-            className="flex flex-col items-center gap-1 px-4 py-2 rounded-lg border border-gray-300 hover:bg-white hover:border-brand-500 shadow-sm"
+            className={elementBtn('chart')}
           >
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="#fef3c7" stroke="#f59e0b" strokeWidth="1.5"/>
@@ -304,17 +643,17 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
               <rect x="11" y="7" width="2" height="10" fill="#10b981" rx="0.5"/>
               <rect x="15" y="13" width="2" height="4" fill="#ef4444" rx="0.5"/>
             </svg>
-            <span className="text-xs text-gray-700">Chart</span>
+            <span className="text-xs">Chart</span>
           </button>
 
           {/* Background Color Button */}
-          <label className="flex flex-col items-center gap-1 px-4 py-2 rounded-lg border border-gray-300 hover:bg-white hover:border-brand-500 shadow-sm cursor-pointer">
+          <label className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg ${colors.glassButton} cursor-pointer`}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill={currentSlide?.background || '#ffffff'} stroke="#9ca3af" strokeWidth="1.5"/>
               <circle cx="12" cy="12" r="6" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeDasharray="2 2"/>
               <path d="M12 8 L12 16 M8 12 L16 12" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-            <span className="text-xs text-gray-700">Background</span>
+            <span className={`text-xs ${colors.toolbarTextSecondary}`}>Background</span>
             <input 
               type="color" 
               value={currentSlide?.background || '#ffffff'}
@@ -328,25 +667,76 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
               className="absolute opacity-0 w-0 h-0"
             />
           </label>
-          
-          {selected && selected.type === 'text' && (
-            <>
-              <div className="h-6 w-px bg-gray-200 mx-1" />
-              <div className="flex items-center gap-2 text-sm">
-                <button onClick={() => toggleStyle('bold')} className={btn(selected?.styles?.bold)}>B</button>
-                <button onClick={() => toggleStyle('italic')} className={btn(selected?.styles?.italic)}><i>I</i></button>
-                <button onClick={() => toggleStyle('underline')} className={btn(selected?.styles?.underline)}><u>U</u></button>
-              </div>
-            </>
-          )}
+           <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
+          <div className="flex flex-col items-center gap-1">
+          <span className={`text-[10px] ${colors.toolbarTextSecondary} font-medium`}>List Items</span>
+          <div className="flex gap-1">
+            <div className="flex flex-col items-center">
+              <button 
+                onMouseDown={preventToolbarMouseDown} onClick={() => setListStyle('none')}
+                className={btn(getCurrentListStyle() === 'none')}
+                title="No List"
+                disabled={!selected || selected.type !== 'text'}
+              >
+                —
+              </button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>None</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <button 
+                onMouseDown={preventToolbarMouseDown} onClick={() => setListStyle('bullet')}
+                className={btn(getCurrentListStyle() === 'bullet')}
+                title="Bullet List"
+                disabled={!selected || selected.type !== 'text'}
+              >
+                •
+              </button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Dots</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <button 
+                onMouseDown={preventToolbarMouseDown} onClick={() => setListStyle('number')} 
+                className={btn(getCurrentListStyle() === 'number')}
+                title="Numbered List"
+                disabled={!selected || selected.type !== 'text'}
+              >
+                1.
+              </button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Numbers</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <button 
+                onMouseDown={preventToolbarMouseDown} onClick={() => setListStyle('roman')} 
+                className={btn(getCurrentListStyle() === 'roman')}
+                title="Roman Numerals"
+                disabled={!selected || selected.type !== 'text'}
+              >
+                I.
+              </button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Roman</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <button 
+                onMouseDown={preventToolbarMouseDown} onClick={() => setListStyle('alpha')} 
+                className={btn(getCurrentListStyle() === 'alpha')}
+                title="Alphabetical List"
+                disabled={!selected || selected.type !== 'text'}
+              >
+                A.
+              </button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Alphabets</span>
+            </div>
+          </div>
+        </div>
           <div className="flex-1"></div>
+          
         </>
       )}
 
       {activeTab === 'Design' && (
         <div className="flex items-center gap-2 text-sm">
           {/* Slide Ordering Controls */}
-          <div className="flex items-center gap-2">
+          {/*<div className="flex items-center gap-2">
             <span className="text-gray-600 text-xs">Slide Order:</span>
             <button 
               onClick={() => dispatch({ type: 'MOVE_SLIDE_UP', slideId: state.currentSlideId })}
@@ -365,14 +755,150 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
             <span className="text-xs text-gray-500">
               Slide {state.slides.findIndex(s => s.id === state.currentSlideId) + 1} of {state.slides.length}
             </span>
+          </div>}
+
+          <div className={`h-6 w-px mx-2 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
+
+          {/* Shape Tools */}
+          <div className="flex items-center gap-2">
+            <span className={`${colors.toolbarTextSecondary} text-xs`}>Shapes:</span>
+            
+            {/* Rectangle */}
+            <button 
+              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.rect() })}
+              className={elementBtn('rect')}
+              title="Rectangle"
+            >
+              <div className="w-6 h-4 rounded-sm" style={{ background: '#fde68a', border: '2px solid #f59e0b' }}></div>
+              <span className="text-xs">Rect</span>
+            </button>
+
+            {/* Square */}
+            <button 
+              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.square() })}
+              className={elementBtn('square')}
+              title="Square"
+            >
+              <div className="w-4 h-4 rounded-sm" style={{ background: '#fde68a', border: '2px solid #f59e0b' }}></div>
+              <span className="text-xs">Square</span>
+            </button>
+
+            {/* Circle */}
+            <button 
+              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.circle() })}
+              className={elementBtn('circle')}
+              title="Circle"
+            >
+              <div className="w-4 h-4 rounded-full" style={{ background: '#bfdbfe', border: '2px solid #3b82f6' }}></div>
+              <span className="text-xs">Circle</span>
+            </button>
+
+            {/* Triangle */}
+            <button 
+              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.triangle() })}
+              className={elementBtn('triangle')}
+              title="Triangle"
+            >
+              <div className="w-4 h-4" style={{ 
+                background: '#fecaca', 
+                border: '2px solid #ef4444',
+                clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)'
+              }}></div>
+              <span className="text-xs">Triangle</span>
+            </button>
+
+            {/* Diamond */}
+            <button 
+              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.diamond() })}
+              className={elementBtn('diamond')}
+              title="Diamond"
+            >
+              <div className="w-4 h-4" style={{ 
+                background: '#d8b4fe', 
+                border: '2px solid #8b5cf6',
+                clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+              }}></div>
+              <span className="text-xs">Diamond</span>
+            </button>
+
+            {/* Star */}
+            <button 
+              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.star() })}
+              className={elementBtn('star')}
+              title="Star"
+            >
+              <div className="w-4 h-4" style={{ 
+                background: '#fef3c7', 
+                border: '2px solid #f59e0b',
+                clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
+              }}></div>
+              <span className="text-xs">Star</span>
+            </button>
+
+            {/* Message */}
+            <button 
+              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.message() })}
+              className={elementBtn('message')}
+              title="Message"
+            >
+              <div className="w-6 h-4 rounded-lg relative" style={{ background: '#d1fae5', border: '2px solid #10b981' }}>
+                <div className="absolute bottom-0 left-1 w-0 h-0" style={{ borderLeft: '3px solid transparent', borderRight: '3px solid transparent', borderTop: '5px solid #10b981' }}></div>
+              </div>
+              <span className="text-xs">Message</span>
+            </button>
           </div>
 
-          <div className="h-6 w-px bg-gray-200 mx-2" />
+          
+
+          {/* Shape Color Controls */}
+          {selected && ['rect', 'square', 'circle', 'triangle', 'diamond', 'star', 'message'].includes(selected.type) && (
+            <div className="flex items-center gap-2">
+              <span className={`${colors.toolbarTextSecondary} text-xs`}>Colors:</span>
+              
+              {/* Fill Color */}
+              <div className="flex flex-col items-center gap-1">
+                <input
+                  type="color"
+                  value={selected.fill || '#fde68a'}
+                  onChange={(e) => dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { fill: e.target.value } })}
+                  className={`w-10 h-10 rounded-lg cursor-pointer ${colors.glassButton} border-2`}
+                  title="Fill Color"
+                />
+                <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Fill</span>
+              </div>
+
+              {/* Stroke Color */}
+              <div className="flex flex-col items-center gap-1">
+                <input
+                  type="color"
+                  value={selected.stroke || '#f59e0b'}
+                  onChange={(e) => dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { stroke: e.target.value } })}
+                  className={`w-10 h-10 rounded-lg cursor-pointer ${colors.glassButton} border-2`}
+                  title="Border Color"
+                />
+                <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Border</span>
+              </div>
+
+              {/* Text Color */}
+              <div className="flex flex-col items-center gap-1">
+                <input
+                  type="color"
+                  value={selected.textColor || '#111827'}
+                  onChange={(e) => dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { textColor: e.target.value } })}
+                  className={`w-10 h-10 rounded-lg cursor-pointer ${colors.glassButton} border-2`}
+                  title="Text Color"
+                />
+                <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Text</span>
+              </div>
+            </div>
+          )}
+
+          <div className={`h-6 w-px mx-2 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
 
           {/* Slide Show Button */}
           <button 
             onClick={onPresent}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 shadow-sm"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} shadow-sm`}
             title="Start Slide Show (F5)"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -397,8 +923,7 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
                 : 'Inter, system-ui, sans-serif'
           }
           onChange={(e) => setFontFamily(e.target.value)}
-          className="px-2 py-1 rounded-md border border-gray-300 text-sm"
-          style={{ minWidth: '140px' }}
+          className={`px-3 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} text-sm min-w-[140px] ${isDark ? 'dark-theme-dropdown' : 'light-theme-dropdown'}`}
           disabled={!selected || (selected.type !== 'text' && selected.type !== 'table')}
         >
           <option value="Inter, system-ui, sans-serif">Inter</option>
@@ -409,12 +934,21 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
           <option value="Verdana, sans-serif">Verdana</option>
         </select>
         
-        <label className="text-gray-600">Size</label>
-        <input type="number" min="8" max="96" step="1" value={selected?.styles?.fontSize ?? 28} onChange={setFontSize} className="w-20 rounded-md border-gray-300" disabled={!selected || selected.type !== 'text'} />
+        <label className={`${colors.toolbarTextSecondary} text-xs`}>Size</label>
+        <input 
+          type="number" 
+          min="8" 
+          max="96" 
+          step="1" 
+          value={selected?.styles?.fontSize ?? 28} 
+          onChange={setFontSize} 
+          className={`w-20 px-2 py-1 rounded-lg ${colors.glassButton} ${colors.toolbarText} text-sm`}
+          disabled={!selected || selected.type !== 'text'} 
+        />
         
         {/* Text Color Picker with Bucket Icon */}
-        <label className="text-gray-600 text-xs">Text</label>
-        <label className="relative cursor-pointer inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 hover:bg-gray-50" title="Text Color">
+        <label className={`${colors.toolbarTextSecondary} text-xs`}>Text</label>
+        <label className={`relative cursor-pointer inline-flex items-center justify-center w-10 h-10 rounded-lg ${colors.glassButton} hover:${colors.glassButton}`} title="Text Color">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={selected?.styles?.color ?? '#111827'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/>
             <path d="m5 2 5 5"/>
@@ -424,97 +958,66 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
           <input type="color" value={selected?.styles?.color ?? '#111827'} onChange={setColor} className="absolute opacity-0 w-0 h-0" disabled={!selected || selected.type !== 'text'} />
         </label>
         
-        <button onClick={() => toggleStyle('bold')} className={btn(selected?.styles?.bold)} disabled={!selected || selected.type !== 'text'}>B</button>
-        <button onClick={() => toggleStyle('italic')} className={btn(selected?.styles?.italic)} disabled={!selected || selected.type !== 'text'}><i>I</i></button>
-        <button onClick={() => toggleStyle('underline')} className={btn(selected?.styles?.underline)} disabled={!selected || selected.type !== 'text'}><u>U</u></button>
-        <div className="h-6 w-px bg-gray-200 mx-1" />
+          <button onMouseDown={preventToolbarMouseDown} onClick={() => handleInlineStyleToggle('bold', 'bold')} className={btn(inlineFormats.bold)} disabled={!selected || selected.type !== 'text'}>B</button>
+          <button onMouseDown={preventToolbarMouseDown} onClick={() => handleInlineStyleToggle('italic', 'italic')} className={btn(inlineFormats.italic)} disabled={!selected || selected.type !== 'text'}><i>I</i></button>
+          <button onMouseDown={preventToolbarMouseDown} onClick={() => handleInlineStyleToggle('underline', 'underline')} className={btn(inlineFormats.underline)} disabled={!selected || selected.type !== 'text'}><u>U</u></button>
+        <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
         
-        {/* Alignment Section */}
+        {/*Horizontal Alignment Section */}
         <div className="flex flex-col items-center gap-1">
-          <span className="text-[10px] text-gray-600 font-medium">Alignment</span>
+          <span className={`text-[10px] ${colors.toolbarTextMuted} font-medium`}>H-Alignment</span>
           <div className="flex gap-1">
             <div className="flex flex-col items-center">
-              <button onClick={() => setAlign('left')} className={btn(selected?.styles?.align === 'left')} disabled={!selected || selected.type !== 'text'}>⟸</button>
-              <span className="text-[9px] text-gray-600">Left</span>
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setAlign('left')} className={btn(getCurrentAlignment() === 'left')} disabled={!selected || selected.type !== 'text'}>⟸</button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Left</span>
             </div>
             <div className="flex flex-col items-center">
-              <button onClick={() => setAlign('center')} className={btn(selected?.styles?.align === 'center')} disabled={!selected || selected.type !== 'text'}>≡</button>
-              <span className="text-[9px] text-gray-600">Center</span>
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setAlign('center')} className={btn(getCurrentAlignment() === 'center')} disabled={!selected || selected.type !== 'text'}>≡</button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Center</span>
             </div>
             <div className="flex flex-col items-center">
-              <button onClick={() => setAlign('right')} className={btn(selected?.styles?.align === 'right')} disabled={!selected || selected.type !== 'text'}>⟹</button>
-              <span className="text-[9px] text-gray-600">Right</span>
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setAlign('right')} className={btn(getCurrentAlignment() === 'right')} disabled={!selected || selected.type !== 'text'}>⟹</button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Right</span>
             </div>
           </div>
         </div>
-        <div className="h-6 w-px bg-gray-200 mx-1" />
+        {/*Vertical Alignment section */}
+        <div className="flex flex-col items-center gap-1">
+          <span className={`text-[10px] ${colors.toolbarTextMuted} font-medium`}>V-Alignment</span>
+          <div className="flex gap-1">
+            <div className="flex flex-col items-center">
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setVAlign('top')} className={btn(selected?.styles?.valign  === 'top')} disabled={!selected || selected.type !== 'text'}>⤒</button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Top</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setVAlign('middle')} className={btn(selected?.styles?.valign === 'middle')} disabled={!selected || selected.type !== 'text'}>↕</button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Middle</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setVAlign('bottom')} className={btn(selected?.styles?.valign  === 'bottom')} disabled={!selected || selected.type !== 'text'}>⤓</button>
+              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Bottom</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
+
         
         {/* List Items Section */}
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[10px] text-gray-600 font-medium">List Items</span>
-          <div className="flex gap-1">
-            <div className="flex flex-col items-center">
-              <button 
-                onClick={() => setListStyle('none')} 
-                className={btn(selected?.styles?.listStyle === 'none' || !selected?.styles?.listStyle)}
-                title="No List"
-                disabled={!selected || selected.type !== 'text'}
-              >
-                —
-              </button>
-              <span className="text-[9px] text-gray-600">None</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <button 
-                onClick={() => setListStyle('bullet')} 
-                className={btn(selected?.styles?.listStyle === 'bullet')}
-                title="Bullet List"
-                disabled={!selected || selected.type !== 'text'}
-              >
-                •
-              </button>
-              <span className="text-[9px] text-gray-600">Dots</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <button 
-                onClick={() => setListStyle('number')} 
-                className={btn(selected?.styles?.listStyle === 'number')}
-                title="Numbered List"
-                disabled={!selected || selected.type !== 'text'}
-              >
-                1.
-              </button>
-              <span className="text-[9px] text-gray-600">Numbers</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <button 
-                onClick={() => setListStyle('roman')} 
-                className={btn(selected?.styles?.listStyle === 'roman')}
-                title="Roman Numerals"
-                disabled={!selected || selected.type !== 'text'}
-              >
-                I.
-              </button>
-              <span className="text-[9px] text-gray-600">Roman</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <button 
-                onClick={() => setListStyle('alpha')} 
-                className={btn(selected?.styles?.listStyle === 'alpha')}
-                title="Alphabetical List"
-                disabled={!selected || selected.type !== 'text'}
-              >
-                A.
-              </button>
-              <span className="text-[9px] text-gray-600">Alphabets</span>
-            </div>
-          </div>
-        </div>
         </div>
       )}
 
       <div className="ml-auto flex items-center gap-2">
-        <button onClick={onPresent} className="px-3 py-1.5 rounded-lg border border-white text-white hover:bg-gray-800 active:bg-white" style={{ backgroundColor: '#000000' }}>Present</button>
+        <button 
+          onClick={onPresent} 
+          className={`px-4 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} font-medium`}
+          title="Start Presentation"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="mr-2">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          Present
+        </button>
       </div>
 
       {/* Chart Dialog */}
@@ -640,6 +1143,3 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent }) {
   )
 }
 
-function btn(active) {
-  return `px-2 py-1 rounded-md border ${active ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 hover:bg-gray-100'}`
-}

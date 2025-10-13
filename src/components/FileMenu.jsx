@@ -1,10 +1,145 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
 
-export default function FileMenu({ isOpen, onClose }) {
-  const { state } = useSlides()
+export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
+  const { state, dispatch } = useSlides()
+  const fileInputRef = useRef(null)
 
   if (!isOpen) return null
+
+  const handleOpen = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const content = e.target.result
+        let presentationData
+
+        // Try to parse as JSON first (our custom format)
+        try {
+          presentationData = JSON.parse(content)
+        } catch {
+          // If not JSON, try to parse as HTML/PPT format
+          const parser = new DOMParser()
+          const doc = parser.parseFromString(content, 'text/html')
+          
+          // Extract slides from HTML
+          const slides = []
+          const slideElements = doc.querySelectorAll('.slide')
+          
+          slideElements.forEach((slideEl, index) => {
+            const elements = []
+            const textElements = slideEl.querySelectorAll('div[style*="position: absolute"]')
+            
+            textElements.forEach(textEl => {
+              const style = textEl.style
+              const rect = textEl.getBoundingClientRect()
+              
+              elements.push({
+                id: `element_${Date.now()}_${Math.random()}`,
+                type: 'text',
+                x: parseInt(style.left) || 0,
+                y: parseInt(style.top) || 0,
+                w: parseInt(style.width) || 200,
+                h: parseInt(style.height) || 50,
+                text: textEl.textContent || '',
+                bgColor: style.backgroundColor || 'transparent',
+                styles: {
+                  fontFamily: style.fontFamily || 'Inter, system-ui, sans-serif',
+                  fontSize: parseInt(style.fontSize) || 28,
+                  color: style.color || '#111827',
+                  bold: style.fontWeight === '700' || style.fontWeight === 'bold',
+                  italic: style.fontStyle === 'italic',
+                  underline: style.textDecoration === 'underline',
+                  align: style.textAlign || 'left',
+                  listStyle: 'none'
+                }
+              })
+            })
+            
+            slides.push({
+              id: `slide_${Date.now()}_${index}`,
+              name: `Slide ${index + 1}`,
+              background: slideEl.style.background || '#ffffff',
+              elements: elements.length > 0 ? elements : [{
+                id: `element_${Date.now()}_${Math.random()}`,
+                type: 'text',
+                x: 80,
+                y: 80,
+                w: 320,
+                h: 80,
+                text: 'Double-click to edit',
+                bgColor: 'transparent',
+                styles: {
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  fontSize: 28,
+                  color: '#111827',
+                  bold: false,
+                  italic: false,
+                  underline: false,
+                  align: 'left',
+                  listStyle: 'none'
+                }
+              }]
+            })
+          })
+          
+          presentationData = {
+            slides: slides.length > 0 ? slides : [{
+              id: `slide_${Date.now()}`,
+              name: 'Slide 1',
+              background: '#ffffff',
+              elements: [{
+                id: `element_${Date.now()}`,
+                type: 'text',
+                x: 80,
+                y: 80,
+                w: 320,
+                h: 80,
+                text: 'Double-click to edit',
+                bgColor: 'transparent',
+                styles: {
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  fontSize: 28,
+                  color: '#111827',
+                  bold: false,
+                  italic: false,
+                  underline: false,
+                  align: 'left',
+                  listStyle: 'none'
+                }
+              }]
+            }],
+            currentSlideId: slides.length > 0 ? slides[0].id : null,
+            selectedElementId: null,
+            clipboard: null,
+            history: [],
+            historyIndex: -1
+          }
+        }
+
+        // Load the presentation data
+        dispatch({ type: 'LOAD_PRESENTATION', data: presentationData })
+        
+        // Extract filename and notify parent
+        const fileName = file.name.replace(/\.(ppt|json|html)$/i, '')
+        onFileOpen?.(fileName)
+        
+        alert(`Presentation "${fileName}" loaded successfully!`)
+      } catch (error) {
+        alert('Error loading file: ' + error.message)
+      }
+    }
+    
+    reader.readAsText(file)
+    event.target.value = '' // Reset file input
+  }
 
   const handleSave = async () => {
     try {
@@ -67,12 +202,14 @@ export default function FileMenu({ isOpen, onClose }) {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `presentation-${new Date().toISOString().slice(0, 10)}.ppt`
+      const fileName = `presentation-${new Date().toISOString().slice(0, 10)}`
+      link.download = `${fileName}.ppt`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
       
+      onSave?.(fileName)
       alert('Presentation saved successfully as .ppt file!')
     } catch (error) {
       alert('Error saving presentation: ' + error.message)
@@ -156,6 +293,7 @@ export default function FileMenu({ isOpen, onClose }) {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
     
+    onSave?.(cleanFileName)
     alert(`Presentation saved as "${cleanFileName}.ppt"!`)
   }
 
@@ -236,6 +374,7 @@ export default function FileMenu({ isOpen, onClose }) {
   }
 
   const menuItems = [
+    { label: 'Open', icon: '📂', action: handleOpen, description: 'Open existing presentation file' },
     { label: 'Save', icon: '💾', action: handleSave, description: 'Download as .ppt file' },
     { label: 'Save As', icon: '📝', action: handleSaveAs, description: 'Save with custom filename' },
     { label: 'Export as PDF', icon: '📄', action: handleExportPDF, description: 'Print or save as PDF' },
@@ -289,6 +428,15 @@ export default function FileMenu({ isOpen, onClose }) {
           </div>
         </div>
       </div>
+      
+      {/* Hidden file input for opening files */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".ppt,.json,.html"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
     </>
   )
 }
