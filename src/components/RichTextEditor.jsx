@@ -719,32 +719,6 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
             title="Highlight"
           />
           <div className="w-px bg-white/30 mx-2" />
-          <select
-            value={currentFontFamily === 'mixed' ? '' : currentFontFamily}
-            onChange={(e) => {
-              e.preventDefault()
-              handleFontFamilyChange(e.target.value)
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-            }}
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-            }}
-            className="px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg text-xs hover:bg-white/20 hover:border-white/30 transition-all duration-300 min-w-[120px] mini-toolbar-dropdown"
-            title="Font Family"
-          >
-            <option value="">{currentFontFamily === 'mixed' ? 'Mixed Fonts' : 'Select Font'}</option>
-            <option value="Inter, system-ui, sans-serif">Inter</option>
-            <option value="Arial, sans-serif">Arial</option>
-            <option value="'Times New Roman', serif">Times New Roman</option>
-            <option value="'Courier New', monospace">Courier New</option>
-            <option value="Georgia, serif">Georgia</option>
-            <option value="Verdana, sans-serif">Verdana</option>
-          </select>
-          <div className="w-px bg-white/30 mx-2" />
           <div className="flex gap-1">
             <button
               onClick={() => handleListStyleChange('none')}

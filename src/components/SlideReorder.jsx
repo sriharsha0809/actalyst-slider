@@ -95,7 +95,12 @@ export default function SlideReorder() {
               
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-700 mb-1">
-                  {slide.name || `Slide ${index + 1}`}
+                  <div className="flex items-center gap-2">
+                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold">
+                      #{index + 1}
+                    </span>
+                    <span>{slide.name}</span>
+                  </div>
                 </div>
                 <div 
                   className="w-full aspect-video rounded border border-gray-200 overflow-hidden"
