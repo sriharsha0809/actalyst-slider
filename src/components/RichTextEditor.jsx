@@ -89,6 +89,73 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     )
   }
 
+  // Component-scope getCurrentFontFamily function
+  const getCurrentFontFamily = () => {
+    const editor = editorRef.current
+    if (!editor) return ''
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return ''
+    const range = selection.getRangeAt(0)
+    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return ''
+    
+    if (selection.isCollapsed) {
+      const node = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer
+      if (!node || node === editor) return editor.style.fontFamily || el.styles?.fontFamily || ''
+      const computedFont = window.getComputedStyle(node).fontFamily || ''
+      return normalizeDisplayFont(computedFont)
+    }
+    
+    const families = collectFontFamilies(editor, range)
+    if (families.size === 0) return ''
+    if (families.size === 1) {
+      const fontFamily = families.values().next().value
+      return normalizeDisplayFont(fontFamily)
+    }
+    return 'mixed'
+  }
+
+  // Helper function to normalize font family for display in dropdown
+  const normalizeDisplayFont = (fontFamily) => {
+    if (!fontFamily) return ''
+    
+    // Common font family mappings to match our dropdown options
+    const fontMappings = {
+      'inter': 'Inter, system-ui, sans-serif',
+      'arial': 'Arial, sans-serif', 
+      'times new roman': "'Times New Roman', serif",
+      'courier new': "'Courier New', monospace",
+      'georgia': 'Georgia, serif',
+      'verdana': 'Verdana, sans-serif'
+    }
+    
+    const normalized = fontFamily.toLowerCase().replace(/["']/g, '')
+    
+    // Check if it matches any of our dropdown options exactly
+    const dropdownOptions = [
+      'Inter, system-ui, sans-serif',
+      'Arial, sans-serif',
+      "'Times New Roman', serif",
+      "'Courier New', monospace", 
+      'Georgia, serif',
+      'Verdana, sans-serif'
+    ]
+    
+    for (const option of dropdownOptions) {
+      if (fontFamily.includes(option.split(',')[0].replace(/["']/g, ''))) {
+        return option
+      }
+    }
+    
+    // Check font mappings
+    for (const [key, value] of Object.entries(fontMappings)) {
+      if (normalized.includes(key)) {
+        return value
+      }
+    }
+    
+    return fontFamily
+  }
+
   function refreshActiveFormats() {
     const editor = editorRef.current
     if (!editor) {
@@ -130,7 +197,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     }
     setActiveFormats(next)
 
-    // Update current font family using the existing method
+    // Update current font family using the component-scope method
     const fontFamily = getCurrentFontFamily()
     setCurrentFontFamily(fontFamily)
 
@@ -393,7 +460,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     return 'none'
   }
 
-  const handleFontFamilyChange = (fontFamily) => {
+  const handleFontFamilyChange = async (fontFamily) => {
     const editor = editorRef.current
     if (!editor) return
 
@@ -403,8 +470,95 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     const range = selection.getRangeAt(0)
     if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return
 
-    // Use the existing applyFontFamily method
-    applyFontFamily(fontFamily)
+    // Use the applyFontFamily method from the imperative handle
+    const success = await applyFontFamily(fontFamily)
+    if (success) {
+      // Update the current font family state
+      setCurrentFontFamily(fontFamily)
+      // Refresh the toolbar state
+      refreshActiveFormats()
+    }
+  }
+
+  // Define applyFontFamily function to be available in component scope
+  const applyFontFamily = async (fontFamily) => {
+    const editor = editorRef.current
+    if (!editor) return false
+
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return false
+
+    const range = selection.getRangeAt(0)
+    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return false
+
+    captureSnapshot()
+    const selectionOffsets = getSelectionOffsets(editor)
+    const normalizedFamily = fontFamily || ''
+
+    await ensureFontLoaded(normalizedFamily)
+
+    editor.focus()
+
+    if (selection.isCollapsed) {
+      selection.removeAllRanges()
+      selection.addRange(range)
+      document.execCommand('fontName', false, normalizedFamily || 'inherit')
+      convertFontTags(editor)
+      cleanupFontSpans(editor)
+      mergeSiblingFontSpans(editor)
+
+      if (selectionOffsets) {
+        setSelectionOffsets(editor, selectionOffsets.start, selectionOffsets.end)
+      }
+
+      if (isOverflowing()) {
+        restoreSnapshot()
+        return false
+      }
+
+      emitChange()
+      captureSnapshot()
+      refreshActiveFormats()
+      return true
+    }
+
+    const workingRange = range.cloneRange()
+    selection.removeAllRanges()
+    selection.addRange(workingRange)
+
+    const existingFamilies = collectFontFamilies(editor, workingRange)
+    if (
+      normalizedFamily &&
+      existingFamilies.size === 1 &&
+      equalFontStacks([...existingFamilies][0], normalizedFamily)
+    ) {
+      if (selectionOffsets) {
+        setSelectionOffsets(editor, selectionOffsets.start, selectionOffsets.end)
+      }
+      return true
+    }
+
+    const originalFragment = workingRange.cloneContents()
+    const replacement = normalizeFontFamilyChange(originalFragment, normalizedFamily)
+    workingRange.deleteContents()
+    workingRange.insertNode(replacement)
+
+    cleanupFontSpans(editor)
+    mergeSiblingFontSpans(editor)
+
+    if (selectionOffsets) {
+      setSelectionOffsets(editor, selectionOffsets.start, selectionOffsets.end)
+    }
+
+    if (isOverflowing()) {
+      restoreSnapshot()
+      return false
+    }
+
+    emitChange()
+    captureSnapshot()
+    refreshActiveFormats()
+    return true
   }
 
   const handleListStyleChange = (listStyle) => {
@@ -552,8 +706,18 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
           <div className="w-px bg-white/30 mx-2" />
           <select
             value={currentFontFamily === 'mixed' ? '' : currentFontFamily}
-            onChange={(e) => handleFontFamilyChange(e.target.value)}
-            onMouseDown={(e) => e.preventDefault()}
+            onChange={(e) => {
+              e.preventDefault()
+              handleFontFamilyChange(e.target.value)
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
             className="px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg text-xs hover:bg-white/20 hover:border-white/30 transition-all duration-300 min-w-[120px] mini-toolbar-dropdown"
             title="Font Family"
           >
