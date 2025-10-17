@@ -194,7 +194,27 @@ function reducer(state, action) {
     case 'UPDATE_ELEMENT': {
       return updateCurrentSlide(state, slide => ({
         ...slide,
-        elements: slide.elements.map(e => (e.id === action.id ? { ...e, ...action.patch } : e)),
+        elements: slide.elements.map(e => {
+          if (e.id === action.id) {
+            const updated = { ...e, ...action.patch }
+            // Ensure element stays within very generous slide boundaries
+            const MARGIN = 50
+            if (updated.x !== undefined) {
+              updated.x = Math.max(-MARGIN, Math.min(REF_WIDTH + MARGIN, updated.x))
+            }
+            if (updated.y !== undefined) {
+              updated.y = Math.max(-MARGIN, Math.min(REF_HEIGHT + MARGIN, updated.y))
+            }
+            if (updated.w !== undefined) {
+              updated.w = Math.min(updated.w, REF_WIDTH + MARGIN * 2)
+            }
+            if (updated.h !== undefined) {
+              updated.h = Math.min(updated.h, REF_HEIGHT + MARGIN * 2)
+            }
+            return updated
+          }
+          return e
+        }),
       }))
     }
     case 'DELETE_ELEMENT': {

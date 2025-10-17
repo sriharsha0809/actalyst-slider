@@ -176,7 +176,8 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       const logicalDeltaY = deltaY / scale
       
       // Calculate new position in logical coordinates
-      const nx = Math.max(0, Math.min(REF_WIDTH - el.w, d.offsetX + logicalDeltaX))
+      // Restrict element to stay completely within slide boundaries
+      const nx = Math.max(0, Math.min(REF_WIDTH - el.w+50, d.offsetX + logicalDeltaX))
       const ny = Math.max(0, Math.min(REF_HEIGHT - el.h, d.offsetY + logicalDeltaY))
       
       onChange({ x: nx, y: ny })
@@ -216,16 +217,40 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       const logicalDx = (e.clientX - r.startX) / scale
       const logicalDy = (e.clientY - r.startY) / scale
       
-      if (r.dir.includes('e')) w = Math.max(40, r.start.w + logicalDx)
-      if (r.dir.includes('s')) h = Math.max(40, r.start.h + logicalDy)
+      if (r.dir.includes('e')) {
+        // Expanding eastward - stay within slide boundary
+        w = Math.max(40, Math.min(REF_WIDTH - x, r.start.w + logicalDx))
+      }
+      if (r.dir.includes('s')) {
+        // Expanding southward - stay within slide boundary
+        h = Math.max(40, Math.min(REF_HEIGHT - y, r.start.h + logicalDy))
+      }
       if (r.dir.includes('w')) { 
-        w = Math.max(40, r.start.w - logicalDx); 
-        x = r.start.x + logicalDx 
+        // Expanding westward - allow slight negative position to reach edge
+        const newW = Math.max(40, r.start.w - logicalDx)
+        const newX = Math.max(-MARGIN, r.start.x + logicalDx) // Allow slight negative
+        // Apply with generous bounds
+        if (newX + newW <= REF_WIDTH + MARGIN * 2) {
+          w = newW
+          x = newX
+        }
       }
       if (r.dir.includes('n')) { 
-        h = Math.max(40, r.start.h - logicalDy); 
-        y = r.start.y + logicalDy 
+        // Expanding northward - allow slight negative position to reach edge
+        const newH = Math.max(40, r.start.h - logicalDy)
+        const newY = Math.max(-MARGIN, r.start.y + logicalDy) // Allow slight negative
+        // Apply with generous bounds
+        if (newY + newH <= REF_HEIGHT + MARGIN * 2) {
+          h = newH
+          y = newY
+        }
       }
+      
+      // Final safety check with very generous boundaries
+      x = Math.max(-MARGIN, Math.min(REF_WIDTH + MARGIN, x))
+      y = Math.max(-MARGIN, Math.min(REF_HEIGHT + MARGIN, y))
+      w = Math.min(w, REF_WIDTH + MARGIN * 2)
+      h = Math.min(h, REF_HEIGHT + MARGIN * 2)
       
       onChange({ x, y, w, h })
       return { ...r }
@@ -889,10 +914,12 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
             fontFamily: el.styles.fontFamily, 
             fontSize: `${el.styles.fontSize * scale}px`, 
             textAlign: el.styles.align || 'left', 
-            whiteSpace: 'pre-wrap',
+            whiteSpace: 'nowrap', // Keep text in single line
+            overflow: 'hidden', // Hide overflow
+            textOverflow: 'ellipsis', // Add ellipsis for long text
             display: 'flex',
-            flexDirection: 'column',
-            ...getVerticalAlignStyle(),
+            alignItems: el.styles?.valign === 'middle' ? 'center' : 
+                        el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
           }}
           dangerouslySetInnerHTML={{ __html: el.html }}
         />
@@ -910,10 +937,12 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
         fontStyle: el.styles.italic ? 'italic' : 'normal', 
         textDecoration: el.styles.underline ? 'underline' : 'none', 
         textAlign: el.styles.align || 'left', 
-        whiteSpace: 'pre-wrap',
+        whiteSpace: 'nowrap', // Keep text in single line like before editing
+        overflow: 'hidden', // Hide overflow to prevent text from spilling out
+        textOverflow: 'ellipsis', // Add ellipsis for long text
         display: 'flex',
-        flexDirection: 'column',
-        ...getVerticalAlignStyle(),
+        alignItems: el.styles?.valign === 'middle' ? 'center' : 
+                    el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
       }}>
         {formatTextWithList(el.text)}
       </div>

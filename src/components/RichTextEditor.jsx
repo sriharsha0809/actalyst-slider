@@ -660,8 +660,8 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
           fontSize: el.styles.fontSize,
           color: el.styles.color,
           textAlign: el.styles.align || 'left',
-          whiteSpace: 'pre-wrap',
-          overflowWrap: 'break-word',
+          whiteSpace: 'nowrap', // Match display mode - single line
+          overflow: 'hidden', // Hide overflow
           display: 'flex',
           alignItems: el.styles.valign === 'middle' ? 'center' : 
                     el.styles.valign === 'bottom' ? 'flex-end' : 'flex-start'
