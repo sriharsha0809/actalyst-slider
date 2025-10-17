@@ -60,8 +60,8 @@ function AppContent() {
         />
 
         <div className="flex flex-1 min-h-0">
-          {/* Sidebar */}
-          <div className={`${showSidebar ? 'w-64' : 'w-0'} transition-all duration-500 border-r ${colors.border} overflow-hidden ${colors.shadow} animate-slideInLeft`} style={{ background: colors.sidebarBg }}>
+          {/* Sidebar - Responsive width */}
+          <div className={`${showSidebar ? 'w-64 responsive-sidebar-left' : 'w-0'} transition-all duration-500 border-r ${colors.border} overflow-hidden ${colors.shadow} animate-slideInLeft`} style={{ background: colors.sidebarBg }}>
             <Sidebar />
           </div>
 
@@ -81,12 +81,12 @@ function AppContent() {
               }}
             />
 
-            {/* Canvas + Shape toolbox */}
-            <div className={`flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 px-6 pt-6 transition-all duration-500 ${colors.mainBg}`} style={{ paddingBottom: '30px' }}>
+            {/* Canvas + Shape toolbox - Responsive grid */}
+            <div className={`flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 responsive-toolbar-gap px-6 pt-6 transition-all duration-500 ${colors.mainBg}`} style={{ paddingBottom: '30px' }}>
               <div className={`${colors.cardBg} rounded-lg ${colors.shadow} p-1 overflow-hidden animate-slideInUp`} style={{animationDelay: '0.2s'}}>
                 <SlideCanvas />
               </div>
-              <div className={`${colors.cardBg} rounded-xl p-4 order-first lg:order-none overflow-y-auto animate-slideInRight`} style={{ boxShadow: '0 0 30px rgba(0, 0, 0, 0.15)', maxHeight: 'calc(100vh - 30px - 100px)', animationDelay: '0.4s' }}>
+              <div className={`${colors.cardBg} rounded-xl p-4 order-first lg:order-none overflow-y-auto animate-slideInRight responsive-sidebar-right`} style={{ boxShadow: '0 0 30px rgba(0, 0, 0, 0.15)', maxHeight: 'calc(100vh - 30px - 100px)', animationDelay: '0.4s', width: 'auto' }}>
                 {activeTab === 'Insert' ? <ChartEditor /> : activeTab === 'Design' ? <SlideReorder /> : <ShapeToolbox />}
               </div>
             </div>

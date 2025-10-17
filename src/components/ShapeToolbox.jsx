@@ -193,56 +193,60 @@ export default function ShapeToolbox() {
     }
   ]
 
+  // Standard reference dimensions for proportional scaling (16:9 aspect ratio)
+  const REF_WIDTH = 960
+  const REF_HEIGHT = 540
+
   const getTemplateElements = (layoutName) => {
     switch (layoutName) {
       case 'Title Slide':
         return {
           elements: [
-            createTextElement('Click to add title', 200, 150, 560, 100, 48, 'transparent', 'center'),
-            createTextElement('Click to add subtitle', 250, 280, 460, 60, 32, 'transparent', 'center')
+            createTextElement('Click to add title', REF_WIDTH * 0.208, REF_HEIGHT * 0.278, REF_WIDTH * 0.583, REF_HEIGHT * 0.185, 48, 'transparent', 'center'),
+            createTextElement('Click to add subtitle', REF_WIDTH * 0.26, REF_HEIGHT * 0.519, REF_WIDTH * 0.479, REF_HEIGHT * 0.111, 32, 'transparent', 'center')
           ],
           background: '#ffffff'
         }
       case 'Title + Subtitle':
         return {
           elements: [
-            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
-            createTextElement('Click to add content', 80, 180, 800, 280, 24, 'transparent', 'left')
+            createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
+            createTextElement('Click to add content', REF_WIDTH * 0.083, REF_HEIGHT * 0.333, REF_WIDTH * 0.833, REF_HEIGHT * 0.519, 24, 'transparent', 'left')
           ],
           background: '#ffffff'
         }
       case 'Section Header':
         return {
           elements: [
-            createTextElement('Section Title', 100, 180, 760, 100, 44, 'transparent', 'center'),
-            createTextElement('Section Description', 150, 300, 660, 60, 28, 'transparent', 'center')
+            createTextElement('Section Title', REF_WIDTH * 0.104, REF_HEIGHT * 0.333, REF_WIDTH * 0.792, REF_HEIGHT * 0.185, 44, 'transparent', 'center'),
+            createTextElement('Section Description', REF_WIDTH * 0.156, REF_HEIGHT * 0.556, REF_WIDTH * 0.688, REF_HEIGHT * 0.111, 28, 'transparent', 'center')
           ],
           background: 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)'
         }
       case 'Title Only':
         return {
           elements: [
-            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left')
+            createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left')
           ],
           background: '#ffffff'
         }
       case 'Two Content':
         return {
           elements: [
-            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
-            createTextElement('Content 1', 80, 180, 380, 280, 24, 'transparent', 'left'),
-            createTextElement('Content 2', 500, 180, 380, 280, 24, 'transparent', 'left')
+            createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
+            createTextElement('Content 1', REF_WIDTH * 0.083, REF_HEIGHT * 0.333, REF_WIDTH * 0.396, REF_HEIGHT * 0.519, 24, 'transparent', 'left'),
+            createTextElement('Content 2', REF_WIDTH * 0.521, REF_HEIGHT * 0.333, REF_WIDTH * 0.396, REF_HEIGHT * 0.519, 24, 'transparent', 'left')
           ],
           background: '#ffffff'
         }
       case 'Comparison':
         return {
           elements: [
-            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
-            createTextElement('Option A', 80, 160, 380, 40, 28, '#d4edda', 'center'),
-            createTextElement('Content A', 80, 220, 380, 240, 24, 'transparent', 'left'),
-            createTextElement('Option B', 500, 160, 380, 40, 28, '#f8d7da', 'center'),
-            createTextElement('Content B', 500, 220, 380, 240, 24, 'transparent', 'left')
+            createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
+            createTextElement('Option A', REF_WIDTH * 0.083, REF_HEIGHT * 0.296, REF_WIDTH * 0.396, REF_HEIGHT * 0.074, 28, '#d4edda', 'center'),
+            createTextElement('Content A', REF_WIDTH * 0.083, REF_HEIGHT * 0.407, REF_WIDTH * 0.396, REF_HEIGHT * 0.444, 24, 'transparent', 'left'),
+            createTextElement('Option B', REF_WIDTH * 0.521, REF_HEIGHT * 0.296, REF_WIDTH * 0.396, REF_HEIGHT * 0.074, 28, '#f8d7da', 'center'),
+            createTextElement('Content B', REF_WIDTH * 0.521, REF_HEIGHT * 0.407, REF_WIDTH * 0.396, REF_HEIGHT * 0.444, 24, 'transparent', 'left')
           ],
           background: '#ffffff'
         }
@@ -254,68 +258,68 @@ export default function ShapeToolbox() {
       case 'Content + Caption':
         return {
           elements: [
-            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
-            createTextElement('Main Content', 80, 180, 520, 280, 24, 'transparent', 'left'),
-            createTextElement('Caption text', 640, 180, 240, 280, 20, 'transparent', 'left')
+            createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
+            createTextElement('Main Content', REF_WIDTH * 0.083, REF_HEIGHT * 0.333, REF_WIDTH * 0.542, REF_HEIGHT * 0.519, 24, 'transparent', 'left'),
+            createTextElement('Caption text', REF_WIDTH * 0.667, REF_HEIGHT * 0.333, REF_WIDTH * 0.25, REF_HEIGHT * 0.519, 20, 'transparent', 'left')
           ],
           background: '#ffffff'
         }
       case 'Picture + Caption':
         return {
           elements: [
-            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
-            createTextElement('Image Area\n(Add image here)', 80, 180, 600, 280, 24, '#e3f2fd', 'center'),
-            createTextElement('Caption', 720, 180, 160, 280, 20, 'transparent', 'left')
+            createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
+            createTextElement('Image Area\n(Add image here)', REF_WIDTH * 0.083, REF_HEIGHT * 0.333, REF_WIDTH * 0.625, REF_HEIGHT * 0.519, 24, '#e3f2fd', 'center'),
+            createTextElement('Caption', REF_WIDTH * 0.75, REF_HEIGHT * 0.333, REF_WIDTH * 0.167, REF_HEIGHT * 0.519, 20, 'transparent', 'left')
           ],
           background: '#ffffff'
         }
       case 'Title + Picture':
         return {
           elements: [
-            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
-            createTextElement('Image Area\n(Add image here)', 80, 180, 800, 280, 28, '#e8f5e9', 'center')
+            createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
+            createTextElement('Image Area\n(Add image here)', REF_WIDTH * 0.083, REF_HEIGHT * 0.333, REF_WIDTH * 0.833, REF_HEIGHT * 0.519, 28, '#e8f5e9', 'center')
           ],
           background: '#ffffff'
         }
       case 'Quote Slide':
         return {
           elements: [
-            createTextElement('"Click to add quote"', 150, 180, 660, 120, 32, 'transparent', 'center'),
-            createTextElement('- Author Name', 300, 320, 360, 40, 24, 'transparent', 'center')
+            createTextElement('"Click to add quote"', REF_WIDTH * 0.156, REF_HEIGHT * 0.333, REF_WIDTH * 0.688, REF_HEIGHT * 0.222, 32, 'transparent', 'center'),
+            createTextElement('- Author Name', REF_WIDTH * 0.313, REF_HEIGHT * 0.593, REF_WIDTH * 0.375, REF_HEIGHT * 0.074, 24, 'transparent', 'center')
           ],
           background: 'linear-gradient(135deg, #fff9e6 0%, #ffe6cc 100%)'
         }
       case 'Chart / Graph':
         return {
           elements: [
-            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
-            createTextElement('Chart Area\n(Add chart/graph here)', 80, 180, 800, 280, 24, '#f5f5f5', 'center')
+            createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
+            createTextElement('Chart Area\n(Add chart/graph here)', REF_WIDTH * 0.083, REF_HEIGHT * 0.333, REF_WIDTH * 0.833, REF_HEIGHT * 0.519, 24, '#f5f5f5', 'center')
           ],
           background: '#ffffff'
         }
       case 'SmartArt / Process':
         return {
           elements: [
-            createTextElement('Click to add title', 80, 60, 800, 80, 36, 'transparent', 'left'),
-            createTextElement('Step 1', 100, 240, 180, 80, 20, '#bbdefb', 'center'),
-            createTextElement('Step 2', 390, 240, 180, 80, 20, '#c8e6c9', 'center'),
-            createTextElement('Step 3', 680, 240, 180, 80, 20, '#e1bee7', 'center')
+            createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
+            createTextElement('Step 1', REF_WIDTH * 0.104, REF_HEIGHT * 0.444, REF_WIDTH * 0.188, REF_HEIGHT * 0.148, 20, '#bbdefb', 'center'),
+            createTextElement('Step 2', REF_WIDTH * 0.406, REF_HEIGHT * 0.444, REF_WIDTH * 0.188, REF_HEIGHT * 0.148, 20, '#c8e6c9', 'center'),
+            createTextElement('Step 3', REF_WIDTH * 0.708, REF_HEIGHT * 0.444, REF_WIDTH * 0.188, REF_HEIGHT * 0.148, 20, '#e1bee7', 'center')
           ],
           background: '#ffffff'
         }
       case 'Thank You':
         return {
           elements: [
-            createTextElement('Thank You!', 200, 200, 560, 100, 48, 'transparent', 'center'),
-            createTextElement('Questions?', 300, 320, 360, 60, 32, 'transparent', 'center')
+            createTextElement('Thank You!', REF_WIDTH * 0.208, REF_HEIGHT * 0.370, REF_WIDTH * 0.583, REF_HEIGHT * 0.185, 48, 'transparent', 'center'),
+            createTextElement('Questions?', REF_WIDTH * 0.313, REF_HEIGHT * 0.593, REF_WIDTH * 0.375, REF_HEIGHT * 0.111, 32, 'transparent', 'center')
           ],
           background: 'linear-gradient(135deg, #fce4ec 0%, #e1bee7 100%)'
         }
       default:
         return {
           elements: [
-            createTextElement('Click to add title', 100, 80, 600, 100, 44, 'transparent', 'left'),
-            createTextElement('Click to add subtitle', 100, 220, 600, 80, 28, 'transparent', 'left')
+            createTextElement('Click to add title', REF_WIDTH * 0.104, REF_HEIGHT * 0.148, REF_WIDTH * 0.625, REF_HEIGHT * 0.185, 44, 'transparent', 'left'),
+            createTextElement('Click to add subtitle', REF_WIDTH * 0.104, REF_HEIGHT * 0.407, REF_WIDTH * 0.625, REF_HEIGHT * 0.148, 28, 'transparent', 'left')
           ],
           background: '#ffffff'
         }

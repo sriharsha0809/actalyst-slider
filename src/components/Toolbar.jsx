@@ -35,7 +35,22 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent, onSlide
   const [showChartDialog, setShowChartDialog] = useState(false)
   const [chartType, setChartType] = useState('bar')
   const [inlineFormats, setInlineFormats] = useState({ bold: false, italic: false, underline: false })
+  const [showMoreShapes, setShowMoreShapes] = useState(false)
+  const [isNarrowScreen, setIsNarrowScreen] = useState(false)
   const fileInputRef = useRef(null)
+
+  // Window resize listener for responsive behavior
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsNarrowScreen(window.innerWidth < 1030)
+    }
+    
+    // Initial check
+    checkScreenSize()
+    
+    window.addEventListener('resize', checkScreenSize)
+    return () => window.removeEventListener('resize', checkScreenSize)
+  }, [])
 
   // Keyboard shortcuts for undo/redo and slide show
   useEffect(() => {
@@ -447,6 +462,20 @@ const setListStyle = (listType) => {
     return () => document.removeEventListener('selectionchange', handleSelectionUpdate)
   }, [selected?.id, selected?.styles?.bold, selected?.styles?.italic, selected?.styles?.underline, selected?.styles?.align, selected?.styles?.listStyle])
 
+  // Handle ESC key to close more shapes modal
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && showMoreShapes) {
+        setShowMoreShapes(false)
+      }
+    }
+    
+    if (showMoreShapes) {
+      document.addEventListener('keydown', handleEscKey)
+      return () => document.removeEventListener('keydown', handleEscKey)
+    }
+  }, [showMoreShapes])
+
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -499,8 +528,8 @@ const setListStyle = (listType) => {
   }
 
   return (
-    <div className={`w-full border-b px-1 py-1 flex items-center gap-2 sticky top-0 z-10 transition-all duration-500 ${colors.border} animate-slideInDown`} style={{background: colors.toolbarBg, minHeight: '60px',maxHeight: '86px',height:'86px'}}>
-      <button onClick={onToggleSidebar} className={`px-2 py-1 rounded-lg ${colors.glassButton} ${colors.toolbarText}`}>☰</button>
+    <div className={`w-full border-b px-1 py-1 flex items-center gap-2 sticky top-0 z-10 transition-all duration-500 ${colors.border} animate-slideInDown responsive-toolbar overflow-hidden`} style={{background: colors.toolbarBg, minHeight: '60px',maxHeight: '86px',height:'86px'}}>
+      <button onClick={onToggleSidebar} className={`px-2 py-1 rounded-lg ${colors.glassButton} ${colors.toolbarText} responsive-toolbar-button`}>☰</button>
 
       <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
 
@@ -508,10 +537,10 @@ const setListStyle = (listType) => {
       <button 
         onClick={() => dispatch({ type: 'UNDO' })}
         disabled={state.historyIndex <= 0}
-        className={`px-2 py-1 rounded-lg ${state.historyIndex <= 0 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText}`}
+        className={`px-2 py-1 rounded-lg ${state.historyIndex <= 0 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText} responsive-toolbar-button`}
         title="Undo (Ctrl+Z)"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M3 7v6h6"/>
           <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
         </svg>
@@ -519,12 +548,12 @@ const setListStyle = (listType) => {
       <button 
         onClick={() => dispatch({ type: 'REDO' })}
         disabled={state.historyIndex >= state.history.length - 1}
-        className={`px-2 py-1 rounded-lg ${state.historyIndex >= state.history.length - 1 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText}`}
+        className={`px-2 py-1 rounded-lg ${state.historyIndex >= state.history.length - 1 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText} responsive-toolbar-button`}
         title="Redo (Ctrl+Y)"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M21 7v6h-6"/>
-          <path d="M3 17a9 9 0 919-9 9 9 0 016 2.3l3 2.7"/>
+          <path d="M3 17a9 9 0 919-9 9 9 0 616 2.3l3 2.7"/>
         </svg>
       </button>
 
@@ -532,11 +561,11 @@ const setListStyle = (listType) => {
         <>
           <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
 
-          <button onClick={() => dispatch({ type: 'ADD_SLIDE' })} className={`px-3 py-1.5 rounded-lg ${colors.glassButton} ${colors.toolbarText} font-medium`}>+ New Slide</button>
+          <button onClick={() => dispatch({ type: 'ADD_SLIDE' })} className={`px-3 py-1.5 rounded-lg ${colors.glassButton} ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text`}>+ New Slide</button>
           
           <button 
             onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.text() })} 
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all duration-300 ${
+            className={`px-3 py-1.5 rounded-lg font-medium transition-all duration-300 responsive-toolbar-button responsive-toolbar-text ${
               selected && selected.type === 'text'
                 ? 'bg-white text-black border-2 border-black shadow-xl backdrop-blur-md'
                 : `${colors.glassButton} ${colors.toolbarText}`
@@ -763,93 +792,114 @@ const setListStyle = (listType) => {
 
           <div className={`h-6 w-px mx-2 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
 
-          {/* Shape Tools */}
-          <div className="flex items-center gap-2">
-            <span className={`${colors.toolbarTextSecondary} text-xs`}>Shapes:</span>
+          {/* Shape Tools - Responsive Design */}
+          <div className="flex items-center gap-2 responsive-toolbar-gap">
+            {!isNarrowScreen && <span className={`${colors.toolbarTextSecondary} text-xs responsive-toolbar-text`}>Shapes:</span>}
             
+            {/* Always visible shapes (first 3) */}
             {/* Rectangle */}
             <button 
               onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.rect() })}
-              className={elementBtn('rect')}
+              className={`${elementBtn('rect')} responsive-toolbar-button`}
               title="Rectangle"
             >
-              <div className="w-6 h-4 rounded-sm" style={{ background: '#fde68a', border: '2px solid #f59e0b' }}></div>
-              <span className="text-xs">Rect</span>
-            </button>
-
-            {/* Square */}
-            <button 
-              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.square() })}
-              className={elementBtn('square')}
-              title="Square"
-            >
-              <div className="w-4 h-4 rounded-sm" style={{ background: '#fde68a', border: '2px solid #f59e0b' }}></div>
-              <span className="text-xs">Square</span>
+              <div className="w-5 h-3 rounded-sm" style={{ background: '#fde68a', border: '1px solid #f59e0b' }}></div>
+              <span className="text-xs responsive-toolbar-text">Rect</span>
             </button>
 
             {/* Circle */}
             <button 
               onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.circle() })}
-              className={elementBtn('circle')}
+              className={`${elementBtn('circle')} responsive-toolbar-button`}
               title="Circle"
             >
-              <div className="w-4 h-4 rounded-full" style={{ background: '#bfdbfe', border: '2px solid #3b82f6' }}></div>
-              <span className="text-xs">Circle</span>
+              <div className="w-3 h-3 rounded-full" style={{ background: '#bfdbfe', border: '1px solid #3b82f6' }}></div>
+              <span className="text-xs responsive-toolbar-text">Circle</span>
             </button>
 
             {/* Triangle */}
             <button 
               onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.triangle() })}
-              className={elementBtn('triangle')}
+              className={`${elementBtn('triangle')} responsive-toolbar-button`}
               title="Triangle"
             >
-              <div className="w-4 h-4" style={{ 
+              <div className="w-3 h-3" style={{ 
                 background: '#fecaca', 
-                border: '2px solid #ef4444',
+                border: '1px solid #ef4444',
                 clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)'
               }}></div>
-              <span className="text-xs">Triangle</span>
+              <span className="text-xs responsive-toolbar-text">Triangle</span>
             </button>
 
-            {/* Diamond */}
-            <button 
-              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.diamond() })}
-              className={elementBtn('diamond')}
-              title="Diamond"
-            >
-              <div className="w-4 h-4" style={{ 
-                background: '#d8b4fe', 
-                border: '2px solid #8b5cf6',
-                clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
-              }}></div>
-              <span className="text-xs">Diamond</span>
-            </button>
+            {/* Conditional shapes and More button */}
+            {!isNarrowScreen ? (
+              <>
+                {/* Square */}
+                <button 
+                  onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.square() })}
+                  className={`${elementBtn('square')} responsive-toolbar-button`}
+                  title="Square"
+                >
+                  <div className="w-3 h-3 rounded-sm" style={{ background: '#fde68a', border: '1px solid #f59e0b' }}></div>
+                  <span className="text-xs responsive-toolbar-text">Square</span>
+                </button>
 
-            {/* Star */}
-            <button 
-              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.star() })}
-              className={elementBtn('star')}
-              title="Star"
-            >
-              <div className="w-4 h-4" style={{ 
-                background: '#fef3c7', 
-                border: '2px solid #f59e0b',
-                clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
-              }}></div>
-              <span className="text-xs">Star</span>
-            </button>
+                {/* Diamond */}
+                <button 
+                  onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.diamond() })}
+                  className={`${elementBtn('diamond')} responsive-toolbar-button`}
+                  title="Diamond"
+                >
+                  <div className="w-3 h-3" style={{ 
+                    background: '#d8b4fe', 
+                    border: '1px solid #8b5cf6',
+                    clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+                  }}></div>
+                  <span className="text-xs responsive-toolbar-text">Diamond</span>
+                </button>
 
-            {/* Message */}
-            <button 
-              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.message() })}
-              className={elementBtn('message')}
-              title="Message"
-            >
-              <div className="w-6 h-4 rounded-lg relative" style={{ background: '#d1fae5', border: '2px solid #10b981' }}>
-                <div className="absolute bottom-0 left-1 w-0 h-0" style={{ borderLeft: '3px solid transparent', borderRight: '3px solid transparent', borderTop: '5px solid #10b981' }}></div>
+                {/* Star */}
+                <button 
+                  onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.star() })}
+                  className={`${elementBtn('star')} responsive-toolbar-button`}
+                  title="Star"
+                >
+                  <div className="w-3 h-3" style={{ 
+                    background: '#fef3c7', 
+                    border: '1px solid #f59e0b',
+                    clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
+                  }}></div>
+                  <span className="text-xs responsive-toolbar-text">Star</span>
+                </button>
+
+                {/* Message */}
+                <button 
+                  onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.message() })}
+                  className={`${elementBtn('message')} responsive-toolbar-button`}
+                  title="Message"
+                >
+                  <div className="w-5 h-3 rounded-lg relative" style={{ background: '#d1fae5', border: '1px solid #10b981' }}>
+                    <div className="absolute bottom-0 left-0.5 w-0 h-0" style={{ borderLeft: '2px solid transparent', borderRight: '2px solid transparent', borderTop: '3px solid #10b981' }}></div>
+                  </div>
+                  <span className="text-xs responsive-toolbar-text">Message</span>
+                </button>
+              </>
+            ) : (
+              /* More button for narrow screens */
+              <div className="relative">
+                <button 
+                  onClick={() => setShowMoreShapes(!showMoreShapes)}
+                  className={`${elementBtn('more')} responsive-toolbar-button`}
+                  title="More Shapes"
+                >
+                  <div className="w-3 h-3 bg-gray-300 rounded flex items-center justify-center">
+                    <span className="text-[8px] font-bold text-gray-600">⋯</span>
+                  </div>
+                  <span className="text-xs responsive-toolbar-text">More</span>
+                </button>
+                
               </div>
-              <span className="text-xs">Message</span>
-            </button>
+            )}
           </div>
 
           
@@ -918,7 +968,7 @@ const setListStyle = (listType) => {
       )}
 
       {activeTab === 'Home' && (
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm responsive-toolbar-gap overflow-hidden">
         {/* Font Family Dropdown */}
         <select 
           value={
@@ -929,7 +979,7 @@ const setListStyle = (listType) => {
                 : 'Inter, system-ui, sans-serif'
           }
           onChange={(e) => setFontFamily(e.target.value)}
-          className={`px-3 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} text-sm min-w-[140px] ${isDark ? 'dark-theme-dropdown' : 'light-theme-dropdown'}`}
+          className={`px-2 py-1 rounded-lg ${colors.glassButton} ${colors.toolbarText} text-sm min-w-[100px] responsive-toolbar-button responsive-toolbar-text ${isDark ? 'dark-theme-dropdown' : 'light-theme-dropdown'}`}
           disabled={!selected || (selected.type !== 'text' && selected.type !== 'table')}
         >
           <option value="Inter, system-ui, sans-serif">Inter</option>
@@ -940,7 +990,7 @@ const setListStyle = (listType) => {
           <option value="Verdana, sans-serif">Verdana</option>
         </select>
         
-        <label className={`${colors.toolbarTextSecondary} text-xs`}>Size</label>
+        <label className={`${colors.toolbarTextSecondary} text-xs responsive-toolbar-text`}>Size</label>
         <input 
           type="number" 
           min="8" 
@@ -948,14 +998,14 @@ const setListStyle = (listType) => {
           step="1" 
           value={selected?.styles?.fontSize ?? 28} 
           onChange={setFontSize} 
-          className={`w-20 px-2 py-1 rounded-lg ${colors.glassButton} ${colors.toolbarText} text-sm`}
+          className={`w-16 px-1 py-1 rounded-lg ${colors.glassButton} ${colors.toolbarText} text-sm responsive-toolbar-button responsive-toolbar-text`}
           disabled={!selected || selected.type !== 'text'} 
         />
         
         {/* Text Color Picker with Bucket Icon */}
-        <label className={`${colors.toolbarTextSecondary} text-xs`}>Text</label>
-        <label className={`relative cursor-pointer inline-flex items-center justify-center w-10 h-10 rounded-lg ${colors.glassButton} hover:${colors.glassButton}`} title="Text Color">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={selected?.styles?.color ?? '#111827'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <label className={`${colors.toolbarTextSecondary} text-xs responsive-toolbar-text`}>Text</label>
+        <label className={`relative cursor-pointer inline-flex items-center justify-center w-8 h-8 rounded-lg ${colors.glassButton} hover:${colors.glassButton} responsive-toolbar-button`} title="Text Color">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={selected?.styles?.color ?? '#111827'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/>
             <path d="m5 2 5 5"/>
             <path d="M2 13h15"/>
@@ -964,44 +1014,44 @@ const setListStyle = (listType) => {
           <input type="color" value={selected?.styles?.color ?? '#111827'} onChange={setColor} className="absolute opacity-0 w-0 h-0" disabled={!selected || selected.type !== 'text'} />
         </label>
         
-          <button onMouseDown={preventToolbarMouseDown} onClick={() => handleInlineStyleToggle('bold', 'bold')} className={btn(inlineFormats.bold)} disabled={!selected || selected.type !== 'text'}>B</button>
-          <button onMouseDown={preventToolbarMouseDown} onClick={() => handleInlineStyleToggle('italic', 'italic')} className={btn(inlineFormats.italic)} disabled={!selected || selected.type !== 'text'}><i>I</i></button>
-          <button onMouseDown={preventToolbarMouseDown} onClick={() => handleInlineStyleToggle('underline', 'underline')} className={btn(inlineFormats.underline)} disabled={!selected || selected.type !== 'text'}><u>U</u></button>
+          <button onMouseDown={preventToolbarMouseDown} onClick={() => handleInlineStyleToggle('bold', 'bold')} className={`${btn(inlineFormats.bold)} responsive-toolbar-button responsive-toolbar-text`} disabled={!selected || selected.type !== 'text'}>B</button>
+          <button onMouseDown={preventToolbarMouseDown} onClick={() => handleInlineStyleToggle('italic', 'italic')} className={`${btn(inlineFormats.italic)} responsive-toolbar-button responsive-toolbar-text`} disabled={!selected || selected.type !== 'text'}><i>I</i></button>
+          <button onMouseDown={preventToolbarMouseDown} onClick={() => handleInlineStyleToggle('underline', 'underline')} className={`${btn(inlineFormats.underline)} responsive-toolbar-button responsive-toolbar-text`} disabled={!selected || selected.type !== 'text'}><u>U</u></button>
         <div className={`h-6 w-px mx-1 ${colors.toolbarTextMuted} opacity-30`} style={{backgroundColor: 'currentColor'}} />
         
         {/*Horizontal Alignment Section */}
-        <div className="flex flex-col items-center gap-1">
-          <span className={`text-[10px] ${colors.toolbarTextMuted} font-medium`}>H-Alignment</span>
-          <div className="flex gap-1">
-            <div className="flex flex-col items-center">
-              <button onMouseDown={preventToolbarMouseDown} onClick={() => setAlign('left')} className={btn(getCurrentAlignment() === 'left')} disabled={!selected || selected.type !== 'text'}>⟸</button>
-              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Left</span>
+        <div className="flex flex-col items-center gap-1 responsive-alignment-section">
+          <span className={`text-[8px] ${colors.toolbarTextMuted} font-medium responsive-alignment-text`}>H-Alignment</span>
+          <div className="flex gap-1 responsive-toolbar-gap">
+            <div className="flex flex-col items-center responsive-alignment-section">
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setAlign('left')} className={`${btn(getCurrentAlignment() === 'left')} responsive-toolbar-button`} disabled={!selected || selected.type !== 'text'}>⟸</button>
+              <span className={`text-[7px] ${colors.toolbarTextMuted} responsive-alignment-text`}>Left</span>
             </div>
-            <div className="flex flex-col items-center">
-              <button onMouseDown={preventToolbarMouseDown} onClick={() => setAlign('center')} className={btn(getCurrentAlignment() === 'center')} disabled={!selected || selected.type !== 'text'}>≡</button>
-              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Center</span>
+            <div className="flex flex-col items-center responsive-alignment-section">
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setAlign('center')} className={`${btn(getCurrentAlignment() === 'center')} responsive-toolbar-button`} disabled={!selected || selected.type !== 'text'}>≡</button>
+              <span className={`text-[7px] ${colors.toolbarTextMuted} responsive-alignment-text`}>Center</span>
             </div>
-            <div className="flex flex-col items-center">
-              <button onMouseDown={preventToolbarMouseDown} onClick={() => setAlign('right')} className={btn(getCurrentAlignment() === 'right')} disabled={!selected || selected.type !== 'text'}>⟹</button>
-              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Right</span>
+            <div className="flex flex-col items-center responsive-alignment-section">
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setAlign('right')} className={`${btn(getCurrentAlignment() === 'right')} responsive-toolbar-button`} disabled={!selected || selected.type !== 'text'}>⟹</button>
+              <span className={`text-[7px] ${colors.toolbarTextMuted} responsive-alignment-text`}>Right</span>
             </div>
           </div>
         </div>
         {/*Vertical Alignment section */}
-        <div className="flex flex-col items-center gap-1">
-          <span className={`text-[10px] ${colors.toolbarTextMuted} font-medium`}>V-Alignment</span>
-          <div className="flex gap-1">
-            <div className="flex flex-col items-center">
-              <button onMouseDown={preventToolbarMouseDown} onClick={() => setVAlign('top')} className={btn(selected?.styles?.valign  === 'top')} disabled={!selected || selected.type !== 'text'}>⤒</button>
-              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Top</span>
+        <div className="flex flex-col items-center gap-1 responsive-alignment-section">
+          <span className={`text-[8px] ${colors.toolbarTextMuted} font-medium responsive-alignment-text`}>V-Alignment</span>
+          <div className="flex gap-1 responsive-toolbar-gap">
+            <div className="flex flex-col items-center responsive-alignment-section">
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setVAlign('top')} className={`${btn(selected?.styles?.valign  === 'top')} responsive-toolbar-button`} disabled={!selected || selected.type !== 'text'}>⤒</button>
+              <span className={`text-[7px] ${colors.toolbarTextMuted} responsive-alignment-text`}>Top</span>
             </div>
-            <div className="flex flex-col items-center">
-              <button onMouseDown={preventToolbarMouseDown} onClick={() => setVAlign('middle')} className={btn(selected?.styles?.valign === 'middle')} disabled={!selected || selected.type !== 'text'}>↕</button>
-              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Middle</span>
+            <div className="flex flex-col items-center responsive-alignment-section">
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setVAlign('middle')} className={`${btn(selected?.styles?.valign === 'middle')} responsive-toolbar-button`} disabled={!selected || selected.type !== 'text'}>↕</button>
+              <span className={`text-[7px] ${colors.toolbarTextMuted} responsive-alignment-text`}>Middle</span>
             </div>
-            <div className="flex flex-col items-center">
-              <button onMouseDown={preventToolbarMouseDown} onClick={() => setVAlign('bottom')} className={btn(selected?.styles?.valign  === 'bottom')} disabled={!selected || selected.type !== 'text'}>⤓</button>
-              <span className={`text-[9px] ${colors.toolbarTextMuted}`}>Bottom</span>
+            <div className="flex flex-col items-center responsive-alignment-section">
+              <button onMouseDown={preventToolbarMouseDown} onClick={() => setVAlign('bottom')} className={`${btn(selected?.styles?.valign  === 'bottom')} responsive-toolbar-button`} disabled={!selected || selected.type !== 'text'}>⤓</button>
+              <span className={`text-[7px] ${colors.toolbarTextMuted} responsive-alignment-text`}>Bottom</span>
             </div>
           </div>
         </div>
@@ -1013,13 +1063,13 @@ const setListStyle = (listType) => {
         </div>
       )}
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2 responsive-toolbar-gap">
         <button 
           onClick={onPresent} 
-          className={`px-4 py-2 rounded-lg ${colors.glassButton} ${colors.toolbarText} font-medium shine-button pulse-glow relative z-10`}
+          className={`px-3 py-1.5 rounded-lg ${colors.glassButton} ${colors.toolbarText} font-medium shine-button pulse-glow relative z-10 responsive-toolbar-button responsive-toolbar-text`}
           title="Start Manual Presentation (F6)"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="mr-2 relative z-20">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="mr-1.5 relative z-20">
             <path d="M15 3l4 6-4 6-1.5-1.5L16 10H4V8h12l-2.5-3.5z"/>
           </svg>
           <span className="relative z-20">Present</span>
@@ -1138,6 +1188,88 @@ const setListStyle = (listType) => {
                   setShowTableGrid(false)
                 }}
                 className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* More Shapes Modal Popup */}
+      {showMoreShapes && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setShowMoreShapes(false)}>
+          <div className="bg-white rounded-lg shadow-xl p-6 w-80" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">Select Shape</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {/* Square */}
+              <button 
+                onClick={() => {
+                  dispatch({ type: 'ADD_ELEMENT', element: factories.square() })
+                  setShowMoreShapes(false)
+                }}
+                className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                title="Square"
+              >
+                <div className="w-8 h-8 rounded-sm" style={{ background: '#fde68a', border: '2px solid #f59e0b' }}></div>
+                <span className="text-sm text-gray-700 font-medium">Square</span>
+              </button>
+
+              {/* Diamond */}
+              <button 
+                onClick={() => {
+                  dispatch({ type: 'ADD_ELEMENT', element: factories.diamond() })
+                  setShowMoreShapes(false)
+                }}
+                className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                title="Diamond"
+              >
+                <div className="w-8 h-8" style={{ 
+                  background: '#d8b4fe', 
+                  border: '2px solid #8b5cf6',
+                  clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+                }}></div>
+                <span className="text-sm text-gray-700 font-medium">Diamond</span>
+              </button>
+
+              {/* Star */}
+              <button 
+                onClick={() => {
+                  dispatch({ type: 'ADD_ELEMENT', element: factories.star() })
+                  setShowMoreShapes(false)
+                }}
+                className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                title="Star"
+              >
+                <div className="w-8 h-8" style={{ 
+                  background: '#fef3c7', 
+                  border: '2px solid #f59e0b',
+                  clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
+                }}></div>
+                <span className="text-sm text-gray-700 font-medium">Star</span>
+              </button>
+
+              {/* Message */}
+              <button 
+                onClick={() => {
+                  dispatch({ type: 'ADD_ELEMENT', element: factories.message() })
+                  setShowMoreShapes(false)
+                }}
+                className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                title="Message"
+              >
+                <div className="w-10 h-6 rounded-lg relative" style={{ background: '#d1fae5', border: '2px solid #10b981' }}>
+                  <div className="absolute bottom-0 left-2 w-0 h-0" style={{ borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '6px solid #10b981' }}></div>
+                </div>
+                <span className="text-sm text-gray-700 font-medium">Message</span>
+              </button>
+            </div>
+            
+            <div className="flex justify-end mt-6">
+              <button 
+                onClick={() => setShowMoreShapes(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >
                 Cancel
               </button>

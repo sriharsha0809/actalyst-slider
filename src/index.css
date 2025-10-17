@@ -128,6 +128,105 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/***** Responsive Breakpoints *****/
+/* Custom responsive styles for screens under 1425px */
+@media (max-width: 1425px) {
+  .responsive-toolbar {
+    gap: 0.25rem; /* Reduced from gap-2 (0.5rem) */
+    padding-left: 0.125rem;
+    padding-right: 0.125rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+  
+  .responsive-toolbar-button {
+    padding-left: 0.25rem; /* Reduced padding */
+    padding-right: 0.25rem;
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
+    font-size: 0.6875rem; /* Smaller font size */
+    min-height: 1.75rem; /* Ensure buttons don't get too small */
+  }
+  
+  .responsive-toolbar-text {
+    font-size: 0.625rem; /* Reduced from text-xs (0.75rem) */
+    line-height: 1.2;
+  }
+  
+  .responsive-toolbar-gap {
+    gap: 0.125rem; /* Minimal gaps between elements */
+  }
+  
+  .responsive-alignment-section {
+    gap: 0.125rem; /* Reduced gap in alignment sections */
+  }
+  
+  .responsive-alignment-text {
+    font-size: 0.5rem; /* Smaller text for alignment labels */
+    line-height: 1.1;
+  }
+  
+  .responsive-sidebar-left {
+    width: 10rem !important; /* Force reduced left sidebar width */
+  }
+  
+  /* Force responsive grid layout */
+  .grid.grid-cols-1.lg\:grid-cols-\[1fr_280px\] {
+    grid-template-columns: 1fr 220px !important;
+    gap: 0.5rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  
+  /* Ensure toolbar content stays within bounds */
+  .responsive-toolbar > * {
+    flex-shrink: 1;
+  }
+  
+  /* Reduce select dropdown width */
+  .responsive-toolbar-button[class*="min-w-"] {
+    min-width: 80px !important;
+  }
+}
+
+/* Additional responsive styles for very narrow screens (Design tab) */
+@media (max-width: 1030px) {
+  /* Design tab specific adjustments */
+  .responsive-toolbar {
+    flex-wrap: nowrap !important;
+    gap: 0.125rem !important;
+  }
+  
+  /* Ensure no wrapping for Design tab elements */
+  .responsive-toolbar .flex.items-center {
+    flex-wrap: nowrap;
+    gap: 0.125rem;
+  }
+  
+  /* Make shape buttons more compact */
+  .responsive-toolbar-button {
+    padding-left: 0.125rem !important;
+    padding-right: 0.125rem !important;
+    min-width: auto !important;
+  }
+  
+  /* Hide "+ New Slide" and "+ Text" labels on very narrow screens */
+  .responsive-toolbar-button:not([title*="Rectangle"]):not([title*="Circle"]):not([title*="Triangle"]):not([title*="More"]) span {
+    display: none;
+  }
+  
+  /* Show only icons for non-shape buttons on narrow screens */
+  .responsive-toolbar-button svg {
+    margin: 0 !important;
+  }
+  
+  /* Keep shape labels visible but smaller */
+  .responsive-toolbar-text {
+    font-size: 0.5rem !important;
+    line-height: 1 !important;
+  }
+}
+
 /***** Utilities *****/
 @layer utilities {
   .scrollbar-thin {

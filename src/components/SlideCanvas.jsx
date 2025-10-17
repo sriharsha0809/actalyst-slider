@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
 import RichTextEditor from './RichTextEditor.jsx'
 
@@ -6,10 +6,50 @@ export default function SlideCanvas() {
   const { state, dispatch } = useSlides()
   const slide = state.slides.find(s => s.id === state.currentSlideId)
   const stageRef = useRef(null)
+  const containerRef = useRef(null)
   const [editingTextId, setEditingTextId] = useState(null)
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 })
+  const [isInitialized, setIsInitialized] = useState(false)
   
   // Store editor ref globally for toolbar access
   window.currentTextEditorRef = useRef(null)
+
+  // Track container dimensions for responsive scaling
+  const updateContainerDimensions = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const newDimensions = { width: rect.width, height: rect.height }
+      
+      setContainerDimensions(prev => {
+        if (Math.abs(prev.width - newDimensions.width) > 1 || Math.abs(prev.height - newDimensions.height) > 1) {
+          return newDimensions
+        }
+        return prev
+      })
+      
+      if (!isInitialized && rect.width > 0 && rect.height > 0) {
+        setIsInitialized(true)
+      }
+    }
+  }, [isInitialized])
+
+  // Listen for container size changes
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(() => {
+      updateContainerDimensions()
+    })
+    
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+    
+    // Initial measurement
+    updateContainerDimensions()
+    
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
 
   // Listen for custom updateElement events from shape components
   React.useEffect(() => {
@@ -44,21 +84,64 @@ export default function SlideCanvas() {
 
   return (
     <div className="w-full h-full flex items-center justify-center" onMouseDown={onMouseDown}>
-<div className="relative aspect-video w-full h-full shadow-lg rounded-[28px]" style={frameStyle}>
-        <div ref={stageRef} className="relative bg-white w-full h-full" style={stageStyle}>
-          {slide?.elements.map((el) => (
-            <ElementBox key={el.id} el={el} selected={state.selectedElementId === el.id} onSelect={() => dispatch({ type: 'SELECT_ELEMENT', id: el.id })} onDelete={() => dispatch({ type: 'DELETE_ELEMENT', id: el.id })} onChange={(patch) => dispatch({ type: 'UPDATE_ELEMENT', id: el.id, patch })} editingTextId={editingTextId} setEditingTextId={setEditingTextId} />
-          ))}
+      <div className="relative aspect-video w-full h-full shadow-lg rounded-[28px]" style={frameStyle}>
+        <div ref={containerRef} className="relative bg-white w-full h-full" style={stageStyle}>
+          <div ref={stageRef} className="absolute inset-0">
+            {isInitialized && slide?.elements.map((el) => (
+              <ElementBox 
+                key={el.id} 
+                el={el} 
+                selected={state.selectedElementId === el.id} 
+                onSelect={() => dispatch({ type: 'SELECT_ELEMENT', id: el.id })} 
+                onDelete={() => dispatch({ type: 'DELETE_ELEMENT', id: el.id })} 
+                onChange={(patch) => dispatch({ type: 'UPDATE_ELEMENT', id: el.id, patch })} 
+                editingTextId={editingTextId} 
+                setEditingTextId={setEditingTextId}
+                containerDimensions={containerDimensions}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId, setEditingTextId }) {
+function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId, setEditingTextId, containerDimensions }) {
   const boxRef = useRef(null)
   const [drag, setDrag] = useState(null)
   const [resize, setResize] = useState(null)
+
+  // Convert element coordinates to responsive values
+  const getResponsiveStyle = useCallback(() => {
+    if (!containerDimensions.width || !containerDimensions.height) {
+      return {
+        left: `${el.x}px`,
+        top: `${el.y}px`,
+        width: `${el.w}px`,
+        height: `${el.h}px`,
+      }
+    }
+
+    // Use reference dimensions (960x540) to calculate proportional scaling
+    const REF_WIDTH = 960
+    const REF_HEIGHT = 540
+    
+    // Calculate scale factors based on current container vs reference
+    const scaleX = containerDimensions.width / REF_WIDTH
+    const scaleY = containerDimensions.height / REF_HEIGHT
+    
+    // Apply uniform scaling (use smaller scale to maintain aspect ratio)
+    const scale = Math.min(scaleX, scaleY)
+    
+    return {
+      left: `${el.x * scale}px`,
+      top: `${el.y * scale}px`,
+      width: `${el.w * scale}px`,
+      height: `${el.h * scale}px`,
+      scale, // Pass scale factor for font scaling
+    }
+  }, [el.x, el.y, el.w, el.h, containerDimensions])
 
   const onMouseDown = (e) => {
     e.stopPropagation()
@@ -68,7 +151,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     const startY = e.clientY
     const offsetX = el.x
     const offsetY = el.y
-    setDrag({ startX, startY, offsetX, offsetY, bounds: rect })
+    setDrag({ startX, startY, offsetX, offsetY, bounds: rect, containerDimensions })
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
   }
@@ -76,8 +159,26 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   const onMouseMove = (e) => {
     setDrag((d) => {
       if (!d) return null
-      const nx = Math.max(0, Math.min(d.bounds.width - el.w, d.offsetX + (e.clientX - d.startX)))
-      const ny = Math.max(0, Math.min(d.bounds.height - el.h, d.offsetY + (e.clientY - d.startY)))
+      
+      // Calculate movement in pixels
+      const deltaX = e.clientX - d.startX
+      const deltaY = e.clientY - d.startY
+      
+      // Calculate scale factor to convert screen pixels to logical coordinates
+      const REF_WIDTH = 960
+      const REF_HEIGHT = 540
+      const scaleX = d.containerDimensions.width / REF_WIDTH
+      const scaleY = d.containerDimensions.height / REF_HEIGHT
+      const scale = Math.min(scaleX, scaleY)
+      
+      // Convert pixel movement back to logical coordinates
+      const logicalDeltaX = deltaX / scale
+      const logicalDeltaY = deltaY / scale
+      
+      // Calculate new position in logical coordinates
+      const nx = Math.max(0, Math.min(REF_WIDTH - el.w, d.offsetX + logicalDeltaX))
+      const ny = Math.max(0, Math.min(REF_HEIGHT - el.h, d.offsetY + logicalDeltaY))
+      
       onChange({ x: nx, y: ny })
       return { ...d }
     })
@@ -103,12 +204,29 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     setResize((r) => {
       if (!r) return null
       let { x, y, w, h } = r.start
-      const dx = e.clientX - r.startX
-      const dy = e.clientY - r.startY
-      if (r.dir.includes('e')) w = Math.max(40, r.start.w + dx)
-      if (r.dir.includes('s')) h = Math.max(40, r.start.h + dy)
-      if (r.dir.includes('w')) { w = Math.max(40, r.start.w - dx); x = r.start.x + dx }
-      if (r.dir.includes('n')) { h = Math.max(40, r.start.h - dy); y = r.start.y + dy }
+      
+      // Calculate scale factor to convert screen pixels to logical coordinates
+      const REF_WIDTH = 960
+      const REF_HEIGHT = 540
+      const scaleX = containerDimensions.width / REF_WIDTH
+      const scaleY = containerDimensions.height / REF_HEIGHT
+      const scale = Math.min(scaleX, scaleY)
+      
+      // Convert pixel deltas to logical coordinates
+      const logicalDx = (e.clientX - r.startX) / scale
+      const logicalDy = (e.clientY - r.startY) / scale
+      
+      if (r.dir.includes('e')) w = Math.max(40, r.start.w + logicalDx)
+      if (r.dir.includes('s')) h = Math.max(40, r.start.h + logicalDy)
+      if (r.dir.includes('w')) { 
+        w = Math.max(40, r.start.w - logicalDx); 
+        x = r.start.x + logicalDx 
+      }
+      if (r.dir.includes('n')) { 
+        h = Math.max(40, r.start.h - logicalDy); 
+        y = r.start.y + logicalDy 
+      }
+      
       onChange({ x, y, w, h })
       return { ...r }
     })
@@ -125,12 +243,11 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   }
   const stopEditing = () => setEditingTextId(null)
 
+  const responsiveCoords = getResponsiveStyle()
+  
   const boxStyle = {
     position: 'absolute',
-    left: el.x,
-    top: el.y,
-    width: el.w,
-    height: el.h,
+    ...responsiveCoords,
     transform: `rotate(${el.rotation}deg)`,
     cursor: selected ? 'move' : 'pointer',
     border: el.borderWidth ? `${el.borderWidth}px solid ${el.borderColor || '#000000'}` : undefined,
@@ -144,13 +261,13 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
     >
-      {renderElement(el, { editing: editingTextId === el.id, onChange, stopEditing })}
+      {renderElement(el, { editing: editingTextId === el.id, onChange, stopEditing, scale: responsiveCoords.scale || 1 })}
 
-      {selected && (
+          {selected && (
         <>
           {['n','e','s','w','ne','nw','se','sw'].map(dir => (
             <div key={dir} onMouseDown={(e)=>startResize(e, dir)} className={`absolute bg-white border border-brand-500 rounded-full w-3 h-3 -translate-x-1/2 -translate-y-1/2`}
-              style={handleStyle(dir, el.w, el.h)}
+              style={handleStyle(dir, el.w, el.h, containerDimensions)}
             />
           ))}
 
@@ -162,42 +279,53 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   )
 }
 
-function handleStyle(dir, w, h) {
+function handleStyle(dir, w, h, containerDimensions) {
+  // Calculate the actual rendered dimensions
+  const REF_WIDTH = 960
+  const REF_HEIGHT = 540
+  const scaleX = containerDimensions.width / REF_WIDTH
+  const scaleY = containerDimensions.height / REF_HEIGHT
+  const scale = Math.min(scaleX, scaleY)
+  
+  const scaledW = w * scale
+  const scaledH = h * scale
+  
   const pos = {
-    n: { left: w/2, top: 0 },
-    s: { left: w/2, top: h },
-    e: { left: w, top: h/2 },
-    w: { left: 0, top: h/2 },
-    ne: { left: w, top: 0 },
+    n: { left: scaledW/2, top: 0 },
+    s: { left: scaledW/2, top: scaledH },
+    e: { left: scaledW, top: scaledH/2 },
+    w: { left: 0, top: scaledH/2 },
+    ne: { left: scaledW, top: 0 },
     nw: { left: 0, top: 0 },
-    se: { left: w, top: h },
-    sw: { left: 0, top: h },
+    se: { left: scaledW, top: scaledH },
+    sw: { left: 0, top: scaledH },
   }
   return pos[dir]
 }
 
 function renderElement(el, opts={}) {
+  const scale = opts.scale || 1
   switch (el.type) {
     case 'text':
-      return <EditableText el={el} editing={opts.editing} onChange={opts.onChange} stopEditing={opts.stopEditing} />
+      return <EditableText el={el} editing={opts.editing} onChange={opts.onChange} stopEditing={opts.stopEditing} scale={scale} />
     case 'table':
-      return <TableElement el={el} editing={opts.editing} onChange={opts.onChange} stopEditing={opts.stopEditing} />
+      return <TableElement el={el} editing={opts.editing} onChange={opts.onChange} stopEditing={opts.stopEditing} scale={scale} />
     case 'chart':
-      return <ChartElement el={el} />
+      return <ChartElement el={el} scale={scale} />
     case 'rect':
-      return <ShapeWithText el={el} shapeClass="rounded-md" />
+      return <ShapeWithText el={el} shapeClass="rounded-md" scale={scale} />
     case 'square':
-      return <ShapeWithText el={el} shapeClass="rounded-md" />
+      return <ShapeWithText el={el} shapeClass="rounded-md" scale={scale} />
     case 'circle':
-      return <ShapeWithText el={el} shapeClass="rounded-full" />
+      return <ShapeWithText el={el} shapeClass="rounded-full" scale={scale} />
     case 'triangle':
-      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 0% 100%, 100% 100%)" />
+      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 0% 100%, 100% 100%)" scale={scale} />
     case 'diamond':
-      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" />
+      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" scale={scale} />
     case 'star':
-      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" />
+      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" scale={scale} />
     case 'message':
-      return <MessageShape el={el} />
+      return <MessageShape el={el} scale={scale} />
     case 'image':
       return <img src={el.src} alt="" className="w-full h-full object-contain pointer-events-none" draggable={false} />
     default:
@@ -205,7 +333,7 @@ function renderElement(el, opts={}) {
   }
 }
 
-function ShapeWithText({ el, shapeClass, clipPath }) {
+function ShapeWithText({ el, shapeClass, clipPath, scale = 1 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [text, setText] = useState(el.text || '')
   const inputRef = useRef(null)
@@ -269,7 +397,7 @@ function ShapeWithText({ el, shapeClass, clipPath }) {
           className="w-full h-full resize-none outline-none bg-transparent text-center p-2"
           style={{
             color: el.textColor,
-            fontSize: el.fontSize,
+            fontSize: `${el.fontSize * scale}px`,
             fontFamily: 'Inter, system-ui, sans-serif'
           }}
         />
@@ -278,7 +406,7 @@ function ShapeWithText({ el, shapeClass, clipPath }) {
           className="w-full h-full flex items-center justify-center p-2 cursor-pointer"
           style={{
             color: el.textColor,
-            fontSize: el.fontSize,
+            fontSize: `${el.fontSize * scale}px`,
             fontFamily: 'Inter, system-ui, sans-serif',
             wordWrap: 'break-word',
             textAlign: 'center'
@@ -291,7 +419,7 @@ function ShapeWithText({ el, shapeClass, clipPath }) {
   )
 }
 
-function MessageShape({ el }) {
+function MessageShape({ el, scale = 1 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [text, setText] = useState(el.text || 'Message')
   const inputRef = useRef(null)
@@ -355,7 +483,7 @@ function MessageShape({ el }) {
             className="w-full h-full resize-none outline-none bg-transparent p-2"
             style={{
               color: el.textColor,
-              fontSize: el.fontSize,
+              fontSize: `${el.fontSize * scale}px`,
               fontFamily: 'Inter, system-ui, sans-serif'
             }}
           />
@@ -364,7 +492,7 @@ function MessageShape({ el }) {
             className="w-full h-full flex items-center justify-center p-2 cursor-pointer"
             style={{
               color: el.textColor,
-              fontSize: el.fontSize,
+              fontSize: `${el.fontSize * scale}px`,
               fontFamily: 'Inter, system-ui, sans-serif',
               wordWrap: 'break-word',
               textAlign: 'center'
@@ -395,7 +523,7 @@ function MessageShape({ el }) {
   )
 }
 
-function ChartElement({ el }) {
+function ChartElement({ el, scale = 1 }) {
   const { chartType, data, labels, colors } = el
   const [hoveredIndex, setHoveredIndex] = useState(null)
   
@@ -446,7 +574,12 @@ function ChartElement({ el }) {
         {/* X-axis labels */}
         <div className="flex justify-around border-t border-gray-300 pt-2 mt-2 h-8">
           {labels.map((label, index) => (
-            <span key={index} className="text-[10px] text-gray-600 text-center flex-1 truncate" title={label}>
+            <span 
+              key={index} 
+              className="text-gray-600 text-center flex-1 truncate" 
+              style={{ fontSize: `${10 * scale}px` }}
+              title={label}
+            >
               {label}
             </span>
           ))}
@@ -495,7 +628,13 @@ function ChartElement({ el }) {
         </svg>
         <div className="flex justify-between border-t border-gray-300 pt-2 mt-2">
           {labels.map((label, index) => (
-            <span key={index} className="text-[10px] text-gray-600 truncate">{label}</span>
+            <span 
+              key={index} 
+              className="text-gray-600 truncate" 
+              style={{ fontSize: `${10 * scale}px` }}
+            >
+              {label}
+            </span>
           ))}
         </div>
         
@@ -550,12 +689,17 @@ function ChartElement({ el }) {
         
         <div className="flex flex-col gap-1">
           {data.map((value, index) => (
-            <div key={index} className="flex items-center gap-2 text-[10px]">
+            <div key={index} className="flex items-center gap-2">
               <div 
                 className="w-3 h-3 rounded-sm" 
                 style={{ backgroundColor: colors[index % colors.length] }}
               />
-              <span className="text-gray-700">{labels[index]}: {value}</span>
+              <span 
+                className="text-gray-700" 
+                style={{ fontSize: `${10 * scale}px` }}
+              >
+                {labels[index]}: {value}
+              </span>
             </div>
           ))}
         </div>
@@ -573,7 +717,7 @@ function ChartElement({ el }) {
   return null
 }
 
-function TableElement({ el, editing, onChange, stopEditing }) {
+function TableElement({ el, editing, onChange, stopEditing, scale = 1 }) {
   const [editingCellIndex, setEditingCellIndex] = useState(null)
   
   const cellWidth = el.w / el.cols
@@ -615,7 +759,7 @@ function TableElement({ el, editing, onChange, stopEditing }) {
                 onBlur={() => setEditingCellIndex(null)}
                 className="w-full h-full resize-none outline-none p-2"
                 style={{
-                  fontSize: cell.styles.fontSize,
+                  fontSize: `${cell.styles.fontSize * scale}px`,
                   fontFamily: cell.styles.fontFamily,
                   color: cell.styles.color,
                   fontWeight: cell.styles.bold ? 700 : 400,
@@ -631,7 +775,7 @@ function TableElement({ el, editing, onChange, stopEditing }) {
               <div
                 className="w-full h-full p-2 select-none"
                 style={{
-                  fontSize: cell.styles.fontSize,
+                  fontSize: `${cell.styles.fontSize * scale}px`,
                   fontFamily: cell.styles.fontFamily,
                   color: cell.styles.color,
                   fontWeight: cell.styles.bold ? 700 : 400,
@@ -654,7 +798,7 @@ function TableElement({ el, editing, onChange, stopEditing }) {
   )
 }
 
-function EditableText({ el, editing, onChange, stopEditing }) {
+function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
   const [val, setVal] = useState(el.text)
   const inputRef = useRef(null)
 
@@ -743,7 +887,7 @@ function EditableText({ el, editing, onChange, stopEditing }) {
           style={{ 
             backgroundColor: bgColor, 
             fontFamily: el.styles.fontFamily, 
-            fontSize: el.styles.fontSize, 
+            fontSize: `${el.styles.fontSize * scale}px`, 
             textAlign: el.styles.align || 'left', 
             whiteSpace: 'pre-wrap',
             display: 'flex',
@@ -761,7 +905,7 @@ function EditableText({ el, editing, onChange, stopEditing }) {
         backgroundColor: bgColor, 
         fontFamily: el.styles.fontFamily, 
         color: el.styles.color, 
-        fontSize: el.styles.fontSize, 
+        fontSize: `${el.styles.fontSize * scale}px`, 
         fontWeight: el.styles.bold ? 700 : 400, 
         fontStyle: el.styles.italic ? 'italic' : 'normal', 
         textDecoration: el.styles.underline ? 'underline' : 'none', 
@@ -783,7 +927,7 @@ function EditableText({ el, editing, onChange, stopEditing }) {
         backgroundColor: bgColor, 
         fontFamily: el.styles.fontFamily, 
         color: el.styles.color, 
-        fontSize: el.styles.fontSize, 
+        fontSize: `${el.styles.fontSize * scale}px`, 
         fontWeight: el.styles.bold ? 700 : 400, 
         fontStyle: el.styles.italic ? 'italic' : 'normal', 
         textDecoration: el.styles.underline ? 'underline' : 'none', 

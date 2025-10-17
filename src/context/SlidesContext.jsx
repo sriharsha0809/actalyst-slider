@@ -3,7 +3,11 @@ import { nanoid } from '../utils/nanoid.js'
 
 const SlidesContext = createContext(null)
 
-const defaultText = (text = 'Double-click to edit', x = 80, y = 80, w = 320, h = 80, fontSize = 28, bgColor = 'transparent') => ({
+// Standard reference dimensions for proportional scaling (16:9 aspect ratio)
+const REF_WIDTH = 960
+const REF_HEIGHT = 540
+
+const defaultText = (text = 'Double-click to edit', x = REF_WIDTH * 0.083, y = REF_HEIGHT * 0.148, w = REF_WIDTH * 0.33, h = REF_HEIGHT * 0.148, fontSize = 28, bgColor = 'transparent') => ({
   id: nanoid(),
   type: 'text',
   x,
@@ -253,14 +257,114 @@ export function useSlides() {
 
 export const factories = {
   text: defaultText,
-  rect: () => ({ id: nanoid(), type: 'rect', x: 100, y: 100, w: 200, h: 120, rotation: 0, fill: '#fde68a', stroke: '#f59e0b', text: '', textColor: '#111827', fontSize: 16 }),
-  square: () => ({ id: nanoid(), type: 'square', x: 100, y: 100, w: 150, h: 150, rotation: 0, fill: '#fde68a', stroke: '#f59e0b', text: '', textColor: '#111827', fontSize: 16 }),
-  circle: () => ({ id: nanoid(), type: 'circle', x: 140, y: 140, w: 160, h: 160, rotation: 0, fill: '#bfdbfe', stroke: '#3b82f6', text: '', textColor: '#111827', fontSize: 16 }),
-  triangle: () => ({ id: nanoid(), type: 'triangle', x: 100, y: 100, w: 150, h: 150, rotation: 0, fill: '#fecaca', stroke: '#ef4444', text: '', textColor: '#111827', fontSize: 16 }),
-  diamond: () => ({ id: nanoid(), type: 'diamond', x: 100, y: 100, w: 150, h: 150, rotation: 0, fill: '#d8b4fe', stroke: '#8b5cf6', text: '', textColor: '#111827', fontSize: 16 }),
-  star: () => ({ id: nanoid(), type: 'star', x: 100, y: 100, w: 150, h: 150, rotation: 0, fill: '#fef3c7', stroke: '#f59e0b', text: '', textColor: '#111827', fontSize: 16 }),
-  message: () => ({ id: nanoid(), type: 'message', x: 180, y: 180, w: 200, h: 80, rotation: 0, fill: '#d1fae5', stroke: '#10b981', text: 'Message', textColor: '#111827', fontSize: 14 }),
-  image: (src, w=320, h=240) => ({ id: nanoid(), type: 'image', x: 120, y: 120, w, h, rotation: 0, src }),
+  rect: () => ({ 
+    id: nanoid(), 
+    type: 'rect', 
+    x: REF_WIDTH * 0.1, 
+    y: REF_HEIGHT * 0.18, 
+    w: REF_WIDTH * 0.21, 
+    h: REF_HEIGHT * 0.22, 
+    rotation: 0, 
+    fill: '#fde68a', 
+    stroke: '#f59e0b', 
+    text: '', 
+    textColor: '#111827', 
+    fontSize: 16 
+  }),
+  square: () => ({ 
+    id: nanoid(), 
+    type: 'square', 
+    x: REF_WIDTH * 0.1, 
+    y: REF_HEIGHT * 0.18, 
+    w: REF_WIDTH * 0.16, 
+    h: REF_HEIGHT * 0.28, 
+    rotation: 0, 
+    fill: '#fde68a', 
+    stroke: '#f59e0b', 
+    text: '', 
+    textColor: '#111827', 
+    fontSize: 16 
+  }),
+  circle: () => ({ 
+    id: nanoid(), 
+    type: 'circle', 
+    x: REF_WIDTH * 0.15, 
+    y: REF_HEIGHT * 0.26, 
+    w: REF_WIDTH * 0.17, 
+    h: REF_HEIGHT * 0.3, 
+    rotation: 0, 
+    fill: '#bfdbfe', 
+    stroke: '#3b82f6', 
+    text: '', 
+    textColor: '#111827', 
+    fontSize: 16 
+  }),
+  triangle: () => ({ 
+    id: nanoid(), 
+    type: 'triangle', 
+    x: REF_WIDTH * 0.1, 
+    y: REF_HEIGHT * 0.18, 
+    w: REF_WIDTH * 0.16, 
+    h: REF_HEIGHT * 0.28, 
+    rotation: 0, 
+    fill: '#fecaca', 
+    stroke: '#ef4444', 
+    text: '', 
+    textColor: '#111827', 
+    fontSize: 16 
+  }),
+  diamond: () => ({ 
+    id: nanoid(), 
+    type: 'diamond', 
+    x: REF_WIDTH * 0.1, 
+    y: REF_HEIGHT * 0.18, 
+    w: REF_WIDTH * 0.16, 
+    h: REF_HEIGHT * 0.28, 
+    rotation: 0, 
+    fill: '#d8b4fe', 
+    stroke: '#8b5cf6', 
+    text: '', 
+    textColor: '#111827', 
+    fontSize: 16 
+  }),
+  star: () => ({ 
+    id: nanoid(), 
+    type: 'star', 
+    x: REF_WIDTH * 0.1, 
+    y: REF_HEIGHT * 0.18, 
+    w: REF_WIDTH * 0.16, 
+    h: REF_HEIGHT * 0.28, 
+    rotation: 0, 
+    fill: '#fef3c7', 
+    stroke: '#f59e0b', 
+    text: '', 
+    textColor: '#111827', 
+    fontSize: 16 
+  }),
+  message: () => ({ 
+    id: nanoid(), 
+    type: 'message', 
+    x: REF_WIDTH * 0.19, 
+    y: REF_HEIGHT * 0.33, 
+    w: REF_WIDTH * 0.21, 
+    h: REF_HEIGHT * 0.15, 
+    rotation: 0, 
+    fill: '#d1fae5', 
+    stroke: '#10b981', 
+    text: 'Message', 
+    textColor: '#111827', 
+    fontSize: 14 
+  }),
+  image: (src, w=REF_WIDTH * 0.33, h=REF_HEIGHT * 0.44) => ({ 
+    id: nanoid(), 
+    type: 'image', 
+    x: REF_WIDTH * 0.125, 
+    y: REF_HEIGHT * 0.22, 
+    w, 
+    h, 
+    rotation: 0, 
+    src 
+  }),
   table: (rows, cols, x, y, w, h) => ({
     id: nanoid(),
     type: 'table',
