@@ -25,26 +25,10 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
 
   // Separate useEffect to handle alignment changes
   useEffect(() => {
-    if (editorRef.current && el.styles?.align) {
-      editorRef.current.style.textAlign = el.styles.align
-      // Ensure alignment persists during editing
-      const handleAlignmentMaintenance = () => {
-        if (editorRef.current && el.styles?.align) {
-          editorRef.current.style.textAlign = el.styles.align
-        }
-      }
-      
-      // Re-apply alignment on input to ensure persistence
-      const currentEditor = editorRef.current
-      currentEditor?.addEventListener('input', handleAlignmentMaintenance)
-      currentEditor?.addEventListener('keydown', handleAlignmentMaintenance)
-      currentEditor?.addEventListener('paste', handleAlignmentMaintenance)
-      
-      return () => {
-        currentEditor?.removeEventListener('input', handleAlignmentMaintenance)
-        currentEditor?.removeEventListener('keydown', handleAlignmentMaintenance)
-        currentEditor?.removeEventListener('paste', handleAlignmentMaintenance)
-      }
+    if (editorRef.current) {
+      // Apply alignment from element styles, default to 'left'
+      const align = el.styles?.align || 'left'
+      editorRef.current.style.textAlign = align
     }
   }, [el.styles?.align])
 
@@ -375,6 +359,9 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     editorNode: editorRef.current,
     focus: () => {
       editorRef.current?.focus()
+    },
+    emitChange: () => {
+      emitChange()
     },
   }))
 

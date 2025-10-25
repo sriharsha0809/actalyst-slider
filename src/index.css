@@ -227,6 +227,118 @@
   }
 }
 
+/***** Rich Text Content Formatting *****/
+.rich-text-content {
+  /* Ensure formatting tags are properly displayed */
+}
+
+.rich-text-content b,
+.rich-text-content strong {
+  font-weight: bold !important;
+}
+
+.rich-text-content i,
+.rich-text-content em {
+  font-style: italic !important;
+}
+
+.rich-text-content u {
+  text-decoration: underline !important;
+}
+
+.rich-text-content span {
+  /* Preserve inline formatting */
+}
+
+.rich-text-content span[style*="font-weight"] {
+  /* Force font-weight styles to be preserved */
+}
+
+.rich-text-content span[style*="font-style"] {
+  /* Force font-style styles to be preserved */
+}
+
+.rich-text-content span[style*="text-decoration"] {
+  /* Force text-decoration styles to be preserved */
+}
+
+/***** Text Editor Alignment Persistence *****/
+[contenteditable="true"] {
+  /* Ensure text alignment is inherited by all child elements during editing */
+  direction: ltr !important; /* Force left-to-right text direction */
+  writing-mode: horizontal-tb !important; /* Horizontal top-to-bottom writing */
+  unicode-bidi: normal !important; /* Normal Unicode bidirectional algorithm */
+}
+
+[contenteditable="true"][style*="text-align: left"] * {
+  text-align: left !important;
+}
+
+[contenteditable="true"][style*="text-align: center"] * {
+  text-align: center !important;
+}
+
+[contenteditable="true"][style*="text-align: right"] * {
+  text-align: right !important;
+}
+
+[contenteditable="true"][style*="text-align: justify"] * {
+  text-align: justify !important;
+}
+
+/* Force alignment inheritance for specific formatting elements */
+[contenteditable="true"] b,
+[contenteditable="true"] strong,
+[contenteditable="true"] i,
+[contenteditable="true"] em,
+[contenteditable="true"] u,
+[contenteditable="true"] span {
+  text-align: inherit !important;
+  display: inline !important;
+}
+
+/* Prevent div and p elements from creating unwanted line breaks */
+[contenteditable="true"] div,
+[contenteditable="true"] p {
+  display: inline !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: inherit !important;
+}
+
+/* Ensure br elements work properly for intentional line breaks */
+[contenteditable="true"] br {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: normal !important;
+}
+
+/* Prevent unwanted margins and padding on formatting elements */
+[contenteditable="true"] * {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/***** General Text Direction Rules *****/
+/* Ensure all text elements have proper left-to-right direction */
+.rich-text-content,
+[contenteditable],
+textarea,
+input[type="text"],
+.text-element {
+  direction: ltr !important;
+  writing-mode: horizontal-tb !important;
+  unicode-bidi: normal !important;
+}
+
+/* Force LTR for all text containers */
+.slide-canvas .text-box,
+.slide-canvas [contenteditable] {
+  direction: ltr !important;
+  text-align: left; /* Default alignment */
+}
+
 /***** Utilities *****/
 @layer utilities {
   .scrollbar-thin {

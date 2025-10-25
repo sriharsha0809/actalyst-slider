@@ -228,34 +228,27 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent, onSlide
   const setAlign = (align) => {
     if (!selected || selected.type !== 'text') return
 
-    // Update the element styles directly
+    // Update the element styles directly - this is the source of truth
     const styles = { ...selected.styles, align }
     dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles } })
     
-    // If there's an active rich text editor, also apply the alignment to it
+    // If there's an active rich text editor, apply the alignment to the editor immediately
     const editorHandle = getActiveEditorHandle()
     if (editorHandle && editorHandle.editorNode) {
-      setTimeout(() => {
-        editorHandle.editorNode.style.textAlign = align
-        // Also try execCommand for any selected content
-        const selection = window.getSelection()
-        if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-          try {
-            if (align === 'left') {
-              document.execCommand('justifyLeft', false, null)
-            } else if (align === 'center') {
-              document.execCommand('justifyCenter', false, null)
-            } else if (align === 'right') {
-              document.execCommand('justifyRight', false, null)
-            } else if (align === 'justify') {
-              document.execCommand('justifyFull', false, null)
-            }
-          } catch (error) {
-            console.warn('ExecCommand alignment failed:', error)
-          }
-        }
-        editorHandle.editorNode.focus()
-      }, 10)
+      const editorNode = editorHandle.editorNode
+      
+      // Apply the alignment style directly to the editor
+      editorNode.style.textAlign = align
+      
+      // Focus the editor to ensure the change is visible
+      editorNode.focus()
+      
+      // Trigger a change event to save the content with the new alignment
+      if (typeof editorHandle.emitChange === 'function') {
+        setTimeout(() => {
+          editorHandle.emitChange()
+        }, 0)
+      }
     }
   }
   const setVAlign = (valign /* 'top' | 'middle' | 'bottom' */) => {

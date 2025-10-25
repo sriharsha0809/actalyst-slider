@@ -212,6 +212,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       const scaleX = containerDimensions.width / REF_WIDTH
       const scaleY = containerDimensions.height / REF_HEIGHT
       const scale = Math.min(scaleX, scaleY)
+      const MARGIN=50 
       
       // Convert pixel deltas to logical coordinates
       const logicalDx = (e.clientX - r.startX) / scale
@@ -906,6 +907,16 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
   if (!editing) {
     // If HTML content exists, render it
     if (el.html) {
+      const align = el.styles.align || 'left'
+      const getHorizontalAlignment = () => {
+        switch (align) {
+          case 'center': return 'center'
+          case 'right': return 'flex-end'
+          case 'justify': return 'space-between'
+          default: return 'flex-start'
+        }
+      }
+      
       return (
         <div 
           className="w-full h-full select-none p-2" 
@@ -913,11 +924,11 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
             backgroundColor: bgColor, 
             fontFamily: el.styles.fontFamily, 
             fontSize: `${el.styles.fontSize * scale}px`, 
-            textAlign: el.styles.align || 'left', 
             whiteSpace: 'nowrap', // Keep text in single line
             overflow: 'hidden', // Hide overflow
             textOverflow: 'ellipsis', // Add ellipsis for long text
             display: 'flex',
+            justifyContent: getHorizontalAlignment(),
             alignItems: el.styles?.valign === 'middle' ? 'center' : 
                         el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
           }}
@@ -927,6 +938,16 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
     }
     
     // Otherwise render plain text with list formatting
+    const align = el.styles.align || 'left'
+    const getHorizontalAlignment = () => {
+      switch (align) {
+        case 'center': return 'center'
+        case 'right': return 'flex-end'
+        case 'justify': return 'space-between'
+        default: return 'flex-start'
+      }
+    }
+    
     return (
       <div className="w-full h-full select-none p-2" style={{ 
         backgroundColor: bgColor, 
@@ -936,11 +957,11 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
         fontWeight: el.styles.bold ? 700 : 400, 
         fontStyle: el.styles.italic ? 'italic' : 'normal', 
         textDecoration: el.styles.underline ? 'underline' : 'none', 
-        textAlign: el.styles.align || 'left', 
         whiteSpace: 'nowrap', // Keep text in single line like before editing
         overflow: 'hidden', // Hide overflow to prevent text from spilling out
         textOverflow: 'ellipsis', // Add ellipsis for long text
         display: 'flex',
+        justifyContent: getHorizontalAlignment(),
         alignItems: el.styles?.valign === 'middle' ? 'center' : 
                     el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
       }}>

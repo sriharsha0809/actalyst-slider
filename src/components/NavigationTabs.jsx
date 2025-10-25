@@ -5,6 +5,16 @@ export default function NavigationTabs({ activeTab, onTabChange, fileName = 'Unt
   const { theme, toggleTheme, getThemeColors } = useTheme()
   const colors = getThemeColors()
   const tabs = ['File', 'Home', 'Insert', 'Design']
+  const [isThemeChanging, setIsThemeChanging] = useState(false)
+
+  const handleThemeToggle = () => {
+    setIsThemeChanging(true)
+    toggleTheme()
+    // Reset animation after transition completes
+    setTimeout(() => {
+      setIsThemeChanging(false)
+    }, 500)
+  }
 
   const activeTabStyle = {
     background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.12))',
@@ -65,8 +75,10 @@ export default function NavigationTabs({ activeTab, onTabChange, fileName = 'Unt
         {/* Theme Toggle */}
         <div className="animate-slideInRight" style={{animationDelay: '0.3s'}}>
           <button
-            onClick={toggleTheme}
-            className={`p-3 rounded-full ${colors.toolbarText} hover:bg-white/20 transition-all duration-300 transform hover:scale-110 hover:rotate-180`}
+            onClick={handleThemeToggle}
+            className={`p-3 rounded-full ${colors.toolbarText} transition-all duration-500 transform ${
+              isThemeChanging ? 'scale-110 rotate-180' : 'scale-100 rotate-0'
+            }`}
             title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
           >
             {theme === 'light' ? (
