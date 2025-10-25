@@ -239,6 +239,10 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent, onSlide
       
       // Apply the alignment style directly to the editor
       editorNode.style.textAlign = align
+      // Also set flex horizontal alignment so it visibly moves while editing
+      const jc = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
+      editorNode.style.display = 'flex'
+      editorNode.style.justifyContent = jc
       
       // Focus the editor to ensure the change is visible
       editorNode.focus()

@@ -29,6 +29,9 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
       // Apply alignment from element styles, default to 'left'
       const align = el.styles?.align || 'left'
       editorRef.current.style.textAlign = align
+      // Since the editor is a flex container, also set justifyContent to visually align text
+      const jc = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
+      editorRef.current.style.justifyContent = jc
     }
   }, [el.styles?.align])
 
@@ -650,6 +653,8 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
           whiteSpace: 'nowrap', // Match display mode - single line
           overflow: 'hidden', // Hide overflow
           display: 'flex',
+          // Use flexbox horizontal alignment to reflect align while editing
+          justifyContent: (el.styles.align === 'center') ? 'center' : (el.styles.align === 'right') ? 'flex-end' : 'flex-start',
           alignItems: el.styles.valign === 'middle' ? 'center' : 
                     el.styles.valign === 'bottom' ? 'flex-end' : 'flex-start'
         }}
