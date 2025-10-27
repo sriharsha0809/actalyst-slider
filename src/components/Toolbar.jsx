@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useSlides, factories } from '../context/SlidesContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 
@@ -32,6 +33,9 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent, onSlide
   const [tableCols, setTableCols] = useState(3)
   const [hoverRows, setHoverRows] = useState(1)
   const [hoverCols, setHoverCols] = useState(1)
+  const tableBtnRef = useRef(null)
+  const tableGridRef = useRef(null)
+  const [tableGridPos, setTableGridPos] = useState({ top: 0, left: 0 })
   const [showChartDialog, setShowChartDialog] = useState(false)
   const [chartType, setChartType] = useState('bar')
   const [inlineFormats, setInlineFormats] = useState({ bold: false, italic: false, underline: false })
@@ -513,6 +517,8 @@ const setListStyle = (listType) => {
     // Create table as a single element
     const table = factories.table(rows, cols, tableX, tableY, tableWidth, tableHeight)
     dispatch({ type: 'ADD_ELEMENT', element: table })
+    // Immediately select the new table for clarity
+    dispatch({ type: 'SELECT_ELEMENT', id: table.id })
     
     setShowTableGrid(false)
     setShowTableDialog(false)
@@ -523,6 +529,31 @@ const setListStyle = (listType) => {
     dispatch({ type: 'ADD_ELEMENT', element: chart })
     setShowChartDialog(false)
   }
+
+  useEffect(() => {
+    const onWindowEvents = () => {
+      if (!showTableGrid) return
+      const rect = tableBtnRef.current?.getBoundingClientRect()
+      if (rect) setTableGridPos({ top: rect.bottom + 8, left: rect.left })
+    }
+    const onDocMouseDown = (e) => {
+      if (!showTableGrid) return
+      const btn = tableBtnRef.current
+      const grid = tableGridRef.current
+      const inBtn = btn && (btn === e.target || btn.contains(e.target))
+      const inGrid = grid && (grid === e.target || grid.contains(e.target))
+      if (inBtn || inGrid) return
+      setShowTableGrid(false)
+    }
+    window.addEventListener('resize', onWindowEvents)
+    window.addEventListener('scroll', onWindowEvents, true)
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => {
+      window.removeEventListener('resize', onWindowEvents)
+      window.removeEventListener('scroll', onWindowEvents, true)
+      document.removeEventListener('mousedown', onDocMouseDown)
+    }
+  }, [showTableGrid])
 
   return (
     <div className={`w-full border-b px-1 py-1 flex items-center gap-2 sticky top-0 z-10 transition-all duration-500 ${colors.border} animate-slideInDown responsive-toolbar overflow-hidden`} style={{background: colors.toolbarBg, minHeight: '60px',maxHeight: '86px',height:'86px'}}>
@@ -603,7 +634,14 @@ const setListStyle = (listType) => {
           {/* Table Button */}
           <div className="relative">
             <button 
-              onClick={() => setShowTableGrid(!showTableGrid)}
+              ref={tableBtnRef}
+              onClick={() => {
+                const rect = tableBtnRef.current?.getBoundingClientRect()
+                if (rect) {
+                  setTableGridPos({ top: rect.bottom + 8, left: rect.left })
+                }
+                setShowTableGrid((s) => !s)
+              }}
               className={elementBtn('table')}
             >
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -615,52 +653,58 @@ const setListStyle = (listType) => {
               </svg>
               <span className="text-xs">Table</span>
             </button>
-            
-            {/* Table Grid Selector */}
-            {showTableGrid && (
-              <div className="absolute top-full left-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-xl p-4 z-50" onClick={(e) => e.stopPropagation()}>
-                <div className="text-sm font-semibold mb-3">Insert Table</div>
-                <div className="grid gap-0.5" style={{ gridTemplateColumns: 'repeat(10, 1fr)' }}>
-                  {Array.from({ length: 80 }, (_, i) => {
-                    const row = Math.floor(i / 10) + 1
-                    const col = (i % 10) + 1
-                    const isHovered = row <= hoverRows && col <= hoverCols
-                    return (
-                      <div
-                        key={i}
-                        onMouseEnter={() => {
-                          setHoverRows(row)
-                          setHoverCols(col)
-                        }}
-                        onClick={() => handleInsertTable(row, col)}
-                        className={`w-5 h-5 border border-gray-300 cursor-pointer ${
-                          isHovered ? 'bg-brand-400' : 'bg-white hover:bg-gray-100'
-                        }`}
-                      />
-                    )
-                  })}
-                </div>
-                <div className="text-xs text-gray-600 mt-2 text-center">
-                  {hoverRows} × {hoverCols} Table
-                </div>
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <button
-                    onClick={() => setShowTableDialog(true)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                      <line x1="3" y1="9" x2="21" y2="9"/>
-                      <line x1="3" y1="15" x2="21" y2="15"/>
-                      <line x1="9" y1="3" x2="9" y2="21"/>
-                      <line x1="15" y1="3" x2="15" y2="21"/>
-                    </svg>
-                    Insert Table...
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Table Grid Selector (portal to avoid clipping by overflow) */}
+          {showTableGrid && createPortal(
+            <div 
+              ref={tableGridRef}
+              className="fixed bg-white border border-gray-300 rounded-lg shadow-xl p-4 z-[1000]"
+              style={{ top: tableGridPos.top, left: tableGridPos.left }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-sm font-semibold mb-3">Insert Table</div>
+              <div className="grid gap-0.5" style={{ gridTemplateColumns: 'repeat(10, 1fr)' }}>
+                {Array.from({ length: 80 }, (_, i) => {
+                  const row = Math.floor(i / 10) + 1
+                  const col = (i % 10) + 1
+                  const isHovered = row <= hoverRows && col <= hoverCols
+                  return (
+                    <div
+                      key={i}
+                      onMouseEnter={() => {
+                        setHoverRows(row)
+                        setHoverCols(col)
+                      }}
+                      onClick={() => { handleInsertTable(row, col); setShowTableGrid(false) }}
+                      className={`w-5 h-5 border border-gray-300 cursor-pointer ${
+                        isHovered ? 'bg-brand-400' : 'bg-white hover:bg-gray-100'
+                      }`}
+                    />
+                  )
+                })}
+              </div>
+              <div className="text-xs text-gray-600 mt-2 text-center">
+                {hoverRows} × {hoverCols} Table
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <button
+                  onClick={() => { setShowTableDialog(true); setShowTableGrid(false) }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="3" y1="15" x2="21" y2="15"/>
+                    <line x1="9" y1="3" x2="9" y2="21"/>
+                    <line x1="15" y1="3" x2="15" y2="21"/>
+                  </svg>
+                  Insert Table...
+                </button>
+              </div>
+            </div>,
+            document.body
+          )}
 
           {/* Chart Button */}
           <button 

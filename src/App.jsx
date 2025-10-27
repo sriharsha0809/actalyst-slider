@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { SlidesProvider } from './context/SlidesContext.jsx'
+import { SlidesProvider, useSlides } from './context/SlidesContext.jsx'
 import { ThemeProvider, useTheme } from './context/ThemeContext.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import NavigationTabs from './components/NavigationTabs.jsx'
@@ -86,9 +86,7 @@ function AppContent() {
               <div className={`${colors.cardBg} rounded-lg ${colors.shadow} p-1 overflow-hidden animate-slideInUp`} style={{animationDelay: '0.2s'}}>
                 <SlideCanvas />
               </div>
-              <div className={`${colors.cardBg} rounded-xl p-4 order-first lg:order-none overflow-y-auto animate-slideInRight responsive-sidebar-right`} style={{ boxShadow: '0 0 30px rgba(0, 0, 0, 0.15)', maxHeight: 'calc(100vh - 30px - 100px)', animationDelay: '0.4s', width: 'auto' }}>
-                {activeTab === 'Insert' ? <ChartEditor /> : activeTab === 'Design' ? <SlideReorder /> : <ShapeToolbox />}
-              </div>
+              <SidePanel activeTab={activeTab} />
             </div>
           </div>
         </div>
@@ -110,6 +108,31 @@ function AppContent() {
         onSave={handleSave}
       />
     </SlidesProvider>
+  )
+}
+
+function SidePanel({ activeTab }) {
+  const { state } = useSlides()
+  const currentSlide = state.slides.find(s => s.id === state.currentSlideId)
+  const selected = currentSlide?.elements.find(e => e.id === state.selectedElementId)
+  const { getThemeColors } = useTheme()
+  const colors = getThemeColors()
+
+  let panel = null
+  if (selected && (selected.type === 'table' || selected.type === 'chart')) {
+    panel = <ChartEditor />
+  } else if (activeTab === 'Insert') {
+    panel = <ChartEditor />
+  } else if (activeTab === 'Design') {
+    panel = <SlideReorder />
+  } else {
+    panel = <ShapeToolbox />
+  }
+
+  return (
+    <div className={`${colors.cardBg} rounded-xl p-4 order-first lg:order-none overflow-y-auto animate-slideInRight responsive-sidebar-right`} style={{ boxShadow: '0 0 30px rgba(0, 0, 0, 0.15)', maxHeight: 'calc(100vh - 30px - 100px)', animationDelay: '0.4s', width: 'auto' }}>
+      {panel}
+    </div>
   )
 }
 

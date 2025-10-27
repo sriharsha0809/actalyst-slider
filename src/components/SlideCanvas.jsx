@@ -270,10 +270,12 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   const stopEditing = () => setEditingTextId(null)
 
   const responsiveCoords = getResponsiveStyle()
+  const localScale = responsiveCoords.scale || 1
+  const { scale: _omitScale, ...coords } = responsiveCoords
   
   const boxStyle = {
     position: 'absolute',
-    ...responsiveCoords,
+    ...coords,
     transform: `rotate(${el.rotation}deg)`,
     cursor: selected ? 'move' : 'pointer',
     border: el.borderWidth ? `${el.borderWidth}px solid ${el.borderColor || '#000000'}` : undefined,
@@ -287,7 +289,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
     >
-      {renderElement(el, { editing: editingTextId === el.id, onChange, stopEditing, scale: responsiveCoords.scale || 1 })}
+      {renderElement(el, { editing: editingTextId === el.id, onChange, stopEditing, scale: localScale })}
 
           {selected && (
         <>
@@ -756,7 +758,7 @@ function TableElement({ el, editing, onChange, stopEditing, scale = 1 }) {
   }
   
   return (
-    <div className="w-full h-full relative bg-white">
+    <div className="w-full h-full relative bg-white" style={{ boxSizing: 'border-box', overflow: 'hidden' }}>
       {el.cells.map((cell, index) => {
         const row = Math.floor(index / el.cols)
         const col = index % el.cols
@@ -767,6 +769,7 @@ function TableElement({ el, editing, onChange, stopEditing, scale = 1 }) {
             key={cell.id}
             className="absolute border border-black"
             style={{
+              boxSizing: 'border-box',
               left: col * cellWidth,
               top: row * cellHeight,
               width: cellWidth,
@@ -783,8 +786,10 @@ function TableElement({ el, editing, onChange, stopEditing, scale = 1 }) {
                 value={cell.text}
                 onChange={(e) => updateCell(index, e.target.value)}
                 onBlur={() => setEditingCellIndex(null)}
+                onMouseDown={(e) => e.stopPropagation()}
                 className="w-full h-full resize-none outline-none p-2"
                 style={{
+                  boxSizing: 'border-box',
                   fontSize: `${cell.styles.fontSize * scale}px`,
                   fontFamily: cell.styles.fontFamily,
                   color: cell.styles.color,
