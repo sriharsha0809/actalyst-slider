@@ -841,7 +841,7 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
 
   // Use rich text editor when editing
   if (editing) {
-    return <RichTextEditor ref={window.currentTextEditorRef} el={el} onChange={onChange} onBlur={stopEditing} />
+    return <RichTextEditor ref={window.currentTextEditorRef} el={el} onChange={onChange} onBlur={stopEditing} scale={scale} />
   }
 
   const bgColor = el.bgColor || 'transparent'
@@ -929,13 +929,17 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
             backgroundColor: bgColor, 
             fontFamily: el.styles.fontFamily, 
             fontSize: `${el.styles.fontSize * scale}px`, 
-            whiteSpace: 'nowrap', // Keep text in single line
-            overflow: 'hidden', // Hide overflow
-            textOverflow: 'ellipsis', // Add ellipsis for long text
+            whiteSpace: 'pre-wrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
             display: 'flex',
-            justifyContent: getHorizontalAlignment(),
-            alignItems: el.styles?.valign === 'middle' ? 'center' : 
-                        el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
+            flexDirection: 'column',
+            textAlign: el.styles.align || 'left',
+            // Horizontal align with alignItems to match editor
+            alignItems: (el.styles.align === 'center') ? 'center' : (el.styles.align === 'right') ? 'flex-end' : 'flex-start',
+            // Vertical align to match editor
+            justifyContent: el.styles?.valign === 'middle' ? 'center' : 
+                            el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
           }}
           dangerouslySetInnerHTML={{ __html: el.html }}
         />

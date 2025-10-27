@@ -1,13 +1,15 @@
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
+const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => {
   const editorRef = useRef(null)
   const [showToolbar, setShowToolbar] = useState(false)
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 })
   const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false })
   const toolbarRef = useRef(null)
   const containerNodeRef = useRef(null)
+  // Desired list style for upcoming text while editing ('none' | 'bullet' | 'number' | 'roman' | 'alpha')
+  const desiredListRef = useRef('none')
   const [currentFontFamily, setCurrentFontFamily] = useState('')
   const [currentListStyle, setCurrentListStyle] = useState('none')
   const previousSnapshotRef = useRef(null)
@@ -32,9 +34,10 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
       // Apply alignment from element styles, default to 'left'
       const align = el.styles?.align || 'left'
       editorRef.current.style.textAlign = align
-      // Since the editor is a flex container, also set justifyContent to visually align text
-      const jc = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
-      editorRef.current.style.justifyContent = jc
+      // Use column flex so alignItems controls horizontal alignment
+      editorRef.current.style.flexDirection = 'column'
+      const ai = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
+      editorRef.current.style.alignItems = ai
     }
   }, [el.styles?.align])
 
@@ -294,6 +297,11 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     }
   }, [showToolbar])
 
+  // Normalize paragraph behavior for Enter key
+  useEffect(() => {
+    try { document.execCommand('defaultParagraphSeparator', false, 'div') } catch {}
+  }, [])
+
   useEffect(() => {
     setActiveFormats({ bold: false, italic: false, underline: false })
   }, [el.id])
@@ -307,6 +315,11 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
       })
     }
   }, [showToolbar])
+
+  // Track desired list style from element state (toolbar updates el.styles.listStyle)
+  useEffect(() => {
+    desiredListRef.current = el.styles?.listStyle || 'none'
+  }, [el.styles?.listStyle])
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -460,6 +473,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
   const handleBlur = () => {
     emitChange()
     captureSnapshot()
+    desiredListRef.current = 'none'
     if (onBlur) onBlur()
   }
 
@@ -655,6 +669,56 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     return true
   }
 
+  // Helpers to inspect caret context
+  const inAncestor = (tag) => {
+    const editor = editorRef.current
+    if (!editor) return null
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return null
+    let node = selection.anchorNode
+    if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement
+    while (node && node !== editor) {
+      if (node.tagName === tag) return node
+      node = node.parentElement
+    }
+    return null
+  }
+
+  const setNearestListType = (cssType) => {
+    const ul = inAncestor('UL')
+    const ol = inAncestor('OL')
+    const list = ul || ol
+    if (list) {
+      list.style.listStyleType = cssType
+      list.style.paddingInlineStart = '1.25em'
+      list.style.margin = '0'
+    }
+  }
+
+  const ensureListAtCaret = (style) => {
+    const editor = editorRef.current
+    if (!editor) return
+    const ul = inAncestor('UL')
+    const ol = inAncestor('OL')
+    if (style === 'none') {
+      if (ul) document.execCommand('insertUnorderedList', false, null)
+      if (ol) document.execCommand('insertOrderedList', false, null)
+      return
+    }
+    if (style === 'bullet') {
+      if (ol) document.execCommand('insertOrderedList', false, null)
+      if (!inAncestor('UL')) document.execCommand('insertUnorderedList', false, null)
+      setNearestListType('disc')
+      return
+    }
+    // Ordered variants
+    if (ul) document.execCommand('insertUnorderedList', false, null)
+    if (!inAncestor('OL')) document.execCommand('insertOrderedList', false, null)
+    if (style === 'number') setNearestListType('decimal')
+    if (style === 'roman') setNearestListType('upper-roman')
+    if (style === 'alpha') setNearestListType('upper-alpha')
+  }
+
   const handleListStyleChange = (listStyle) => {
     const editor = editorRef.current
     if (!editor) return
@@ -666,49 +730,24 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return
 
     captureSnapshot()
-    
-    // Apply list formatting
-    const text = editor.textContent || ''
-    const lines = text.split('\n')
-    
-    const formattedLines = lines.map((line, index) => {
-      if (!line.trim()) return line
-      
-      // Remove existing list prefixes
-      const cleanLine = line.replace(/^[•\d+\.\s]*/, '').replace(/^[A-Z]+\.\s*/, '').replace(/^[IVX]+\.\s*/, '')
-      
-      let prefix = ''
-      switch (listStyle) {
-        case 'bullet':
-          prefix = '• '
-          break
-        case 'number':
-          prefix = `${index + 1}. `
-          break
-        case 'roman':
-          prefix = `${toRoman(index + 1)}. `
-          break
-        case 'alpha':
-          prefix = `${String.fromCharCode(65 + index)}. `
-          break
-        case 'none':
-        default:
-          return cleanLine
+    editor.focus()
+
+    try {
+      ensureListAtCaret(listStyle)
+      desiredListRef.current = listStyle
+
+      if (isOverflowing()) {
+        restoreSnapshot()
+        return
       }
-      
-      return prefix + cleanLine
-    })
-    
-    editor.textContent = formattedLines.join('\n')
-    
-    if (isOverflowing()) {
+
+      emitChange()
+      captureSnapshot()
+      refreshActiveFormats()
+    } catch (error) {
+      console.warn('List formatting error:', error)
       restoreSnapshot()
-      return
     }
-    
-    emitChange()
-    captureSnapshot()
-    refreshActiveFormats()
   }
 
   const toRoman = (num) => {
@@ -736,16 +775,18 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
         style={{
           backgroundColor: el.bgColor || 'transparent',
           fontFamily: el.styles.fontFamily,
-          fontSize: el.styles.fontSize,
+          fontSize: el.styles.fontSize * (scale || 1),
           color: el.styles.color,
           textAlign: el.styles.align || 'left',
-          whiteSpace: 'nowrap', // Match display mode - single line
-          overflow: 'hidden', // Hide overflow
+          whiteSpace: 'pre-wrap',
+          overflow: 'auto',
           display: 'flex',
-          // Use flexbox horizontal alignment to reflect align while editing
-          justifyContent: (el.styles.align === 'center') ? 'center' : (el.styles.align === 'right') ? 'flex-end' : 'flex-start',
-          alignItems: el.styles.valign === 'middle' ? 'center' : 
-                    el.styles.valign === 'bottom' ? 'flex-end' : 'flex-start'
+          flexDirection: 'column',
+          // Horizontal alignment via alignItems in column flex
+          alignItems: (el.styles.align === 'center') ? 'center' : (el.styles.align === 'right') ? 'flex-end' : 'flex-start',
+          // Vertical alignment via justifyContent in column flex
+          justifyContent: el.styles.valign === 'middle' ? 'center' : 
+                          el.styles.valign === 'bottom' ? 'flex-end' : 'flex-start'
         }}
         onBeforeInput={handleBeforeInput}
         onInput={handleInput}
@@ -753,6 +794,20 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
         onCompositionEnd={handleCompositionEnd}
         onPaste={handleBeforeInput}
         onDrop={handleBeforeInput}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            // Let browser insert the new block/LI, then enforce desired list style for upcoming line
+            captureSnapshot()
+            requestAnimationFrame(() => {
+              if (desiredListRef.current && desiredListRef.current !== 'none') {
+                ensureListAtCaret(desiredListRef.current)
+              }
+              emitChange()
+              captureSnapshot()
+              refreshActiveFormats()
+            })
+          }
+        }}
       />
 
       {showToolbar && containerNodeRef.current && createPortal(

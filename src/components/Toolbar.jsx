@@ -243,10 +243,11 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent, onSlide
       
       // Apply the alignment style directly to the editor
       editorNode.style.textAlign = align
-      // Also set flex horizontal alignment so it visibly moves while editing
-      const jc = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
+      // Use column flex to control horizontal alignment with alignItems
+      const ai = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
       editorNode.style.display = 'flex'
-      editorNode.style.justifyContent = jc
+      editorNode.style.flexDirection = 'column'
+      editorNode.style.alignItems = ai
       
       // Focus the editor to ensure the change is visible
       editorNode.focus()
@@ -381,12 +382,8 @@ const setListStyle = (listType) => {
     
     // Focus the editor first
     editorNode.focus()
-    
-    // Select all content if no selection exists
+
     const selection = window.getSelection()
-    if (!selection || selection.isCollapsed) {
-      selectAllIn(editorNode)
-    }
     
     setTimeout(() => {
       try {
