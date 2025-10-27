@@ -1,10 +1,13 @@
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
   const editorRef = useRef(null)
   const [showToolbar, setShowToolbar] = useState(false)
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 })
   const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false })
+  const toolbarRef = useRef(null)
+  const containerNodeRef = useRef(null)
   const [currentFontFamily, setCurrentFontFamily] = useState('')
   const [currentListStyle, setCurrentListStyle] = useState('none')
   const previousSnapshotRef = useRef(null)
@@ -193,15 +196,84 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
     setCurrentListStyle(listStyle)
   }
 
-  const handleSelectionChange = () => {
+  function computeAndSetToolbarPosition() {
     const selection = window.getSelection()
-    if (selection && !selection.isCollapsed && editorRef.current?.contains(selection.anchorNode)) {
-      const range = selection.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-      setToolbarPosition({
-        top: rect.top - 50,
-        left: rect.left + rect.width / 2
-      })
+    const editor = editorRef.current
+    if (!(selection && !selection.isCollapsed && editor && editor.contains(selection.anchorNode))) return false
+
+    const range = selection.getRangeAt(0)
+    const selRect = range.getBoundingClientRect()
+
+    // Slide container bounds
+    const containerEl = editor.closest('[data-slide-container]') || document.body
+    const containerRect = containerEl.getBoundingClientRect()
+    containerNodeRef.current = containerEl
+
+    // Space to each edge
+    const spaceTop = Math.max(0, selRect.top - containerRect.top)
+    const spaceBottom = Math.max(0, containerRect.bottom - selRect.bottom)
+    const spaceLeft = Math.max(0, selRect.left - containerRect.left)
+    const spaceRight = Math.max(0, containerRect.right - selRect.right)
+
+    // Current toolbar size (fallbacks before first render)
+    const tw = (toolbarRef.current?.offsetWidth ?? 0) || 260
+    const th = (toolbarRef.current?.offsetHeight ?? 0) || 44
+    const margin = 8
+
+    // Candidate quadrants
+    const candidates = [
+      { key: 'TR', availW: spaceRight, availH: spaceTop, left: () => selRect.right - tw - margin, top: () => selRect.top - th - margin },
+      { key: 'TL', availW: spaceLeft,  availH: spaceTop, left: () => selRect.left + margin,      top: () => selRect.top - th - margin },
+      { key: 'BR', availW: spaceRight, availH: spaceBottom, left: () => selRect.right - tw - margin, top: () => selRect.bottom + margin },
+      { key: 'BL', availW: spaceLeft,  availH: spaceBottom, left: () => selRect.left + margin,      top: () => selRect.bottom + margin },
+    ]
+
+    // Primary preference per spec (more width side, more height side)
+    const preferredV = spaceTop >= spaceBottom ? 'T' : 'B'
+    const preferredH = spaceRight >= spaceLeft ? 'R' : 'L'
+    const preferredKey = `${preferredV}${preferredH}`
+
+    // Score and fit
+    const withScores = candidates.map(c => ({
+      ...c,
+      fits: c.availW >= tw + margin && c.availH >= th + margin,
+      score: Math.min(c.availW, c.availH), // prefer larger min dimension
+      area: c.availW * c.availH,
+      preferred: c.key === preferredKey,
+    }))
+
+    // Choose: preferred if fits, else best fitting by score, else max area
+    let chosen = withScores.find(c => c.preferred && c.fits)
+    if (!chosen) {
+      const fitting = withScores.filter(c => c.fits)
+      if (fitting.length) {
+        fitting.sort((a,b) => b.score - a.score)
+        chosen = fitting[0]
+      } else {
+        withScores.sort((a,b) => b.area - a.area)
+        chosen = withScores[0]
+      }
+    }
+
+    let left = chosen.left()
+    let top = chosen.top()
+
+    // Clamp strictly inside slide
+    const minLeft = containerRect.left + 0
+    const maxLeft = containerRect.right - tw
+    const minTop = containerRect.top + 0
+    const maxTop = containerRect.bottom - th
+    left = Math.max(minLeft, Math.min(maxLeft, left))
+    top = Math.max(minTop, Math.min(maxTop, top))
+
+    // Convert to slide-local coordinates for absolute positioning within slide
+    setToolbarPosition({ top: Math.round(top - containerRect.top), left: Math.round(left - containerRect.left) })
+    return true
+  }
+
+  const handleSelectionChange = () => {
+    const ok = computeAndSetToolbarPosition()
+    if (ok) {
       setShowToolbar(true)
       refreshActiveFormats()
     } else {
@@ -212,12 +284,29 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
 
   useEffect(() => {
     document.addEventListener('selectionchange', handleSelectionChange)
-    return () => document.removeEventListener('selectionchange', handleSelectionChange)
-  }, [])
+    const onResize = () => { if (showToolbar) computeAndSetToolbarPosition() }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('scroll', onResize, true)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('scroll', onResize, true)
+    }
+  }, [showToolbar])
 
   useEffect(() => {
     setActiveFormats({ bold: false, italic: false, underline: false })
   }, [el.id])
+
+  // Recompute position once toolbar renders (measure real size)
+  useEffect(() => {
+    if (showToolbar) {
+      // Next frame after render to measure
+      requestAnimationFrame(() => {
+        computeAndSetToolbarPosition()
+      })
+    }
+  }, [showToolbar])
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -666,15 +755,16 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
         onDrop={handleBeforeInput}
       />
 
-      {showToolbar && (
+      {showToolbar && containerNodeRef.current && createPortal(
         <div
-          className="fixed bg-black/80 backdrop-blur-md text-white rounded-xl shadow-2xl border border-white/20 p-3 flex gap-2 z-50"
+          ref={toolbarRef}
+          className="absolute bg-black/80 backdrop-blur-md text-white rounded-xl shadow-2xl border border-white/20 p-3 flex gap-2 z-50"
           style={{
             top: `${toolbarPosition.top}px`,
-            left: `${toolbarPosition.left}px`,
-            transform: 'translateX(-50%)'
+            left: `${toolbarPosition.left}px`
           }}
           onMouseDown={(e) => e.preventDefault()}
+          onTransitionEnd={() => computeAndSetToolbarPosition()}
         >
           <button
             onClick={() => localApplyFormat('bold')}
@@ -748,7 +838,8 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur }, ref) => {
               A.
             </button>
           </div>
-        </div>
+        </div>,
+        containerNodeRef.current
       )}
     </>
   )

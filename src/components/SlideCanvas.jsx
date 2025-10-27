@@ -85,7 +85,7 @@ export default function SlideCanvas() {
   return (
     <div className="w-full h-full flex items-center justify-center" onMouseDown={onMouseDown}>
       <div className="relative aspect-video w-full h-full shadow-lg rounded-[28px]" style={frameStyle}>
-        <div ref={containerRef} className="relative bg-white w-full h-full" style={stageStyle}>
+        <div ref={containerRef} data-slide-container className="relative bg-white w-full h-full" style={stageStyle}>
           <div ref={stageRef} className="absolute inset-0">
             {isInitialized && slide?.elements.map((el) => (
               <ElementBox 
