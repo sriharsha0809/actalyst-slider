@@ -2,7 +2,7 @@ import React from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
 import { nanoid } from '../utils/nanoid.js'
 
-export default function ShapeToolbox() {
+export default function ShapeToolbox({ applyToCurrent = false }) {
   const { dispatch } = useSlides()
 
   const createTextElement = (text, x, y, w, h, fontSize = 28, bgColor = 'transparent', align = 'left') => ({
@@ -268,7 +268,16 @@ export default function ShapeToolbox() {
         return {
           elements: [
             createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
-            createTextElement('Image Area\n(Add image here)', REF_WIDTH * 0.083, REF_HEIGHT * 0.333, REF_WIDTH * 0.625, REF_HEIGHT * 0.519, 24, '#e3f2fd', 'center'),
+            {
+              id: nanoid(),
+              type: 'image',
+              x: REF_WIDTH * 0.083,
+              y: REF_HEIGHT * 0.333,
+              w: REF_WIDTH * 0.625,
+              h: REF_HEIGHT * 0.519,
+              rotation: 0,
+              src: null,
+            },
             createTextElement('Caption', REF_WIDTH * 0.75, REF_HEIGHT * 0.333, REF_WIDTH * 0.167, REF_HEIGHT * 0.519, 20, 'transparent', 'left')
           ],
           background: '#ffffff'
@@ -277,7 +286,16 @@ export default function ShapeToolbox() {
         return {
           elements: [
             createTextElement('Click to add title', REF_WIDTH * 0.083, REF_HEIGHT * 0.111, REF_WIDTH * 0.833, REF_HEIGHT * 0.148, 36, 'transparent', 'left'),
-            createTextElement('Image Area\n(Add image here)', REF_WIDTH * 0.083, REF_HEIGHT * 0.333, REF_WIDTH * 0.833, REF_HEIGHT * 0.519, 28, '#e8f5e9', 'center')
+            {
+              id: nanoid(),
+              type: 'image',
+              x: REF_WIDTH * 0.083,
+              y: REF_HEIGHT * 0.333,
+              w: REF_WIDTH * 0.833,
+              h: REF_HEIGHT * 0.519,
+              rotation: 0,
+              src: null,
+            }
           ],
           background: '#ffffff'
         }
@@ -328,21 +346,28 @@ export default function ShapeToolbox() {
 
   const applyLayout = (layout) => {
     const template = getTemplateElements(layout.name)
-    const newSlide = {
-      id: nanoid(),
-      background: template.background,
-      elements: template.elements
+    if (applyToCurrent) {
+      // Apply template to the current slide
+      dispatch({ type: 'APPLY_TEMPLATE', elements: template.elements, background: template.background })
+    } else {
+      // Add a new slide with the selected template
+      const newSlide = {
+        id: nanoid(),
+        background: template.background,
+        elements: template.elements,
+      }
+      dispatch({ type: 'ADD_SLIDE_WITH_TEMPLATE', slide: newSlide })
     }
-    
-    // Add new slide with template
-    dispatch({ type: 'ADD_SLIDE_WITH_TEMPLATE', slide: newSlide })
   }
+
+  const allowedDesignTemplates = ['Title Slide','Title + Subtitle','Two Content','Picture + Caption','Thank You']
+  const layouts = applyToCurrent ? slideLayouts.filter(l => allowedDesignTemplates.includes(l.name)) : slideLayouts
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="font-semibold text-gray-800 mb-3 text-base">Slide Layouts</div>
+      <div className="font-semibold text-gray-800 mb-3 text-base">{applyToCurrent ? 'Templates' : 'Slide Layouts'}</div>
       <div className="grid grid-cols-2 gap-2">
-        {slideLayouts.map((layout, index) => (
+        {layouts.map((layout, index) => (
           <button
             key={index}
             onClick={() => applyLayout(layout)}

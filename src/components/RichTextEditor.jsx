@@ -6,6 +6,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
   const [showToolbar, setShowToolbar] = useState(false)
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 })
   const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false })
+  const desiredTypingRef = useRef({ bold: false, italic: false, underline: false })
   const toolbarRef = useRef(null)
   const containerNodeRef = useRef(null)
   // Desired list style for upcoming text while editing ('none' | 'bullet' | 'number' | 'roman' | 'alpha')
@@ -21,10 +22,17 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
         editorRef.current.innerHTML = el.html
       } else if (el.text) {
         editorRef.current.textContent = el.text
+      } else {
+        editorRef.current.innerHTML = ''
       }
-      
       editorRef.current.focus()
+      // Place caret at end so user can continue typing after existing content
+      try { setCaretToEnd() } catch {}
       captureSnapshot()
+      // Initialize desired typing state to off on new element
+      desiredTypingRef.current = { bold: false, italic: false, underline: false }
+      // Prefer using CSS spans when styling
+      try { document.execCommand('styleWithCSS', false, true) } catch {}
     }
   }, [el.id])
 
@@ -47,6 +55,64 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
       html: editorRef.current.innerHTML,
       text: editorRef.current.textContent,
     })
+  }
+
+  function cleanupAccidentalBreak() {
+    const editor = editorRef.current
+    if (!editor) return
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return
+    const range = sel.getRangeAt(0)
+    const container = range.startContainer
+    const offset = range.startOffset
+    // Case 1: element node with a <br> immediately before caret
+    if (container.nodeType === Node.ELEMENT_NODE && offset > 0) {
+      const prev = container.childNodes[offset - 1]
+      if (prev && prev.nodeName === 'BR') {
+        prev.remove()
+        return
+      }
+    }
+    // Case 2: text node with trailing newline just before caret
+    if (container.nodeType === Node.TEXT_NODE && offset > 0) {
+      const t = container.nodeValue || ''
+      if (t.charCodeAt(offset - 1) === 10) { // '\n'
+        const before = t.slice(0, offset - 1)
+        const after = t.slice(offset)
+        container.nodeValue = before + after
+        const newRange = document.createRange()
+        newRange.setStart(container, Math.max(0, offset - 1))
+        newRange.collapse(true)
+        sel.removeAllRanges()
+        sel.addRange(newRange)
+      }
+    }
+  }
+
+  function setCaretToEnd() {
+    const editor = editorRef.current
+    if (!editor) return
+    const range = document.createRange()
+    let node = editor
+    // Find last text node inside editor
+    function getLastText(n) {
+      if (n.nodeType === Node.TEXT_NODE) return n
+      for (let i = n.childNodes.length - 1; i >= 0; i--) {
+        const res = getLastText(n.childNodes[i])
+        if (res) return res
+      }
+      return null
+    }
+    const lastText = getLastText(editor) || editor
+    const len = lastText.nodeType === Node.TEXT_NODE ? (lastText.nodeValue || '').length : (lastText.childNodes?.length || 0)
+    try {
+      range.setStart(lastText, len)
+      range.collapse(true)
+      const sel = window.getSelection()
+      sel.removeAllRanges()
+      sel.addRange(range)
+      editor.focus()
+    } catch {}
   }
 
   function captureSnapshot() {
@@ -75,12 +141,27 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
   function isOverflowing() {
     const editor = editorRef.current
     if (!editor) return false
-    const tolerance = 0.5
-    return (
-      editor.scrollHeight - editor.clientHeight > tolerance ||
-      editor.scrollWidth - editor.clientWidth > tolerance
-    )
+    const toleranceW = 0.5
+    const toleranceH = 1.0
+    const overflowW = (editor.scrollWidth - editor.clientWidth) > toleranceW
+    const overflowH = (editor.scrollHeight - editor.clientHeight) > toleranceH
+    return overflowW || overflowH
   }
+
+  function exceedsSlideLimits() {
+    const editor = editorRef.current
+    if (!editor) return false
+    const REF_WIDTH = 960
+    const REF_HEIGHT = 540
+    const s = Number(scale || 1)
+    const maxWidthPx = Math.max(0, (REF_WIDTH - (el.x || 0)) * s)
+    const maxHeightPx = Math.max(0, (REF_HEIGHT - (el.y || 0)) * s)
+    // use scroll sizes to measure actual content footprint
+    const tooWide = editor.scrollWidth > (maxWidthPx + 0.5)
+    const tooTall = editor.scrollHeight > (maxHeightPx + 1)
+    return tooWide || tooTall
+  }
+
 
   // Component-scope getCurrentFontFamily function
   const getCurrentFontFamily = () => {
@@ -173,21 +254,31 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     }
 
     const next = { bold: false, italic: false, underline: false }
+    let hadCmdInfo = false
     try {
-      next.bold = document.queryCommandState('bold')
-    } catch (error) {
-      next.bold = false
-    }
+      const v = document.queryCommandState('bold')
+      if (typeof v === 'boolean') { next.bold = v; hadCmdInfo = true }
+    } catch {}
     try {
-      next.italic = document.queryCommandState('italic')
-    } catch (error) {
-      next.italic = false
-    }
+      const v = document.queryCommandState('italic')
+      if (typeof v === 'boolean') { next.italic = v; hadCmdInfo = true }
+    } catch {}
     try {
-      next.underline = document.queryCommandState('underline')
-    } catch (error) {
-      next.underline = false
+      const v = document.queryCommandState('underline')
+      if (typeof v === 'boolean') { next.underline = v; hadCmdInfo = true }
+    } catch {}
+
+    // Fallback via computed style on selection start
+    if (!hadCmdInfo) {
+      const elem = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer
+      if (elem) {
+        const cs = window.getComputedStyle(elem)
+        next.bold = ((parseInt(cs.fontWeight, 10) || 400) >= 600)
+        next.italic = cs.fontStyle === 'italic'
+        next.underline = (cs.textDecorationLine || cs.textDecoration || '').includes('underline')
+      }
     }
+
     setActiveFormats(next)
 
     // Update current font family using the component-scope method
@@ -288,14 +379,25 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
   useEffect(() => {
     document.addEventListener('selectionchange', handleSelectionChange)
     const onResize = () => { if (showToolbar) computeAndSetToolbarPosition() }
+    const onDocDown = (e) => {
+      const ed = editorRef.current
+      if (!ed) return
+      // Only blur when clicking inside the main slide canvas but outside the editor
+      const slideContainer = (e.target instanceof Element) ? e.target.closest('[data-slide-container]') : null
+      if (!slideContainer) return
+      if (ed === e.target || ed.contains(e.target)) return
+      if (onBlur) onBlur()
+    }
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onResize, true)
+    document.addEventListener('mousedown', onDocDown)
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange)
       window.removeEventListener('resize', onResize)
       window.removeEventListener('scroll', onResize, true)
+      document.removeEventListener('mousedown', onDocDown)
     }
-  }, [showToolbar])
+  }, [showToolbar, onBlur])
 
   // Normalize paragraph behavior for Enter key
   useEffect(() => {
@@ -338,15 +440,26 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
           storedRange = currentRange.cloneRange()
         }
       }
-
-      editor.focus()
-
+      
+      editorRef.current.focus()
+      
       if (storedRange && selection) {
         selection.removeAllRanges()
         selection.addRange(storedRange)
       }
 
       document.execCommand(command, false, value)
+      cleanupAccidentalBreak()
+      // Update desired typing state at collapsed caret for upcoming text
+      try {
+        const sel = window.getSelection()
+        if (sel && sel.isCollapsed) {
+          const after = document.queryCommandState(command)
+          if (typeof after === 'boolean') {
+            desiredTypingRef.current[command] = after
+          }
+        }
+      } catch {}
 
       if (isOverflowing()) {
         restoreSnapshot()
@@ -356,6 +469,78 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
       emitChange()
       captureSnapshot()
       refreshActiveFormats()
+    },
+    applyListStyle: (listType) => {
+      const editor = editorRef.current
+      if (!editor) return false
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) return false
+      const range = selection.getRangeAt(0)
+      if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return false
+
+      captureSnapshot()
+      editor.focus()
+      try {
+        const inAncestor = (tag) => {
+          let node = selection.anchorNode
+          if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement
+          while (node && node !== editor) {
+            if (node.tagName === tag) return node
+            node = node.parentElement
+          }
+          return null
+        }
+        const setNearestListType = (cssType) => {
+          const ul = inAncestor('UL')
+          const ol = inAncestor('OL')
+          const list = ul || ol
+          if (list) {
+            list.style.listStyleType = cssType
+            list.style.listStylePosition = 'inside'
+            list.style.paddingInlineStart = '1.25em'
+            list.style.margin = '0'
+          }
+        }
+        const bulletMap = { 'bullet': 'disc', 'bullet-circle': 'circle', 'bullet-square': 'square' }
+        const orderedMap = { number: 'decimal', roman: 'upper-roman', alpha: 'upper-alpha' }
+        const ulHere = inAncestor('UL')
+        const olHere = inAncestor('OL')
+
+        if (listType === 'none') {
+          if (olHere) document.execCommand('insertOrderedList', false, null)
+          if (ulHere) document.execCommand('insertUnorderedList', false, null)
+          // unwrap remnants
+          unwrapListsToPlainText(editor)
+        } else if (listType in bulletMap) {
+          if (olHere) document.execCommand('insertOrderedList', false, null)
+          if (!inAncestor('UL')) document.execCommand('insertUnorderedList', false, null)
+          setNearestListType(bulletMap[listType])
+        } else if (listType in orderedMap) {
+          const current = (() => {
+            if (olHere) {
+              const type = orderedMap[listType]
+              const computed = (olHere.style.listStyleType || '').toLowerCase()
+              return computed === type
+            }
+            return false
+          })()
+          if (current) {
+            document.execCommand('insertOrderedList', false, null)
+          } else {
+            if (ulHere) document.execCommand('insertUnorderedList', false, null)
+            if (!inAncestor('OL')) document.execCommand('insertOrderedList', false, null)
+            setNearestListType(orderedMap[listType])
+          }
+        }
+
+        emitChange()
+        captureSnapshot()
+        refreshActiveFormats()
+        return true
+      } catch (e) {
+        restoreSnapshot()
+        return false
+      }
     },
     applyFontFamily: async (fontFamily) => {
       const editor = editorRef.current
@@ -468,6 +653,40 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     emitChange: () => {
       emitChange()
     },
+    setTypingState: (partial) => {
+      // Update desired typing state and enforce at caret
+      desiredTypingRef.current = { ...desiredTypingRef.current, ...(partial || {}) }
+      try {
+        const sel = window.getSelection()
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0)
+          const editor = editorRef.current
+          const inEditor = editor && editor.contains(range.startContainer) && editor.contains(range.endContainer)
+          if (inEditor && sel.isCollapsed) {
+            for (const [cmd, val] of Object.entries(partial || {})) {
+              if (['bold','italic','underline'].includes(cmd)) {
+                let current
+                try { current = document.queryCommandState(cmd) } catch { current = undefined }
+                if (typeof current === 'boolean' && typeof val === 'boolean' && current !== val) {
+                  document.execCommand(cmd, false, null)
+                  cleanupAccidentalBreak()
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    },
+    getTypingState: () => ({ ...desiredTypingRef.current }),
+    isCollapsedSelection: () => {
+      const editor = editorRef.current
+      if (!editor) return false
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return false
+      const range = sel.getRangeAt(0)
+      const inEditor = editor.contains(range.startContainer) && editor.contains(range.endContainer)
+      return inEditor && sel.isCollapsed
+    },
   }))
 
   const handleBlur = () => {
@@ -477,16 +696,46 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     if (onBlur) onBlur()
   }
 
-  const handleBeforeInput = () => {
+  const handleBeforeInput = (event) => {
+    // Allow insert; block if it would exceed slide boundaries
+    try {
+      const t = event?.inputType || ''
+      if (t.startsWith('insert') && exceedsSlideLimits()) {
+        event.preventDefault?.()
+        return
+      }
+    } catch {}
+
+    // Enforce desired typing for upcoming text at collapsed caret (user-controlled)
+    try {
+      const sel = window.getSelection()
+      if (sel && sel.isCollapsed) {
+        ;['bold','italic','underline'].forEach((cmd) => {
+          const desired = desiredTypingRef.current[cmd]
+          if (typeof desired === 'boolean') {
+            let current
+            try { current = document.queryCommandState(cmd) } catch { current = undefined }
+            if (typeof current === 'boolean' && current !== desired) {
+              document.execCommand(cmd, false, null)
+            }
+          }
+        })
+      }
+    } catch {}
     captureSnapshot()
   }
 
   const handleInput = (event) => {
     if (isComposingRef.current) return
-    if (isOverflowing()) {
-      event.preventDefault?.()
-      restoreSnapshot()
-      return
+    if (exceedsSlideLimits()) {
+      const t = event?.inputType || ''
+      // Block only insertions; allow deletions/undos to reduce size
+      if (t.startsWith('insert')) {
+        event.preventDefault?.()
+        restoreSnapshot()
+        setCaretToEnd()
+        return
+      }
     }
     emitChange()
     captureSnapshot()
@@ -511,10 +760,111 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     })
   }
 
+  // Fallback: wrap selection with a styled span
+  const applyStyleToSelection = (styles) => {
+    const editor = editorRef.current
+    if (!editor) return false
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return false
+    const range = sel.getRangeAt(0)
+    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return false
+    if (sel.isCollapsed) return false
+
+    const span = document.createElement('span')
+    Object.assign(span.style, styles || {})
+    span.appendChild(range.extractContents())
+    range.insertNode(span)
+    // Reselect the styled content
+    sel.removeAllRanges()
+    const newRange = document.createRange()
+    newRange.selectNodeContents(span)
+    sel.addRange(newRange)
+    return true
+  }
+
+  const toggleStyleFallback = (command, value) => {
+    const editor = editorRef.current
+    if (!editor) return false
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return false
+    const range = sel.getRangeAt(0)
+    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return false
+    const node = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer
+    const cs = node ? window.getComputedStyle(node) : null
+
+    if (command === 'bold') {
+      const isOn = cs && (parseInt(cs.fontWeight, 10) || 400) >= 600
+      return applyStyleToSelection({ fontWeight: isOn ? '' : '700' })
+    }
+    if (command === 'italic') {
+      const isOn = cs && cs.fontStyle === 'italic'
+      return applyStyleToSelection({ fontStyle: isOn ? '' : 'italic' })
+    }
+    if (command === 'underline') {
+      const isOn = cs && (cs.textDecorationLine || cs.textDecoration || '').includes('underline')
+      return applyStyleToSelection({ textDecoration: isOn ? '' : 'underline' })
+    }
+    if (command === 'foreColor') {
+      const current = cs && cs.color
+      const same = !!current && !!value && current.replace(/\s+/g,'') === (value + '').replace(/\s+/g,'')
+      return applyStyleToSelection({ color: same ? '' : value })
+    }
+    if (command === 'backColor' || command === 'hiliteColor') {
+      const current = cs && (cs.backgroundColor || '')
+      const same = !!current && !!value && current.replace(/\s+/g,'') === (value + '').replace(/\s+/g,'')
+      return applyStyleToSelection({ backgroundColor: same ? '' : value })
+    }
+    return false
+  }
+
   const localApplyFormat = (command, value = null) => {
     captureSnapshot()
-    document.execCommand(command, false, value)
-    editorRef.current?.focus()
+
+    const editor = editorRef.current
+    if (!editor) return
+
+    // Normalize command for background highlight
+    const execCmd = command === 'backColor' ? 'hiliteColor' : command
+
+    // Preserve selection if inside editor
+    const sel = window.getSelection()
+    let storedRange = null
+    if (sel && sel.rangeCount > 0) {
+      const r = sel.getRangeAt(0)
+      if (editor.contains(r.commonAncestorContainer)) {
+        storedRange = r.cloneRange()
+      }
+    }
+
+    // Focus editor and restore selection before applying
+    editor.focus()
+    if (storedRange && sel) {
+      sel.removeAllRanges()
+      sel.addRange(storedRange)
+    }
+
+    let applied = false
+    try {
+      applied = document.execCommand(execCmd, false, value)
+    } catch { applied = false }
+
+    // Manual fallback with toggle behavior
+    if (!applied) {
+      applied = toggleStyleFallback(command, value)
+    }
+
+    cleanupAccidentalBreak()
+
+    // Update desired typing state at collapsed caret for upcoming text
+    try {
+      const sel2 = window.getSelection()
+      if (sel2 && sel2.isCollapsed) {
+        let state
+        try { state = document.queryCommandState(command) } catch { state = undefined }
+        if (typeof state === 'boolean') desiredTypingRef.current[command] = state
+      }
+    } catch {}
+
     if (isOverflowing()) {
       restoreSnapshot()
       return
@@ -586,6 +936,38 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
       console.warn('Font application failed:', error)
       restoreSnapshot()
     }
+  }
+
+  // Case transform helpers for mini toolbar
+  const toTitleCase = (s='') => s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  const applyCaseTransform = (mode /* 'upper'|'lower'|'title' */) => {
+    const editor = editorRef.current
+    if (!editor) return false
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return false
+    const range = sel.getRangeAt(0)
+    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return false
+    if (sel.isCollapsed) return false
+
+    captureSnapshot()
+    const text = sel.toString()
+    const convert = (t='') => mode === 'upper' ? t.toUpperCase() : mode === 'lower' ? t.toLowerCase() : toTitleCase(t)
+    const transformed = convert(text)
+
+    // Focus and restore range, then insert transformed text (may flatten formatting across the selection)
+    editor.focus()
+    try {
+      document.execCommand('insertText', false, transformed)
+    } catch {
+      // Fallback: replace contents directly
+      range.deleteContents()
+      range.insertNode(document.createTextNode(transformed))
+    }
+
+    emitChange()
+    captureSnapshot()
+    refreshActiveFormats()
+    return true
   }
 
   // Define applyFontFamily function to be available in component scope
@@ -774,19 +1156,14 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
         className="w-full h-full p-2 outline-none"
         style={{
           backgroundColor: el.bgColor || 'transparent',
-          fontFamily: el.styles.fontFamily,
-          fontSize: el.styles.fontSize * (scale || 1),
-          color: el.styles.color,
-          textAlign: el.styles.align || 'left',
+          fontFamily: (el.styles?.fontFamily) || 'Inter, system-ui, sans-serif',
+          fontSize: (el.styles?.fontSize || 16) * (scale || 1),
+          color: el.styles?.color || '#111827',
+          textAlign: el.styles?.align || 'left',
           whiteSpace: 'pre-wrap',
-          overflow: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          // Horizontal alignment via alignItems in column flex
-          alignItems: (el.styles.align === 'center') ? 'center' : (el.styles.align === 'right') ? 'flex-end' : 'flex-start',
-          // Vertical alignment via justifyContent in column flex
-          justifyContent: el.styles.valign === 'middle' ? 'center' : 
-                          el.styles.valign === 'bottom' ? 'flex-end' : 'flex-start'
+          wordBreak: 'break-word',
+          overflow: 'visible',
+          display: 'block'
         }}
         onBeforeInput={handleBeforeInput}
         onInput={handleInput}
@@ -794,9 +1171,18 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
         onCompositionEnd={handleCompositionEnd}
         onPaste={handleBeforeInput}
         onDrop={handleBeforeInput}
+        onMouseDown={(e) => {
+          // Stop propagation to prevent parent ElementBox from starting drag operations
+          // This allows proper text selection and editing
+          e.stopPropagation()
+        }}
+        onPointerDown={(e) => {
+          // Same for pointer events - stop propagation to prevent drag interference
+          e.stopPropagation()
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
-            // Let browser insert the new block/LI, then enforce desired list style for upcoming line
+            // Let browser insert the new block/line, then ensure toolbar/list state is preserved
             captureSnapshot()
             requestAnimationFrame(() => {
               if (desiredListRef.current && desiredListRef.current !== 'none') {
@@ -813,6 +1199,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
       {showToolbar && containerNodeRef.current && createPortal(
         <div
           ref={toolbarRef}
+          data-mini-toolbar
           className="absolute bg-black/80 backdrop-blur-md text-white rounded-xl shadow-2xl border border-white/20 p-3 flex gap-2 z-50"
           style={{
             top: `${toolbarPosition.top}px`,
@@ -822,21 +1209,27 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
           onTransitionEnd={() => computeAndSetToolbarPosition()}
         >
           <button
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => localApplyFormat('bold')}
+            aria-pressed={activeFormats.bold}
             className={`px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300 ${activeFormats.bold ? 'bg-white/25 border-white/40 shadow-lg' : ''}`}
             title="Bold"
           >
             <span className="font-bold text-sm">B</span>
           </button>
           <button
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => localApplyFormat('italic')}
+            aria-pressed={activeFormats.italic}
             className={`px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300 ${activeFormats.italic ? 'bg-white/25 border-white/40 shadow-lg' : ''}`}
             title="Italic"
           >
             <span className="italic text-sm">I</span>
           </button>
           <button
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => localApplyFormat('underline')}
+            aria-pressed={activeFormats.underline}
             className={`px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300 ${activeFormats.underline ? 'bg-white/25 border-white/40 shadow-lg' : ''}`}
             title="Underline"
           >
@@ -845,52 +1238,43 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
           <div className="w-px bg-white/30 mx-2" />
           <input
             type="color"
+            onMouseDown={(e) => e.preventDefault()}
             onChange={(e) => localApplyFormat('foreColor', e.target.value)}
             className="w-10 h-10 rounded-lg cursor-pointer bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-300"
             title="Text Color"
           />
           <input
             type="color"
+            onMouseDown={(e) => e.preventDefault()}
             onChange={(e) => localApplyFormat('backColor', e.target.value)}
             className="w-10 h-10 rounded-lg cursor-pointer bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-300"
             title="Highlight"
           />
           <div className="w-px bg-white/30 mx-2" />
-          <div className="flex gap-1">
+          <div className="flex gap-1 items-center">
             <button
-              onClick={() => handleListStyleChange('none')}
-              className={`px-2 py-2 rounded-lg text-xs bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300 ${currentListStyle === 'none' ? 'bg-white/25 border-white/40 shadow-lg' : ''}`}
-              title="No List"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => applyCaseTransform('upper')}
+              className={`px-2 py-2 rounded-lg text-xs bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300`}
+              title="UPPERCASE"
             >
-              —
+              ABC
             </button>
             <button
-              onClick={() => handleListStyleChange('bullet')}
-              className={`px-2 py-2 rounded-lg text-xs bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300 ${currentListStyle === 'bullet' ? 'bg-white/25 border-white/40 shadow-lg' : ''}`}
-              title="Bullet List"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => applyCaseTransform('title')}
+              className={`px-2 py-2 rounded-lg text-xs bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300`}
+              title="Title Case"
             >
-              •
+              Title
             </button>
             <button
-              onClick={() => handleListStyleChange('number')}
-              className={`px-2 py-2 rounded-lg text-xs bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300 ${currentListStyle === 'number' ? 'bg-white/25 border-white/40 shadow-lg' : ''}`}
-              title="Numbered List"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => applyCaseTransform('lower')}
+              className={`px-2 py-2 rounded-lg text-xs bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300`}
+              title="lowercase"
             >
-              1.
-            </button>
-            <button
-              onClick={() => handleListStyleChange('roman')}
-              className={`px-2 py-2 rounded-lg text-xs bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300 ${currentListStyle === 'roman' ? 'bg-white/25 border-white/40 shadow-lg' : ''}`}
-              title="Roman Numerals"
-            >
-              I.
-            </button>
-            <button
-              onClick={() => handleListStyleChange('alpha')}
-              className={`px-2 py-2 rounded-lg text-xs bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300 ${currentListStyle === 'alpha' ? 'bg-white/25 border-white/40 shadow-lg' : ''}`}
-              title="Alphabetical List"
-            >
-              A.
+              abc
             </button>
           </div>
         </div>,
@@ -959,6 +1343,7 @@ function mergeSiblingFontSpans(root) {
     mergeAdjacentSpan(span)
   })
 }
+
 
 function mergeAdjacentSpan(span) {
   mergeWithNeighbor(span, 'previousSibling')

@@ -6,26 +6,55 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
   const idx = state.slides.findIndex(s => s.id === state.currentSlideId)
   const [isPaused, setIsPaused] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(5)
+  const [localMode, setLocalMode] = useState(mode) // 'manual' | 'auto'
+  const [showControls, setShowControls] = useState(false)
+  const [showEndOverlay, setShowEndOverlay] = useState(false)
   const intervalRef = useRef(null)
   const timerRef = useRef(null)
+  const endOverlayRef = useRef(null)
+  const containerRef = useRef(null)
 
-  // Initialize slideshow to start from first slide
+  // Sync local mode when prop changes
+  useEffect(() => { setLocalMode(mode) }, [mode])
+
+  // On open, start from the first slide
   useEffect(() => {
     if (state.slides.length > 0) {
-      dispatch({ type: 'SET_CURRENT_SLIDE', id: state.slides[0].id })
+      const firstId = state.slides[0].id
+      if (state.currentSlideId !== firstId) {
+        dispatch({ type: 'SET_CURRENT_SLIDE', id: firstId })
+      }
     }
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const clearEndOverlay = () => {
+    setShowEndOverlay(false)
+    if (endOverlayRef.current) {
+      clearTimeout(endOverlayRef.current)
+      endOverlayRef.current = null
+    }
+  }
+
   const goToNext = () => {
+    clearEndOverlay()
     if (idx < state.slides.length - 1) {
       dispatch({ type: 'SET_CURRENT_SLIDE', id: state.slides[idx + 1].id })
     } else {
-      // If at last slide, loop back to first slide
-      dispatch({ type: 'SET_CURRENT_SLIDE', id: state.slides[0].id })
+      // At last slide: show end overlay for 5s, then keep last slide
+      setShowEndOverlay(true)
+      endOverlayRef.current = setTimeout(() => {
+        setShowEndOverlay(false)
+      }, 5000)
+      // Stop auto playback if it was running
+      setLocalMode('manual')
+      setIsPaused(true)
     }
   }
 
   const goToPrevious = () => {
+    clearEndOverlay()
     if (idx > 0) {
       dispatch({ type: 'SET_CURRENT_SLIDE', id: state.slides[idx - 1].id })
     }
@@ -37,19 +66,25 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
 
   // Auto-advance slides every 5 seconds (only in auto mode)
   useEffect(() => {
-    if (mode === 'auto' && !isPaused) {
-      setTimeRemaining(5) // Reset timer when slide changes
-      
-      // Countdown timer
+    if (localMode === 'auto' && !isPaused) {
+      setTimeRemaining(5)
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
-            goToNext()
-            return 5 // Reset to 5 seconds for next slide
+            if (idx < state.slides.length - 1) {
+              dispatch({ type: 'SET_CURRENT_SLIDE', id: state.slides[idx + 1].id })
+              return 5
+            }
+            // End reached in auto: show overlay and stop
+            setShowEndOverlay(true)
+            endOverlayRef.current = setTimeout(() => setShowEndOverlay(false), 5000)
+            setLocalMode('manual')
+            setIsPaused(true)
+            return 5
           }
           return prev - 1
         })
-      }, 1000) // Update every second
+      }, 1000)
     } else {
       if (timerRef.current) {
         clearInterval(timerRef.current)
@@ -63,7 +98,7 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
         timerRef.current = null
       }
     }
-  }, [mode, isPaused, idx, state.slides, dispatch])
+  }, [localMode, isPaused, idx, state.slides, dispatch])
 
   // Clean up intervals on unmount
   useEffect(() => {
@@ -77,99 +112,165 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
     }
   }, [])
 
+  // Try to enter fullscreen on mount; exit on unmount
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const tryFs = async () => {
+      try {
+        if (!document.fullscreenElement && el.requestFullscreen) {
+          await el.requestFullscreen({ navigationUI: 'hide' }).catch(()=>{})
+        }
+      } catch {}
+    }
+    // Attempt shortly after mount to still be within user gesture timing
+    const t = setTimeout(tryFs, 0)
+    return () => {
+      clearTimeout(t)
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(()=>{})
+        }
+      } catch {}
+    }
+  }, [])
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') onClose()
-      if (e.key === 'ArrowRight' || e.key === 'PageDown') goToNext()
-      if (e.key === 'ArrowLeft' || e.key === 'PageUp') goToPrevious()
-      if (e.key === ' ' && mode === 'auto') { // Spacebar to pause/resume (only in auto mode)
-        e.preventDefault()
-        togglePause()
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        // If user navigates manually during auto, switch to manual
+        if (localMode === 'auto' && !isPaused) { setLocalMode('manual'); setIsPaused(true) }
+        goToNext()
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        if (localMode === 'auto' && !isPaused) { setLocalMode('manual'); setIsPaused(true) }
+        goToPrevious()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [idx, state.slides, dispatch, onClose, isPaused])
+  }, [idx, state.slides, dispatch, onClose, isPaused, localMode])
+
+  const [isFullscreen, setIsFullscreen] = useState(!!(typeof document !== 'undefined' && document.fullscreenElement))
+  useEffect(() => {
+    const onFs = () => {
+      const fs = !!document.fullscreenElement
+      setIsFullscreen(fs)
+      // If user exited fullscreen (Esc or OS minimize), close presentation
+      if (!fs) {
+        try { onClose && onClose() } catch {}
+      }
+    }
+    document.addEventListener('fullscreenchange', onFs)
+    return () => document.removeEventListener('fullscreenchange', onFs)
+  }, [onClose])
+
+  const triedFsRef = useRef(false)
+  const requestFS = async () => {
+    try {
+      if (!document.fullscreenElement && containerRef.current?.requestFullscreen) {
+        await containerRef.current.requestFullscreen({ navigationUI: 'hide' })
+        triedFsRef.current = true
+      }
+    } catch {}
+  }
+  const exitFS = async () => {
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen()
+    } catch {}
+    // After minimizing (exiting fullscreen), navigate back to main page
+    try { onClose && onClose() } catch {}
+  }
+
+  const onHoverZoneEnter = () => setShowControls(true)
+  const onHoverZoneLeave = () => setShowControls(false)
+
+  // Fallback: try to enter fullscreen on first user interaction inside modal
+  const handleFirstInteract = () => { if (!document.fullscreenElement && !triedFsRef.current) requestFS() }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose} style={{ background: 'linear-gradient(to bottom, #ADB2D4 0%, #FFCDB2 100%)' }}>
-      <div className="relative w-[90vw] max-w-5xl aspect-video shadow-2xl" onClick={(e)=>e.stopPropagation()} style={{ padding: '3px', background: '#000000' }}>
-        <div className="w-full h-full bg-white overflow-hidden">
-          <SlideStage/>
-        </div>
-        
-        {/* Navigation Buttons */}
-        {idx > 0 && (
-          <button
-            onClick={goToPrevious}
-            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-3 shadow-lg transition-all"
-            title="Previous Slide"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-          </button>
-        )}
-        
-        <button
-          onClick={goToNext}
-          className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-3 shadow-lg transition-all"
-          title={idx === state.slides.length - 1 ? "Loop to First Slide" : "Next Slide"}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
-        
-        {/* Slide Counter */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm">
-          {idx + 1} / {state.slides.length}
-          {mode === 'manual' && <span className="ml-2 text-blue-300">📖 Manual</span>}
-          {mode === 'auto' && isPaused && <span className="ml-2 text-yellow-300">⏸️ PAUSED</span>}
-          {mode === 'auto' && !isPaused && <span className="ml-2 text-green-300">⏱️ {timeRemaining}s</span>}
-        </div>
-        
-        {/* Progress Bar (only in auto mode) */}
-        {mode === 'auto' && !isPaused && (
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-black/20">
-            <div 
-              className="h-full bg-white transition-all duration-1000 ease-linear"
-              style={{ width: `${((5 - timeRemaining) / 5) * 100}%` }}
-            />
+    <div ref={containerRef} className="fixed inset-0 z-50 bg-black" onPointerDownCapture={handleFirstInteract} onMouseMove={handleFirstInteract}>
+      <div className="absolute inset-0">
+        <SlideStage/>
+
+        {/* Bottom hover zone to reveal controls */}
+        <div className="absolute left-0 right-0 bottom-0" style={{ height: 80 }} onMouseEnter={onHoverZoneEnter} onMouseLeave={onHoverZoneLeave} />
+
+        {/* Bottom control bar (visible on hover) */}
+        {showControls && (
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-3 bg-black/70 text-white rounded-full px-4 py-2 flex items-center gap-3 shadow-lg" onMouseEnter={onHoverZoneEnter} onMouseLeave={onHoverZoneLeave}>
+            {/* Page representation */}
+            <div className="text-sm whitespace-nowrap">{idx + 1} / {state.slides.length}</div>
+
+            {/* Fullscreen toggle */}
+            <button
+              onClick={(e)=>{ e.stopPropagation(); isFullscreen ? exitFS() : requestFS() }}
+              className="w-7 h-7 rounded-full bg-white/90 text-black flex items-center justify-center hover:bg-white"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              {isFullscreen ? (
+                // Minimize icon
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 15H5v4"/>
+                  <path d="M15 9h4V5"/>
+                  <path d="M15 19l4-4"/>
+                  <path d="M9 5L5 9"/>
+                </svg>
+              ) : (
+                // Maximize icon
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 5H5v4"/>
+                  <path d="M15 19h4v-4"/>
+                  <path d="M5 9l4-4"/>
+                  <path d="M19 15l-4 4"/>
+                </svg>
+              )}
+            </button>
+
+            {/* Play or Pause */}
+            {localMode === 'auto' && !isPaused ? (
+              <button
+                onClick={(e)=>{ e.stopPropagation(); setLocalMode('manual'); setIsPaused(true); if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } clearEndOverlay() }}
+                className="w-7 h-7 rounded-full bg-white/90 text-black flex items-center justify-center hover:bg-white"
+                title="Pause slideshow"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="4" width="4" height="16"></rect>
+                  <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>
+              </button>
+            ) : (
+              <button
+                onClick={(e)=>{ e.stopPropagation(); setLocalMode('auto'); setIsPaused(false); setTimeRemaining(5); clearEndOverlay() }}
+                className="w-7 h-7 rounded-full bg-white/90 text-black flex items-center justify-center hover:bg-white"
+                title="Play slideshow from current"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5,3 19,12 5,21"></polygon>
+                </svg>
+              </button>
+            )}
+
+            {/* Progress bar (visible only when auto and not paused) */}
+            {localMode === 'auto' && !isPaused && (
+              <div className="h-1 w-24 bg-white/40 rounded overflow-hidden">
+                <div className="h-full bg-white" style={{ width: `${((5 - timeRemaining) / 5) * 100}%`, transition: 'width 1s linear' }} />
+              </div>
+            )}
           </div>
         )}
         
-        {/* Pause/Resume Button (only in auto mode) */}
-        {mode === 'auto' && (
-          <button
-            onClick={togglePause}
-            className="absolute top-4 left-4 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all"
-            title={isPaused ? "Resume (Space)" : "Pause (Space)"}
-          >
-            {isPaused ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5,3 19,12 5,21"></polygon>
-              </svg>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16"></rect>
-                <rect x="14" y="4" width="4" height="16"></rect>
-              </svg>
-            )}
-          </button>
+        {/* Close with Esc — no visible close button per requirements */}
+
+        {/* End-of-presentation overlay */}
+        {showEndOverlay && (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.35)' }} onClick={(e)=>{ e.stopPropagation(); clearEndOverlay() }}>
+            <div className="text-white text-xl font-semibold px-6 py-4 rounded-lg keynote-pop" style={{ background: 'rgba(0,0,0,0.65)' }}>
+              This is your last slide
+            </div>
+          </div>
         )}
-        
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all"
-          title="Exit Presentation (Esc)"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
       </div>
     </div>
   )
@@ -178,14 +279,88 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
 function SlideStage() {
   const { state } = useSlides()
   const slide = state.slides.find(s => s.id === state.currentSlideId)
+
+  // Build background style supporting color strings and image objects
+  let bgStyle = {}
+  const bg = slide?.background
+  if (bg && typeof bg === 'object' && bg.type === 'image' && bg.src) {
+    const size = (bg.mode === 'stretch')
+      ? '100% 100%'
+      : (bg.mode === 'custom' && typeof bg.scale === 'number')
+        ? `${bg.scale}% auto`
+        : (bg.mode || 'cover')
+    bgStyle = {
+      backgroundImage: `url(${bg.src})`,
+      backgroundSize: size,
+      backgroundPosition: (bg.position || 'center'),
+      backgroundRepeat: 'no-repeat',
+    }
+  } else if (typeof bg === 'string') {
+    bgStyle = { background: bg }
+  } else {
+    bgStyle = { background: '#ffffff' }
+  }
+
+  // Compute viewport size to scale 960x540 slide to fit the screen
+  const [viewport, setViewport] = useState({ w: 0, h: 0 })
+  useEffect(() => {
+    const onResize = () => {
+      try {
+        setViewport({ w: window.innerWidth || 0, h: window.innerHeight || 0 })
+      } catch {
+        setViewport({ w: 0, h: 0 })
+      }
+    }
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  const REF_WIDTH = 960
+  const REF_HEIGHT = 540
+  const vw = viewport.w || (typeof window !== 'undefined' ? window.innerWidth : REF_WIDTH)
+  const vh = viewport.h || (typeof window !== 'undefined' ? window.innerHeight : REF_HEIGHT)
+  const scale = Math.min(vw / REF_WIDTH, vh / REF_HEIGHT)
+  const contentW = REF_WIDTH * scale
+  const contentH = REF_HEIGHT * scale
+  const offsetX = Math.max(0, (vw - contentW) / 2)
+  const offsetY = Math.max(0, (vh - contentH) / 2)
+
+  // Slide transition animation direction
+  const currentIdx = state.slides.findIndex(s => s.id === state.currentSlideId)
+  const prevIdxRef = React.useRef(currentIdx)
+  const [animClass, setAnimClass] = useState('slide-anim-next')
+  useEffect(() => {
+    const prev = prevIdxRef.current
+    const dir = currentIdx > prev ? 'slide-anim-next' : currentIdx < prev ? 'slide-anim-prev' : 'slide-anim-next'
+    setAnimClass(dir)
+    prevIdxRef.current = currentIdx
+  }, [currentIdx])
+
   return (
-    <div className="w-full h-full relative" style={{ background: slide?.background }}>
-      {/* For simplicity, render a read-only clone of elements */}
-      {slide?.elements.map(el => (
-        <div key={el.id} className="absolute" style={{ left: el.x, top: el.y, width: el.w, height: el.h, transform: `rotate(${el.rotation}deg)` }}>
-          {renderElement(el, true)}
+    <div className="absolute inset-0" style={{ background: 'transparent' }}>
+      {/* Outer wrapper handles centering and scaling only */}
+      <div
+        style={{
+          position: 'absolute',
+          left: offsetX,
+          top: offsetY,
+          width: REF_WIDTH,
+          height: REF_HEIGHT,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          ...bgStyle,
+        }}
+      >
+        {/* Inner wrapper handles slide-in animation (does not affect scale) */}
+        <div className={animClass} style={{ position: 'absolute', inset: 0 }}>
+          {slide?.elements.map(el => (
+            <div key={el.id} className="absolute" style={{ left: el.x, top: el.y, width: el.w, height: el.h, transform: `rotate(${el.rotation}deg)` }}>
+              {renderElement(el, true)}
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   )
 }
@@ -242,6 +417,8 @@ function renderElement(el, readonly=false) {
       return <PresentationMessageShape el={el} />
     case 'chart':
       return <PresentationChartElement el={el} />
+    case 'table':
+      return <PresentationTableElement el={el} />
     case 'image':
       return <img src={el.src} alt="" className="w-full h-full object-contain" draggable={false} />
     default:
@@ -322,47 +499,123 @@ function PresentationMessageShape({ el }) {
   )
 }
 
-function PresentationChartElement({ el }) {
-  const { chartType, data, labels, colors } = el
-  
-  if (chartType === 'bar') {
-    const maxValue = Math.max(...data)
-    const minValue = Math.min(...data)
-    const range = maxValue - minValue || 1
-    
-    return (
-      <div className="w-full h-full bg-white p-4 flex flex-col">
-        {/* Chart area with proper height */}
-        <div className="flex-1 flex items-end gap-1 relative" style={{ minHeight: '180px', height: '180px' }}>
-          {data.map((value, index) => {
-            // Calculate height as percentage of the chart area
-            const heightPercent = range > 0 ? ((value - minValue) / range) * 100 : 50
-            const actualHeight = Math.max((heightPercent / 100) * 180, 2) // Minimum 2px height
-            
+function PresentationTableElement({ el }) {
+  const rows = el.rows || 0
+  const cols = el.cols || 0
+  const cw = (el.w) / (cols || 1)
+  const ch = (el.h) / (rows || 1)
+  const cellBorder = `1px solid ${el.borderColor || '#000000'}`
+
+  return (
+    <div className="w-full h-full" style={{ position: 'relative', background: '#ffffff', border: `1px solid ${el.borderColor || '#000000'}` }}>
+      {Array.from({ length: rows }).map((_, r) => (
+        <div key={r} style={{ position: 'absolute', left: 0, top: r * ch, width: '100%', height: ch }}>
+          {Array.from({ length: cols }).map((__, c) => {
+            const idx = r * cols + c
+            const cell = el.cells?.[idx]
+            const isHeader = !!el.headerRow && r === 0
+            const bg = (cell?.styles?.bgColor) ? cell.styles.bgColor : (isHeader ? (el.headerBg || '#f3f4f6') : (el.cellBg || '#ffffff'))
+            const fg = isHeader ? (el.headerTextColor || '#111827') : (cell?.styles?.color || '#111827')
+            const valign = cell?.styles?.valign || 'middle'
+            const align = cell?.styles?.align || 'center'
             return (
-              <div 
-                key={index} 
-                className="flex-1 flex flex-col justify-end items-center relative"
-                style={{ height: '180px' }}
-              >
-                {/* Bar container */}
-                <div 
-                  className="w-full rounded-t"
-                  style={{ 
-                    height: `${actualHeight}px`,
-                    backgroundColor: colors[index % colors.length],
-                    minHeight: '2px'
-                  }}
-                />
+              <div key={c} style={{
+                position: 'absolute',
+                left: c * cw,
+                top: 0,
+                width: cw,
+                height: ch,
+                boxSizing: 'border-box',
+                borderRight: cellBorder,
+                borderBottom: cellBorder,
+                padding: 8,
+                background: bg,
+                color: fg,
+                display: 'flex',
+                alignItems: valign === 'middle' ? 'center' : (valign === 'bottom' ? 'flex-end' : 'flex-start'),
+                justifyContent: align === 'right' ? 'flex-end' : (align === 'center' ? 'center' : 'flex-start'),
+                overflow: 'hidden',
+                fontSize: `${cell?.styles?.fontSize || 12}px`,
+                fontFamily: cell?.styles?.fontFamily || 'Inter, system-ui, sans-serif',
+                fontWeight: cell?.styles?.bold ? 700 : 400,
+                fontStyle: cell?.styles?.italic ? 'italic' : 'normal',
+                textDecoration: cell?.styles?.underline ? 'underline' : 'none',
+                textAlign: align,
+              }}>
+                <span className="truncate">{cell?.text || ''}</span>
               </div>
             )
           })}
         </div>
-        
+      ))}
+    </div>
+  )
+}
+
+function PresentationChartElement({ el }) {
+  const { chartType, data = [], labels = [], colors = [] } = el
+
+  if (chartType === 'bar') {
+    const P = 8 // padding
+    const chartH = 180
+    const axisT = 1
+    const yAxisW = 28
+    const innerW = Math.max(0, el.w - P * 2)
+    const plotW = Math.max(0, innerW - yAxisW)
+
+    // Prefer numeric labels when present
+    const parsedFromLabels = labels.map((l) => {
+      const v = parseFloat(l)
+      return Number.isFinite(v) ? v : null
+    })
+    const preferLabelValues = parsedFromLabels.some(v => v !== null)
+    const series = (preferLabelValues ? parsedFromLabels : data).map((v, i) => {
+      if (v === null || !Number.isFinite(v)) return Number.isFinite(data[i]) ? data[i] : 0
+      return v
+    })
+
+    const hasData = series.length > 0
+    const maxValue = hasData ? Math.max(...series) : 1
+    const minValue = hasData ? Math.min(...series) : 0
+    const range = Math.max(1e-6, maxValue - minValue)
+
+    const barGap = 2
+    const barCount = series.length
+    const barW = barCount ? Math.max(1, Math.floor((plotW - (barCount - 1) * barGap) / barCount)) : 0
+
+    return (
+      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', padding: P }}>
+        {/* Axes */}
+        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, height: axisT, backgroundColor: '#9ca3af' }} />
+        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: axisT, height: chartH, backgroundColor: '#9ca3af' }} />
+
+        {/* Bars */}
+        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P + axisT, width: plotW, height: chartH, display: 'flex', alignItems: 'flex-end' }}>
+          {series.map((value, index) => (
+            <div key={index} style={{ width: barW, height: chartH, marginRight: index < barCount - 1 ? barGap : 0, display: 'flex', alignItems: 'flex-end' }}>
+              <div className="w-full rounded-t" style={{ height: Math.max(Math.round(((range > 0 ? ((value - minValue) / range) : 0.5) * chartH)), 2), backgroundColor: colors[index % colors.length] || '#60a5fa' }} />
+            </div>
+          ))}
+        </div>
+
+        {/* Y-axis tick labels */}
+        <div style={{ position: 'absolute', left: P, top: P, width: yAxisW - 4, height: chartH }}>
+          {Array.from({ length: 5 }).map((_, i) => {
+            const t = i / 4
+            const val = (minValue + (1 - t) * range)
+            const y = Math.round(t * chartH)
+            return (
+              <div key={i} style={{ position: 'absolute', left: 0, top: P + y - 6, width: '100%', textAlign: 'right', fontSize: 10, color: '#6b7280' }}>
+                {Number.isFinite(val) ? Math.round(val) : ''}
+              </div>
+            )
+          })}
+        </div>
+
         {/* X-axis labels */}
-        <div className="flex justify-around border-t border-gray-300 pt-2 mt-2 h-8">
-          {labels.map((label, index) => (
-            <span key={index} className="text-[10px] text-gray-600 text-center flex-1 truncate" title={label}>
+        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, transform: 'translateY(100%)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 4 }}>
+          {(preferLabelValues ? labels : labels).map((label, index) => (
+            <span key={index} className="text-gray-600 truncate" style={{ fontSize: 10, maxWidth: barW }}>
               {label}
             </span>
           ))}
@@ -370,95 +623,103 @@ function PresentationChartElement({ el }) {
       </div>
     )
   }
-  
+
   if (chartType === 'line') {
-    const maxValue = Math.max(...data)
-    const minValue = Math.min(...data)
-    const range = maxValue - minValue || 1
-    
-    const points = data.map((value, index) => {
-      const x = (index / (data.length - 1)) * 100
-      const y = 90 - ((value - minValue) / range) * 80
+    const P = 8
+    const chartH = 180
+    const yAxisW = 28
+    const innerW = Math.max(0, el.w - P * 2)
+    const plotW = Math.max(0, innerW - yAxisW)
+
+    const hasData = data.length > 0
+    const maxValue = hasData ? Math.max(...data) : 1
+    const minValue = hasData ? Math.min(...data) : 0
+    const range = Math.max(1e-6, maxValue - minValue)
+
+    const padX = 2
+    const effW = Math.max(0, plotW - 2 * padX)
+    const pxPoints = data.map((value, index) => {
+      const x = (index / Math.max(1, data.length - 1)) * effW + padX
+      const y = chartH - ((value - minValue) / range) * chartH
       return `${x},${y}`
     }).join(' ')
-    
+
     return (
-      <div className="w-full h-full bg-white p-4 relative flex flex-col">
-        <svg viewBox="0 0 100 100" className="w-full flex-1" style={{ minHeight: '200px' }}>
-          <polyline
-            points={points}
-            fill="none"
-            stroke={colors[0]}
-            strokeWidth="2"
-          />
-          {data.map((value, index) => {
-            const x = (index / (data.length - 1)) * 100
-            const y = 90 - ((value - minValue) / range) * 80
+      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', padding: P }}>
+        {/* Axes */}
+        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, height: 1, backgroundColor: '#9ca3af' }} />
+        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: 1, height: chartH, backgroundColor: '#9ca3af' }} />
+
+        {/* Plot area */}
+        <div style={{ position: 'absolute', left: P + yAxisW, top: P, width: plotW, height: chartH }}>
+          <svg viewBox={`0 0 ${plotW} ${chartH}`} width="100%" height="100%" preserveAspectRatio="none">
+            <polyline points={pxPoints} fill="none" stroke={colors[0] || '#60a5fa'} strokeWidth="2" />
+            {data.map((value, index) => {
+              const x = (index / Math.max(1, data.length - 1)) * (plotW - 2 * padX) + padX
+              const y = chartH - ((value - minValue) / range) * chartH
+              return <circle key={index} cx={x} cy={y} r="2" fill={colors[0] || '#60a5fa'} />
+            })}
+          </svg>
+        </div>
+
+        {/* Y-axis tick labels */}
+        <div style={{ position: 'absolute', left: P, top: P, width: yAxisW - 4, height: chartH }}>
+          {Array.from({ length: 5 }).map((_, i) => {
+            const t = i / 4
+            const val = (minValue + (1 - t) * range)
+            const y = Math.round(t * chartH)
             return (
-              <g key={index}>
-                <circle
-                  cx={x}
-                  cy={y}
-                  r="4"
-                  fill={colors[0]}
-                />
-              </g>
+              <div key={i} style={{ position: 'absolute', left: 0, top: P + y - 6, width: '100%', textAlign: 'right', fontSize: 10, color: '#6b7280' }}>
+                {Number.isFinite(val) ? Math.round(val) : ''}
+              </div>
             )
           })}
-        </svg>
-        <div className="flex justify-between border-t border-gray-300 pt-2 mt-2">
+        </div>
+
+        {/* X-axis labels */}
+        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, transform: 'translateY(100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {labels.map((label, index) => (
-            <span key={index} className="text-[10px] text-gray-600 truncate">{label}</span>
+            <span key={index} className="text-gray-600 truncate" style={{ fontSize: 10 }}>{label}</span>
           ))}
         </div>
       </div>
     )
   }
-  
+
   if (chartType === 'pie') {
-    const total = data.reduce((sum, val) => sum + val, 0)
+    const total = Math.max(1, data.reduce((sum, val) => sum + val, 0))
     let currentAngle = 0
-    
     return (
-      <div className="w-full h-full bg-white p-4 flex gap-4 items-center justify-center relative">
-        <svg viewBox="0 0 100 100" className="w-1/2 h-3/4">
+      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', padding: 8 }}>
+        <svg viewBox="0 0 100 100" className="w-1/2 h-full">
           {data.map((value, index) => {
             const percentage = value / total
             const angle = percentage * 360
             const startAngle = currentAngle
             const endAngle = currentAngle + angle
             currentAngle = endAngle
-            
             const x1 = 50 + 40 * Math.cos((startAngle - 90) * Math.PI / 180)
             const y1 = 50 + 40 * Math.sin((startAngle - 90) * Math.PI / 180)
             const x2 = 50 + 40 * Math.cos((endAngle - 90) * Math.PI / 180)
             const y2 = 50 + 40 * Math.sin((endAngle - 90) * Math.PI / 180)
             const largeArc = angle > 180 ? 1 : 0
-            
             return (
-              <path
-                key={index}
-                d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                fill={colors[index % colors.length]}
-              />
+              <path key={index} d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`} fill={colors[index % colors.length] || '#60a5fa'} />
             )
           })}
         </svg>
-        
-        <div className="flex flex-col gap-1">
-          {data.map((value, index) => (
-            <div key={index} className="flex items-center gap-2 text-[10px]">
-              <div 
-                className="w-3 h-3 rounded-sm" 
-                style={{ backgroundColor: colors[index % colors.length] }}
-              />
-              <span className="text-gray-700">{labels[index]}: {value}</span>
+        {/* Legend */}
+        <div style={{ position: 'absolute', right: 8, top: 8, display: 'flex', flexDirection: 'column', gap: 6, maxWidth: '45%' }}>
+          {labels.map((lbl, i) => (
+            <div key={`pie-lg-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 10, height: 10, backgroundColor: colors[i % colors.length] || '#60a5fa', borderRadius: 2 }} />
+              <div style={{ fontSize: 10, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lbl}</div>
             </div>
           ))}
         </div>
       </div>
     )
   }
-  
+
   return null
 }

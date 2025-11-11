@@ -5,11 +5,12 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
   const { state, dispatch } = useSlides()
   const fileInputRef = useRef(null)
   const [showShareSubmenu, setShowShareSubmenu] = useState(false)
+  const [showNewConfirm, setShowNewConfirm] = useState(false)
 
   if (!isOpen) return null
 
-  const handleOpen = () => {
-    fileInputRef.current?.click()
+  const handleNew = () => {
+    setShowNewConfirm(true)
   }
 
   const handleFileSelect = (event) => {
@@ -35,12 +36,35 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
           const slideElements = doc.querySelectorAll('.slide')
           
           slideElements.forEach((slideEl, index) => {
-            const elements = []
-            const textElements = slideEl.querySelectorAll('div[style*="position: absolute"]')
+      const elements = []
+            // Charts
+            const chartEls = slideEl.querySelectorAll('[data-el-type="chart"][data-el-chart]')
+            chartEls.forEach(node => {
+              const style = node.style
+              let payload = null
+              try { payload = JSON.parse(decodeURIComponent(node.getAttribute('data-el-chart') || '')) } catch {}
+              if (payload) {
+                elements.push({
+                  id: `element_${Date.now()}_${Math.random()}`,
+                  type: 'chart',
+                  chartType: payload.chartType || 'bar',
+                  x: parseInt(style.left) || 0,
+                  y: parseInt(style.top) || 0,
+                  w: parseInt(style.width) || 400,
+                  h: parseInt(style.height) || 300,
+                  rotation: 0,
+                  data: Array.isArray(payload.data) ? payload.data : [],
+                  labels: Array.isArray(payload.labels) ? payload.labels : [],
+                  colors: Array.isArray(payload.colors) ? payload.colors : ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
+                })
+              }
+            })
+            
+            // Text blocks
+            const textElements = slideEl.querySelectorAll('div[style*="position: absolute"]:not([data-el-type])')
             
             textElements.forEach(textEl => {
               const style = textEl.style
-              const rect = textEl.getBoundingClientRect()
               
               elements.push({
                 id: `element_${Date.now()}_${Math.random()}`,
@@ -57,7 +81,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
                   color: style.color || '#111827',
                   bold: style.fontWeight === '700' || style.fontWeight === 'bold',
                   italic: style.fontStyle === 'italic',
-                  underline: style.textDecoration === 'underline',
+                  underline: (style.textDecoration || '').includes('underline'),
                   align: style.textAlign || 'left',
                   listStyle: 'none'
                 }
@@ -142,160 +166,189 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
     event.target.value = '' // Reset file input
   }
 
-  const handleSave = async () => {
-    try {
-      // Create HTML content for each slide
-      const slidesHTML = state.slides.map((slide, index) => {
-        const elementsHTML = slide.elements.map(el => {
-          if (el.type === 'text') {
-            return `
-              <div style="position: absolute; left: ${el.x}px; top: ${el.y}px; width: ${el.w}px; height: ${el.h}px; 
-                          color: ${el.styles.color}; font-size: ${el.styles.fontSize}px; 
-                          font-weight: ${el.styles.bold ? 700 : 400}; 
-                          font-style: ${el.styles.italic ? 'italic' : 'normal'};
-                          text-decoration: ${el.styles.underline ? 'underline' : 'none'};
-                          text-align: ${el.styles.align};
-                          background-color: ${el.bgColor || 'transparent'};
-                          padding: 8px; box-sizing: border-box;">
-                ${el.text}
-              </div>
-            `
-          }
-          return ''
-        }).join('')
-
-        return `
-          <div class="slide" style="width: 960px; height: 540px; position: relative; 
-                      background: ${slide.background || '#ffffff'}; 
-                      border: 3px solid #000000; margin: 20px 0; page-break-after: always;">
-            ${elementsHTML}
-          </div>
-        `
-      }).join('')
-
-      // Create complete HTML document
-      const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Presentation</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .slide { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    @media print {
-      body { margin: 0; }
-      .slide { margin: 0; box-shadow: none; }
+  // Utilities for saving via File System Access API or fallback
+  const supportsFilePicker = () => typeof window !== 'undefined' && window.isSecureContext && 'showSaveFilePicker' in window
+  const saveBlob = async (blob, suggestedName) => {
+    // Legacy IE/Edge fallback
+    if (typeof navigator !== 'undefined' && navigator.msSaveOrOpenBlob) {
+      try { navigator.msSaveOrOpenBlob(blob, suggestedName); return suggestedName } catch {}
     }
-  </style>
-</head>
-<body>
-  <h1>Presentation Export</h1>
-  <p>Total Slides: ${state.slides.length}</p>
-  <hr>
-  ${slidesHTML}
-</body>
-</html>
-      `
 
-      // Create blob and download as .ppt file (HTML format that can be opened in PowerPoint)
-      const blob = new Blob([htmlContent], { type: 'application/vnd.ms-powerpoint' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      const fileName = `presentation-${new Date().toISOString().slice(0, 10)}`
-      link.download = `${fileName}.ppt`
-      document.body.appendChild(link)
-      link.click()
+    if (supportsFilePicker()) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: 'PowerPoint Presentation', accept: { 'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'] } }],
+          excludeAcceptAllOption: false
+        })
+        const writable = await handle.createWritable()
+        // ensure overwrite
+        try { await writable.truncate(0) } catch {}
+        // write blob (ArrayBuffer path for broader compat)
+        const ab = await blob.arrayBuffer()
+        await writable.write(new Uint8Array(ab))
+        await writable.close()
+        // Use the actual name chosen in the dialog
+        return handle?.name || suggestedName
+      } catch (e) {
+        // User cancelled or API failed; fall through to download
+      }
+    }
+
+    // Standard download fallback
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = suggestedName
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    setTimeout(() => {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-      
-      onSave?.(fileName)
-      alert('Presentation saved successfully as .ppt file!')
+    }, 0)
+    return suggestedName
+  }
+
+  const loadPptxLib = async () => {
+    if (window.PptxGenJS) return window.PptxGenJS
+    // Dynamically load from CDN
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script')
+      s.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js'
+      s.onload = resolve
+      s.onerror = reject
+      document.head.appendChild(s)
+    })
+    return window.PptxGenJS
+  }
+
+  const buildPptxBlob = async () => {
+    const PptxGenJS = await loadPptxLib()
+    const pptx = new PptxGenJS()
+    // Set size to 10in x 5.625in (16:9)
+    pptx.defineLayout({ name: 'WIDE', width: 10, height: 5.625 })
+    pptx.layout = 'WIDE'
+    const PX_PER_IN = 96
+
+    state.slides.forEach((slide) => {
+      const s = pptx.addSlide()
+      // Background
+      if (slide.background && typeof slide.background === 'object' && slide.background.type === 'image' && slide.background.src) {
+        s.addImage({ data: slide.background.src, x: 0, y: 0, w: 10, h: 5.625 })
+      } else if (typeof slide.background === 'string') {
+        s.background = { color: slide.background }
+      }
+      // Elements: text, images, shapes, charts (best-effort mapping)
+      slide.elements.forEach(el => {
+        const x = (el.x || 0) / PX_PER_IN
+        const y = (el.y || 0) / PX_PER_IN
+        const w = (el.w || 200) / PX_PER_IN
+        const h = (el.h || 80) / PX_PER_IN
+
+        if (el.type === 'text') {
+          s.addText(el.html ? stripHtml(el.html) : (el.text || ''), {
+            x, y, w, h,
+            rotate: Number.isFinite(el.rotation) ? el.rotation : 0,
+            fontFace: el.styles?.fontFamily || 'Arial',
+            fontSize: el.styles?.fontSize || 24,
+            bold: !!el.styles?.bold,
+            italic: !!el.styles?.italic,
+            underline: !!el.styles?.underline,
+            color: (el.styles?.color || '#111827').replace(/rgba\((.*),(.*),(.*),(.*)\)/, '#111827'),
+            align: (el.styles?.align || 'left')
+          })
+        }
+        else if (el.type === 'image' && el.src) {
+          s.addImage({ data: el.src, x, y, w, h, rotate: Number.isFinite(el.rotation) ? el.rotation : 0 })
+        }
+        else if ([ 'rect','square','circle','triangle','diamond','star','message' ].includes(el.type)) {
+          let shape = 'rect'
+          if (el.type === 'circle') shape = 'ellipse'
+          else if (el.type === 'triangle') shape = 'triangle'
+          else if (el.type === 'diamond') shape = 'diamond'
+          else if (el.type === 'star') shape = 'star5'
+          else if (el.type === 'message') shape = 'wedgeRoundRectCallout'
+          // square = rect with equal sides
+          const opts = {
+            x, y, w, h,
+            rotate: Number.isFinite(el.rotation) ? el.rotation : 0,
+            fill: { color: el.fill || '#fde68a' },
+            line: { color: el.stroke || '#f59e0b', width: 1 },
+          }
+          s.addShape(shape, opts)
+          // center text inside shape if provided
+          if (el.text) {
+            s.addText(el.text, {
+              x, y, w, h,
+              align: (el.styles?.align || 'center'),
+              fontSize: el.fontSize || el.styles?.fontSize || 16,
+              color: el.textColor || el.styles?.color || '#111827',
+              bold: !!el.styles?.bold,
+              italic: !!el.styles?.italic,
+              underline: !!el.styles?.underline,
+              valign: 'middle'
+            })
+          }
+        }
+        else if (el.type === 'chart' && Array.isArray(el.labels) && Array.isArray(el.data)) {
+          try {
+            const toSeries = (data) => {
+              // data can be number[] or number[][]
+              if (Array.isArray(data) && data.length && Array.isArray(data[0])) {
+                return data.map((arr, i) => ({ name: `Series ${i+1}`, labels: el.labels, values: arr }))
+              }
+              return [{ name: 'Series 1', labels: el.labels, values: data }]
+            }
+            const series = toSeries(el.data)
+            const chartTypeMap = { bar: 'bar', column: 'bar', line: 'line', pie: 'pie', area: 'area' }
+            const cType = chartTypeMap[el.chartType] || 'bar'
+            s.addChart(cType, series, { x, y, w, h, chartColors: Array.isArray(el.colors) ? el.colors : undefined })
+          } catch {}
+        }
+      })
+    })
+
+    const blob = await pptx.write('blob')
+    return blob
+  }
+
+  const stripHtml = (html='') => {
+    const tmp = document.createElement('div')
+    tmp.innerHTML = html
+    return tmp.textContent || tmp.innerText || ''
+  }
+
+  const handleSave = async () => {
+    try {
+      const blob = await buildPptxBlob()
+      const name = `presentation-${new Date().toISOString().slice(0, 10)}.pptx`
+      const savedName = await saveBlob(blob, name)
+      const display = String(savedName || name).replace(/\.(pptx)$/i, '').trim() || 'Untitled Presentation'
+      onSave?.(display)
     } catch (error) {
       alert('Error saving presentation: ' + error.message)
     }
   }
 
-  const handleSaveAs = () => {
-    // Prompt user for filename
-    const defaultName = `presentation-${new Date().toISOString().slice(0, 10)}`
-    const userFileName = prompt('Enter filename for the presentation:', defaultName)
-    
-    // If user cancels or enters empty string, abort
-    if (!userFileName || userFileName.trim() === '') {
-      return
+  const handleSaveAs = async () => {
+    try {
+      const blob = await buildPptxBlob()
+      let name = `presentation-${new Date().toISOString().slice(0, 10)}.pptx`
+      if (supportsFilePicker()) {
+        const chosen = await saveBlob(blob, name)
+        if (chosen) name = chosen
+      } else {
+        // Fallback: prompt for filename only affects download name
+        const input = prompt('Enter filename for the presentation (without extension):', name.replace(/\.pptx$/i, ''))
+        if (input && input.trim()) name = `${input.trim()}.pptx`
+        await saveBlob(blob, name)
+      }
+      const display = String(name || '').replace(/\.(pptx)$/i, '').trim() || 'Untitled Presentation'
+      onSave?.(display)
+    } catch (error) {
+      alert('Error saving presentation: ' + error.message)
     }
-
-    // Remove any file extension user might have added
-    const cleanFileName = userFileName.replace(/\.(ppt|json)$/i, '')
-
-    // Create HTML content for PowerPoint file
-    const slidesHTML = state.slides.map((slide, index) => {
-      const elementsHTML = slide.elements.map(el => {
-        if (el.type === 'text') {
-          return `
-            <div style="position: absolute; left: ${el.x}px; top: ${el.y}px; width: ${el.w}px; height: ${el.h}px; 
-                        color: ${el.styles.color}; font-size: ${el.styles.fontSize}px; 
-                        font-weight: ${el.styles.bold ? 700 : 400}; 
-                        font-style: ${el.styles.italic ? 'italic' : 'normal'};
-                        text-decoration: ${el.styles.underline ? 'underline' : 'none'};
-                        text-align: ${el.styles.align};
-                        background-color: ${el.bgColor || 'transparent'};
-                        padding: 8px; box-sizing: border-box;">
-              ${el.text}
-            </div>
-          `
-        }
-        return ''
-      }).join('')
-
-      return `
-        <div class="slide" style="width: 960px; height: 540px; position: relative; 
-                    background: ${slide.background || '#ffffff'}; 
-                    border: 3px solid #000000; margin: 20px 0; page-break-after: always;">
-          ${elementsHTML}
-        </div>
-      `
-    }).join('')
-
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>${cleanFileName}</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .slide { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    @media print {
-      body { margin: 0; }
-      .slide { margin: 0; box-shadow: none; }
-    }
-  </style>
-</head>
-<body>
-  <h1>${cleanFileName}</h1>
-  <p>Total Slides: ${state.slides.length}</p>
-  <hr>
-  ${slidesHTML}
-</body>
-</html>
-    `
-
-    // Download as .ppt file
-    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-powerpoint' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${cleanFileName}.ppt`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    
-    onSave?.(cleanFileName)
-    alert(`Presentation saved as "${cleanFileName}.ppt"!`)
   }
 
   const handleExportPDF = () => {
@@ -547,9 +600,9 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
   }
 
   const menuItems = [
-    { label: 'Open', icon: '📂', action: handleOpen, description: 'Open existing presentation file' },
-    { label: 'Save', icon: '💾', action: handleSave, description: 'Download as .ppt file' },
-    { label: 'Save As', icon: '📝', action: handleSaveAs, description: 'Save with custom filename' },
+    { label: 'New', icon: '🆕', action: handleNew, description: 'Start a new presentation' },
+    { label: 'Save', icon: '💾', action: handleSave, description: 'Save as .pptx (opens file picker)' },
+    { label: 'Save As', icon: '📝', action: handleSaveAs, description: 'Save as .pptx with name' },
     { label: 'Export as PDF', icon: '📄', action: handleExportPDF, description: 'Print or save as PDF' },
     { label: 'Share', icon: '🔗', action: handleShare, description: 'Share as Word or Image', hasSubmenu: true },
   ]
@@ -640,14 +693,47 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
         </div>
       </div>
       
-      {/* Hidden file input for opening files */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".ppt,.json,.html"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
+      {/* New confirmation dialog */}
+      {showNewConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-2xl w-[420px] p-6">
+            <h3 className="text-lg font-semibold mb-2">Start New Presentation?</h3>
+            <p className="text-sm text-gray-600 mb-4">You have unsaved changes. Do you want to save your current presentation before creating a new one?</p>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
+                onClick={() => setShowNewConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                onClick={async () => {
+                  try { await handleSave() } catch {}
+                  dispatch({ type: 'NEW_PRESENTATION' })
+                  onFileOpen?.('Untitled Presentation')
+                  setShowNewConfirm(false)
+                  onClose()
+                }}
+              >
+                Save
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+                onClick={() => {
+                  dispatch({ type: 'NEW_PRESENTATION' })
+                  onFileOpen?.('Untitled Presentation')
+                  setShowNewConfirm(false)
+                  onClose()
+                }}
+              >
+                Don't Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
+

@@ -7,27 +7,38 @@ const SlidesContext = createContext(null)
 const REF_WIDTH = 960
 const REF_HEIGHT = 540
 
-const defaultText = (text = 'Double-click to edit', x = REF_WIDTH * 0.083, y = REF_HEIGHT * 0.148, w = REF_WIDTH * 0.33, h = REF_HEIGHT * 0.148, fontSize = 28, bgColor = 'transparent') => ({
+const defaultText = (text = '', x = REF_WIDTH * 0.083, y = REF_HEIGHT * 0.148, w = REF_WIDTH * 0.33, h = REF_HEIGHT * 0.148, fontSize = 28, bgColor = 'transparent') => ({
   id: nanoid(),
   type: 'text',
   x,
   y,
   w,
   h,
+  rotation: 0,
   text,
+  placeholder: 'Double-click to edit',
+  placeholderBold: false,
   bgColor,
-  styles: { fontFamily: 'Inter, system-ui, sans-serif', fontSize, color: '#111827', bold: false, italic: false, underline: false, align: 'left', listStyle: 'none' },
+  styles: { fontFamily: 'Inter, system-ui, sans-serif', fontSize, color: '#111827', bold: false, italic: false, underline: false, align: 'left', listStyle: 'none', valign: 'top' },
 })
 
 let slideCounter = 1
 
 const defaultSlide = () => {
   const slideNum = slideCounter++
+  const title = defaultText('', REF_WIDTH * 0.1, REF_HEIGHT * 0.18, REF_WIDTH * 0.8, REF_HEIGHT * 0.18, 44)
+  title.styles = { ...title.styles, align: 'center' }
+  title.placeholder = 'Click here to add title'
+  title.placeholderBold = true
+  const subtitle = defaultText('', REF_WIDTH * 0.18, REF_HEIGHT * 0.38, REF_WIDTH * 0.64, REF_HEIGHT * 0.16, 24)
+  subtitle.styles = { ...subtitle.styles, align: 'center' }
+  subtitle.placeholder = 'Click here to add sub title'
+  subtitle.placeholderBold = false
   return { 
     id: nanoid(), 
     name: `Slide ${slideNum}`,
     background: '#ffffff', 
-    elements: [defaultText()] 
+    elements: [title, subtitle] 
   }
 }
 
@@ -90,7 +101,9 @@ function reducer(state, action) {
     }
     case 'ADD_SLIDE': {
       const slide = defaultSlide()
-      const newSlides = [...state.slides, slide]
+      const idx = state.slides.findIndex(s => s.id === state.currentSlideId)
+      const insertAt = idx >= 0 ? idx + 1 : state.slides.length
+      const newSlides = [...state.slides.slice(0, insertAt), slide, ...state.slides.slice(insertAt)]
       return { 
         ...state, 
         slides: newSlides, 
@@ -196,22 +209,14 @@ function reducer(state, action) {
         ...slide,
         elements: slide.elements.map(e => {
           if (e.id === action.id) {
-            const updated = { ...e, ...action.patch }
-            // Ensure element stays within very generous slide boundaries
-            const MARGIN = 50
-            if (updated.x !== undefined) {
-              updated.x = Math.max(-MARGIN, Math.min(REF_WIDTH + MARGIN, updated.x))
-            }
-            if (updated.y !== undefined) {
-              updated.y = Math.max(-MARGIN, Math.min(REF_HEIGHT + MARGIN, updated.y))
-            }
-            if (updated.w !== undefined) {
-              updated.w = Math.min(updated.w, REF_WIDTH + MARGIN * 2)
-            }
-            if (updated.h !== undefined) {
-              updated.h = Math.min(updated.h, REF_HEIGHT + MARGIN * 2)
-            }
-            return updated
+            const prev = e
+            const next = { ...e, ...action.patch }
+            // Compute combined clamps so x/w and y/h keep element fully within slide
+            const nx = Math.max(0, Math.min(REF_WIDTH - (next.w ?? prev.w), next.x ?? prev.x))
+            const ny = Math.max(0, Math.min(REF_HEIGHT - (next.h ?? prev.h), next.y ?? prev.y))
+            const nw = Math.max(1, Math.min(next.w ?? prev.w, REF_WIDTH - nx))
+            const nh = Math.max(1, Math.min(next.h ?? prev.h, REF_HEIGHT - ny))
+            return { ...next, x: nx, y: ny, w: nw, h: nh }
           }
           return e
         }),
@@ -243,6 +248,45 @@ function reducer(state, action) {
         historyIndex: 0,
       }
       return newState
+    }
+    case 'APPLY_WATERMARK': {
+      const { settings = {}, scope = 'current', replace = true } = action
+      const targetIds = scope === 'all' ? state.slides.map(s=>s.id) : [state.currentSlideId]
+      const slides = state.slides.map(s => {
+        if (!targetIds.includes(s.id)) return s
+        const filtered = replace ? s.elements.filter(e => !e.isWatermark) : s.elements
+        const wm = factories.watermark(settings)
+        return { ...s, elements: [...filtered, wm] }
+      })
+      return { 
+        ...state,
+        slides,
+        ...addToHistory(state, slides)
+      }
+    }
+    case 'REMOVE_WATERMARK': {
+      const { scope = 'current' } = action
+      const targetIds = scope === 'all' ? state.slides.map(s=>s.id) : [state.currentSlideId]
+      const slides = state.slides.map(s => {
+        if (!targetIds.includes(s.id)) return s
+        return { ...s, elements: s.elements.filter(e => !e.isWatermark) }
+      })
+      return {
+        ...state,
+        slides,
+        ...addToHistory(state, slides)
+      }
+    }
+    case 'NEW_PRESENTATION': {
+      const first = defaultSlide()
+      const slides = [first]
+      return {
+        slides,
+        currentSlideId: first.id,
+        selectedElementId: null,
+        clipboard: null,
+        ...addToHistory(state, slides, first.id)
+      }
     }
     default:
       return state
@@ -277,153 +321,89 @@ export function useSlides() {
 
 export const factories = {
   text: defaultText,
-  rect: () => ({ 
-    id: nanoid(), 
-    type: 'rect', 
-    x: REF_WIDTH * 0.1, 
-    y: REF_HEIGHT * 0.18, 
-    w: REF_WIDTH * 0.21, 
-    h: REF_HEIGHT * 0.22, 
-    rotation: 0, 
-    fill: '#fde68a', 
-    stroke: '#f59e0b', 
-    text: '', 
-    textColor: '#111827', 
-    fontSize: 16 
-  }),
-  square: () => ({ 
-    id: nanoid(), 
-    type: 'square', 
-    x: REF_WIDTH * 0.1, 
-    y: REF_HEIGHT * 0.18, 
-    w: REF_WIDTH * 0.16, 
-    h: REF_HEIGHT * 0.28, 
-    rotation: 0, 
-    fill: '#fde68a', 
-    stroke: '#f59e0b', 
-    text: '', 
-    textColor: '#111827', 
-    fontSize: 16 
-  }),
-  circle: () => ({ 
-    id: nanoid(), 
-    type: 'circle', 
-    x: REF_WIDTH * 0.15, 
-    y: REF_HEIGHT * 0.26, 
-    w: REF_WIDTH * 0.17, 
-    h: REF_HEIGHT * 0.3, 
-    rotation: 0, 
-    fill: '#bfdbfe', 
-    stroke: '#3b82f6', 
-    text: '', 
-    textColor: '#111827', 
-    fontSize: 16 
-  }),
-  triangle: () => ({ 
-    id: nanoid(), 
-    type: 'triangle', 
-    x: REF_WIDTH * 0.1, 
-    y: REF_HEIGHT * 0.18, 
-    w: REF_WIDTH * 0.16, 
-    h: REF_HEIGHT * 0.28, 
-    rotation: 0, 
-    fill: '#fecaca', 
-    stroke: '#ef4444', 
-    text: '', 
-    textColor: '#111827', 
-    fontSize: 16 
-  }),
-  diamond: () => ({ 
-    id: nanoid(), 
-    type: 'diamond', 
-    x: REF_WIDTH * 0.1, 
-    y: REF_HEIGHT * 0.18, 
-    w: REF_WIDTH * 0.16, 
-    h: REF_HEIGHT * 0.28, 
-    rotation: 0, 
-    fill: '#d8b4fe', 
-    stroke: '#8b5cf6', 
-    text: '', 
-    textColor: '#111827', 
-    fontSize: 16 
-  }),
-  star: () => ({ 
-    id: nanoid(), 
-    type: 'star', 
-    x: REF_WIDTH * 0.1, 
-    y: REF_HEIGHT * 0.18, 
-    w: REF_WIDTH * 0.16, 
-    h: REF_HEIGHT * 0.28, 
-    rotation: 0, 
-    fill: '#fef3c7', 
-    stroke: '#f59e0b', 
-    text: '', 
-    textColor: '#111827', 
-    fontSize: 16 
-  }),
-  message: () => ({ 
-    id: nanoid(), 
-    type: 'message', 
-    x: REF_WIDTH * 0.19, 
-    y: REF_HEIGHT * 0.33, 
-    w: REF_WIDTH * 0.21, 
-    h: REF_HEIGHT * 0.15, 
-    rotation: 0, 
-    fill: '#d1fae5', 
-    stroke: '#10b981', 
-    text: 'Message', 
-    textColor: '#111827', 
-    fontSize: 14 
-  }),
-  image: (src, w=REF_WIDTH * 0.33, h=REF_HEIGHT * 0.44) => ({ 
-    id: nanoid(), 
-    type: 'image', 
-    x: REF_WIDTH * 0.125, 
-    y: REF_HEIGHT * 0.22, 
-    w, 
-    h, 
-    rotation: 0, 
-    src 
-  }),
-  table: (rows, cols, x, y, w, h) => ({
-    id: nanoid(),
-    type: 'table',
-    x,
-    y,
-    w,
-    h,
-    rotation: 0,
-    rows,
-    cols,
-    cells: Array.from({ length: rows * cols }, (_, i) => ({
+  watermark: ({
+    text = 'CONFIDENTIAL',
+    fontSize = 64,
+    color = '#111827',
+    opacity = 0.15,
+    rotation = -30,
+  } = {}) => {
+    const w = Math.round(REF_WIDTH * 0.8)
+    const h = Math.round(REF_HEIGHT * 0.22)
+    const x = Math.round((REF_WIDTH - w) / 2)
+    const y = Math.round((REF_HEIGHT - h) / 2)
+    const toRgba = (hex, a) => {
+      try {
+        const h = hex.replace('#','')
+        const bigint = parseInt(h.length === 3 ? h.split('').map(c=>c+c).join('') : h, 16)
+        const r = (bigint >> 16) & 255
+        const g = (bigint >> 8) & 255
+        const b = bigint & 255
+        return `rgba(${r}, ${g}, ${b}, ${a})`
+      } catch { return hex }
+    }
+    const rgba = color.startsWith('#') ? toRgba(color, opacity) : color
+    return {
       id: nanoid(),
-      text: '',
+      type: 'text',
+      x, y, w, h,
+      rotation,
+      isWatermark: true,
+      text,
+      bgColor: 'transparent',
       styles: {
         fontFamily: 'Inter, system-ui, sans-serif',
-        fontSize: 14,
-        color: '#111827',
-        bold: false,
+        fontSize,
+        color: rgba,
+        bold: true,
         italic: false,
         underline: false,
         align: 'center',
-      }
-    }))
+        listStyle: 'none',
+        valign: 'middle',
+      },
+    }
+  },
+  rect: () => ({ id: nanoid(), type: 'rect', x: REF_WIDTH*0.1, y: REF_HEIGHT*0.18, w: REF_WIDTH*0.21, h: REF_HEIGHT*0.22, rotation: 0, fill: '#fde68a', stroke: '#f59e0b', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  square: () => ({ id: nanoid(), type: 'square', x: REF_WIDTH*0.1, y: REF_HEIGHT*0.18, w: REF_WIDTH*0.16, h: REF_HEIGHT*0.28, rotation: 0, fill: '#fde68a', stroke: '#f59e0b', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  circle: () => ({ id: nanoid(), type: 'circle', x: REF_WIDTH*0.15, y: REF_HEIGHT*0.26, w: REF_WIDTH*0.17, h: REF_HEIGHT*0.3, rotation: 0, fill: '#bfdbfe', stroke: '#3b82f6', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  triangle: () => ({ id: nanoid(), type: 'triangle', x: REF_WIDTH*0.1, y: REF_HEIGHT*0.18, w: REF_WIDTH*0.16, h: REF_HEIGHT*0.28, rotation: 0, fill: '#fecaca', stroke: '#ef4444', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  diamond: () => ({ id: nanoid(), type: 'diamond', x: REF_WIDTH*0.1, y: REF_HEIGHT*0.18, w: REF_WIDTH*0.16, h: REF_HEIGHT*0.28, rotation: 0, fill: '#d8b4fe', stroke: '#8b5cf6', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  star: () => ({ id: nanoid(), type: 'star', x: REF_WIDTH*0.1, y: REF_HEIGHT*0.18, w: REF_WIDTH*0.16, h: REF_HEIGHT*0.28, rotation: 0, fill: '#fef3c7', stroke: '#f59e0b', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  roundRect: () => ({ id: nanoid(), type: 'roundRect', x: REF_WIDTH*0.1, y: REF_HEIGHT*0.18, w: REF_WIDTH*0.21, h: REF_HEIGHT*0.22, rotation: 0, fill: '#e5e7eb', stroke: '#6b7280', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  parallelogram: () => ({ id: nanoid(), type: 'parallelogram', x: REF_WIDTH*0.12, y: REF_HEIGHT*0.20, w: REF_WIDTH*0.22, h: REF_HEIGHT*0.20, rotation: 0, fill: '#d1fae5', stroke: '#10b981', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  trapezoid: () => ({ id: nanoid(), type: 'trapezoid', x: REF_WIDTH*0.14, y: REF_HEIGHT*0.22, w: REF_WIDTH*0.24, h: REF_HEIGHT*0.20, rotation: 0, fill: '#bae6fd', stroke: '#3b82f6', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  pentagon: () => ({ id: nanoid(), type: 'pentagon', x: REF_WIDTH*0.1, y: REF_HEIGHT*0.18, w: REF_WIDTH*0.18, h: REF_HEIGHT*0.24, rotation: 0, fill: '#fde68a', stroke: '#f59e0b', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  hexagon: () => ({ id: nanoid(), type: 'hexagon', x: REF_WIDTH*0.1, y: REF_HEIGHT*0.18, w: REF_WIDTH*0.20, h: REF_HEIGHT*0.22, rotation: 0, fill: '#fbcfe8', stroke: '#ec4899', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  octagon: () => ({ id: nanoid(), type: 'octagon', x: REF_WIDTH*0.12, y: REF_HEIGHT*0.20, w: REF_WIDTH*0.20, h: REF_HEIGHT*0.20, rotation: 0, fill: '#fecaca', stroke: '#ef4444', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  chevron: () => ({ id: nanoid(), type: 'chevron', x: REF_WIDTH*0.12, y: REF_HEIGHT*0.20, w: REF_WIDTH*0.24, h: REF_HEIGHT*0.18, rotation: 0, fill: '#ddd6fe', stroke: '#8b5cf6', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  arrowRight: () => ({ id: nanoid(), type: 'arrowRight', x: REF_WIDTH*0.12, y: REF_HEIGHT*0.20, w: REF_WIDTH*0.26, h: REF_HEIGHT*0.16, rotation: 0, fill: '#bbf7d0', stroke: '#22c55e', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  cloud: () => ({ id: nanoid(), type: 'cloud', x: REF_WIDTH*0.12, y: REF_HEIGHT*0.20, w: REF_WIDTH*0.24, h: REF_HEIGHT*0.16, rotation: 0, fill: '#e0f2fe', stroke: '#38bdf8', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
+  message: () => ({ id: nanoid(), type: 'message', x: REF_WIDTH*0.19, y: REF_HEIGHT*0.33, w: REF_WIDTH*0.21, h: REF_HEIGHT*0.15, rotation: 0, fill: '#d1fae5', stroke: '#10b981', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 14 }),
+  image: (src, w=REF_WIDTH*0.33, h=REF_HEIGHT*0.44) => ({ id: nanoid(), type: 'image', x: REF_WIDTH*0.125, y: REF_HEIGHT*0.22, w, h, rotation: 0, src }),
+  table: (rows, cols, x, y, w, h, headerRow = true) => ({
+    id: nanoid(),
+    type: 'table',
+    x, y, w, h,
+    rotation: 0,
+    rows, cols,
+    headerRow,
+    headerBg: '#f3f4f6',
+    headerTextColor: '#111827',
+    cellBg: '#ffffff',
+    borderColor: '#000000',
+    cells: Array.from({ length: rows*cols }, () => ({ id: nanoid(), text: '', styles: { fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14, color: '#111827', bold: false, italic: false, underline: false, align: 'center', valign: 'middle' } }))
   }),
   chart: (chartType, x, y, w, h) => ({
     id: nanoid(),
     type: 'chart',
     chartType,
-    x,
-    y,
-    w,
-    h,
+    x, y, w, h,
     rotation: 0,
-    data: chartType === 'pie' 
-      ? [30, 25, 20, 15, 10]
-      : [65, 59, 80, 81, 56, 55, 40],
+    data: chartType === 'pie' ? [30, 25, 20, 15, 10] : [65, 59, 80, 81, 56, 55, 40],
     labels: chartType === 'pie'
       ? ['Category A', 'Category B', 'Category C', 'Category D', 'Category E']
       : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
-    colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
+    colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
   }),
 }

@@ -40,31 +40,34 @@ export const ThemeProvider = ({ children }) => {
   const getThemeColors = () => {
     if (theme === 'dark') {
       return {
-        // Dark theme - white backgrounds with black elements
-        mainBg: 'bg-white',
-        cardBg: 'bg-white',
-        slideBg: 'bg-white',
-        toolbarBg: 'linear-gradient(135deg, #000000 0%, #404040 50%, #7f7f7f 100%)',
-        sidebarBg: 'linear-gradient(135deg, #000000 0%, #404040 50%, #7f7f7f 100%)',
-        text: 'text-gray-900',
-        textSecondary: 'text-gray-700',
-        textMuted: 'text-gray-600',
-        border: 'border-gray-300',
-        accent: 'bg-gray-900',
-        accentHover: 'hover:bg-gray-800',
+        // Dark theme – black bg, white text
+        mainBg: 'bg-black',
+        cardBg: 'bg-neutral-900',
+        slideBg: 'bg-black',
+        toolbarBg: 'linear-gradient(135deg, #000000 0%, #1f1f1f 50%, #2b2b2b 100%)',
+        sidebarBg: 'linear-gradient(135deg, #000000 0%, #1f1f1f 50%, #2b2b2b 100%)',
+        text: 'text-white',
+        textSecondary: 'text-gray-200',
+        textMuted: 'text-gray-400',
+        border: 'border-white/10',
+        accent: 'bg-white',
+        accentHover: 'hover:bg-white/10',
         shadow: 'shadow-xl',
         // Toolbar specific colors for dark theme
         toolbarText: 'text-white',
-        toolbarTextSecondary: 'text-gray-200',
-        toolbarTextMuted: 'text-gray-300',
-        // Glassmorphism button styles
-        glassButton: 'bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-300',
-        glassButtonActive: 'bg-blue text-black backdrop-blur-md border-2 border-black shadow-xl',
-        glassButtonDisabled: 'bg-white/5 backdrop-blur-md border border-white/10 opacity-50 cursor-not-allowed',
-        // Element colors (black theme)
-        elementText: '#000000',
-        elementBorder: '#333333',
-        elementBg: '#f8f9fa'
+        toolbarTextSecondary: 'text-gray-300',
+        toolbarTextMuted: 'text-gray-400',
+        // Glassmorphism for dark theme (hover/active only)
+        glassButton: 'bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-colors',
+        glassButtonActive: 'bg-white/20 text-white border border-white/30 backdrop-blur-md ring-1 ring-white/30',
+        glassButtonDisabled: 'bg-white/5 border border-white/10 opacity-50 cursor-not-allowed',
+        // Element button glass (used on hover/selected for dark only)
+        elementGlass: 'hover:bg-white/10 backdrop-blur-md border border-white/20',
+        elementActiveGlass: 'bg-white/15 backdrop-blur-md ring-1 ring-white/30',
+        // Element colors (for content rendering)
+        elementText: '#ffffff',
+        elementBorder: '#3f3f46',
+        elementBg: '#0b0b0b'
       }
     } else {
       return {
@@ -72,7 +75,7 @@ export const ThemeProvider = ({ children }) => {
         mainBg: 'bg-gray-50',
         cardBg: 'bg-white',
         slideBg: 'bg-white',
-        toolbarBg: 'linear-gradient(135deg, #A7AAE1 0%, #FDAAAA 100%)',
+        toolbarBg: '#E0E0E0',
         sidebarBg: 'linear-gradient(135deg, #A7AAE1 0%, #FDAAAA 100%)',
         text: 'text-gray-900',
         textSecondary: 'text-gray-700',
@@ -85,10 +88,10 @@ export const ThemeProvider = ({ children }) => {
         toolbarText: 'text-gray-900',
         toolbarTextSecondary: 'text-gray-700',
         toolbarTextMuted: 'text-gray-600',
-        // Glassmorphism button styles for light theme
-        glassButton: 'bg-white/20 backdrop-blur-md border border-white/30 hover:bg-white/30 hover:border-white/40 transition-all duration-300 shadow-sm',
-        glassButtonActive: 'bg-black text-white backdrop-blur-md border border-white/40 shadow-md',
-        glassButtonDisabled: 'bg-white/10 backdrop-blur-md border border-white/20 opacity-50 cursor-not-allowed',
+        // Toolbar button styles (no glassmorphism)
+        glassButton: 'bg-white border border-gray-300 hover:bg-gray-100 transition-colors',
+        glassButtonActive: 'bg-black text-white border border-black',
+        glassButtonDisabled: 'bg-gray-100 border border-gray-200 opacity-50 cursor-not-allowed',
         // Element colors
         elementText: '#111827',
         elementBorder: '#e5e7eb',

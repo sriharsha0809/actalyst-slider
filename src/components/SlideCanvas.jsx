@@ -1,6 +1,21 @@
 import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
+import { useTheme } from '../context/ThemeContext.jsx'
 import RichTextEditor from './RichTextEditor.jsx'
+
+// Global no-select helper shared by all element interactions
+let __noSelectCount = 0
+function setGlobalNoSelect(enable) {
+  const root = typeof document !== 'undefined' ? document.documentElement : null
+  if (!root) return
+  if (enable) {
+    __noSelectCount += 1
+    if (__noSelectCount === 1) root.classList.add('no-user-select')
+  } else {
+    __noSelectCount = Math.max(0, __noSelectCount - 1)
+    if (__noSelectCount === 0) root.classList.remove('no-user-select')
+  }
+}
 
 export default function SlideCanvas() {
   const { state, dispatch } = useSlides()
@@ -8,6 +23,7 @@ export default function SlideCanvas() {
   const stageRef = useRef(null)
   const containerRef = useRef(null)
   const [editingTextId, setEditingTextId] = useState(null)
+  const [editingShapeId, setEditingShapeId] = useState(null)
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 })
   const [isInitialized, setIsInitialized] = useState(false)
   
@@ -56,40 +72,91 @@ export default function SlideCanvas() {
     const handleUpdateElement = (event) => {
       dispatch({ type: 'UPDATE_ELEMENT', id: event.detail.id, patch: event.detail.patch })
     }
+    const handleEditShapeText = (event) => {
+      const id = event?.detail?.id
+      if (id) setEditingShapeId(id)
+    }
+    const handleEditTextBox = (event) => {
+      const id = event?.detail?.id
+      if (id) setEditingTextId(id)
+    }
+    const handleStopShapeText = (event) => {
+      const id = event?.detail?.id
+      // If id matches or unspecified, clear editing state
+      if (!id || id === editingShapeId) setEditingShapeId(null)
+    }
     
     window.addEventListener('updateElement', handleUpdateElement)
-    return () => window.removeEventListener('updateElement', handleUpdateElement)
-  }, [dispatch])
+    window.addEventListener('editShapeText', handleEditShapeText)
+    window.addEventListener('stopShapeText', handleStopShapeText)
+    window.addEventListener('editTextBox', handleEditTextBox)
+    return () => {
+      window.removeEventListener('updateElement', handleUpdateElement)
+      window.removeEventListener('editShapeText', handleEditShapeText)
+      window.removeEventListener('stopShapeText', handleStopShapeText)
+      window.removeEventListener('editTextBox', handleEditTextBox)
+    }
+  }, [dispatch, editingShapeId])
+
+  // Ensure only the selected text box is editable
+  React.useEffect(() => {
+    if (editingTextId && state.selectedElementId !== editingTextId) {
+      setEditingTextId(null)
+    }
+  }, [state.selectedElementId, editingTextId])
+
+  // Relaxed: do not interfere with selection/caret. This prevents editors from losing focus/caret.
+  React.useEffect(() => {
+    const onSelectionChange = () => {}
+    document.addEventListener('selectionchange', onSelectionChange)
+    return () => document.removeEventListener('selectionchange', onSelectionChange)
+  }, [])
 
   const frameStyle = useMemo(() => ({
-    padding: '4px',
-    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08))',
-    border: '0, 0, 255, 0.45',
-    borderRadius: '0px 0px 28px 28px',
-    boxShadow: '0 24px 48px rgba(17, 25, 40, 0.35)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
+    padding: '0px',
+    background: '#f2f2f2', // unify gap bg
+    border: 'transparent',
+    borderRadius: '0px',
+    boxShadow: '0 32px 64px rgba(17, 25, 40, 0.5)',
   }), [])
 
   const stageStyle = useMemo(() => ({
-    background: slide?.background || '#ffffff',
-    borderRadius: '0px 0px 24px 24px',
-  }), [slide?.background])
+    background: '#f2f2f2', // 95% white + 5% black gap background
+    borderRadius: '0px',
+  }), [])
 
   const onMouseDown = (e) => {
     if (e.target === stageRef.current) {
+      // Deselect any selected element and exit text editing
       dispatch({ type: 'SELECT_ELEMENT', id: null })
+      setEditingTextId(null)
     }
   }
 
   return (
     <div className="w-full h-full flex items-center justify-center" onMouseDown={onMouseDown}>
-      <div className="relative aspect-video w-full h-full shadow-lg rounded-[28px]" style={frameStyle}>
-        <div ref={containerRef} data-slide-container className="relative bg-white w-full h-full" style={stageStyle}>
+      <div className="relative w-full h-full shadow-lg" style={frameStyle}>
+        <div ref={containerRef} data-slide-container className="relative w-full h-full" style={stageStyle} onMouseDown={(e) => {
+            const withinBox = (e.target instanceof Element) ? e.target.closest('[data-el-box]') : null
+            if (!withinBox) {
+              dispatch({ type: 'SELECT_ELEMENT', id: null })
+              try {
+                const sel = window.getSelection?.()
+                if (sel && sel.removeAllRanges) sel.removeAllRanges()
+                if (document && document.activeElement && typeof document.activeElement.blur === 'function') {
+                  document.activeElement.blur()
+                }
+              } catch {}
+              setEditingTextId(null)
+              setEditingShapeId(null)
+            }
+          }}>
           <div ref={stageRef} className="absolute inset-0">
-            {isInitialized && slide?.elements.map((el) => (
+            {/* Centered slide background rectangle */}
+            <SlideBackground containerDimensions={containerDimensions} background={slide?.background || '#ffffff'} />
+            {isInitialized && slide?.elements.map((el, idx) => (
               <ElementBox 
-                key={el.id} 
+                key={el.id || `el-${idx}`} 
                 el={el} 
                 selected={state.selectedElementId === el.id} 
                 onSelect={() => dispatch({ type: 'SELECT_ELEMENT', id: el.id })} 
@@ -98,6 +165,7 @@ export default function SlideCanvas() {
                 editingTextId={editingTextId} 
                 setEditingTextId={setEditingTextId}
                 containerDimensions={containerDimensions}
+                shapeEditingId={editingShapeId}
               />
             ))}
           </div>
@@ -107,10 +175,30 @@ export default function SlideCanvas() {
   )
 }
 
-function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId, setEditingTextId, containerDimensions }) {
+function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId, setEditingTextId, containerDimensions, shapeEditingId }) {
   const boxRef = useRef(null)
   const [drag, setDrag] = useState(null)
   const [resize, setResize] = useState(null)
+  const [rotating, setRotating] = useState(null)
+  const dragStartTimerRef = useRef(null)
+  const isPressedRef = useRef(false)
+  // Refs to hold live interaction data to avoid dispatching during render
+  const dragDataRef = useRef(null)
+  const rotateDataRef = useRef(null)
+  const resizeDataRef = useRef(null)
+  // Drag threshold helpers to avoid stealing double-clicks and typing focus
+  const downPosRef = useRef(null)
+  const thresholdMoveHandlerRef = useRef(null)
+  const thresholdUpHandlerRef = useRef(null)
+
+  // Helper: determine if the event is a primary activation across mouse/pen/touch
+  const isPrimaryPointer = (evt) => {
+    try {
+      if (typeof evt.pointerType === 'string') return !!evt.isPrimary
+      if (typeof evt.button === 'number') return evt.button === 0
+    } catch {}
+    return false
+  }
 
   // Convert element coordinates to responsive values
   const getResponsiveStyle = useCallback(() => {
@@ -133,141 +221,358 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     
     // Apply uniform scaling (use smaller scale to maintain aspect ratio)
     const scale = Math.min(scaleX, scaleY)
+
+    // Center the slide content within the container (letterboxing offsets)
+    const contentW = REF_WIDTH * scale
+    const contentH = REF_HEIGHT * scale
+    const offsetX = Math.max(0, (containerDimensions.width - contentW) / 2)
+    const offsetY = Math.max(0, (containerDimensions.height - contentH) / 2)
     
     return {
-      left: `${el.x * scale}px`,
-      top: `${el.y * scale}px`,
+      left: `${offsetX + el.x * scale}px`,
+      top: `${offsetY + el.y * scale}px`,
       width: `${el.w * scale}px`,
       height: `${el.h * scale}px`,
       scale, // Pass scale factor for font scaling
     }
   }, [el.x, el.y, el.w, el.h, containerDimensions])
 
-  const onMouseDown = (e) => {
-    e.stopPropagation()
-    onSelect()
-    const rect = boxRef.current.parentElement.getBoundingClientRect()
-    const startX = e.clientX
-    const startY = e.clientY
-    const offsetX = el.x
-    const offsetY = el.y
-    setDrag({ startX, startY, offsetX, offsetY, bounds: rect, containerDimensions })
+  const startDragFromEvent = (ev) => {
+    const containerEl = document.querySelector('[data-slide-container]')
+    const containerRect = containerEl?.getBoundingClientRect()
+    if (!containerRect) return
+    const startX = ev.clientX
+    const startY = ev.clientY
+    const REF_WIDTH = 960
+    const REF_HEIGHT = 540
+    const scaleX = (containerRect.width) / REF_WIDTH
+    const scaleY = (containerRect.height) / REF_HEIGHT
+    const scale = Math.min(scaleX, scaleY)
+    const data = { containerRect, startX, startY, startElX: el.x, startElY: el.y, scale }
+    dragDataRef.current = data
+    setDrag(data)
+    setGlobalNoSelect(true)
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener('pointermove', onMouseMove)
+    window.addEventListener('pointerup', onMouseUp)
+    window.addEventListener('pointercancel', onMouseUp)
+    window.addEventListener('blur', onMouseUp)
+  }
+
+  const onMouseDown = (e) => {
+    // Only respond to primary/primary-like pointer across input types
+    if (!isPrimaryPointer(e)) return
+    // If this is part of a double-click (detail >= 2), don't start a drag so editing handlers can run
+    try { if (e.detail && e.detail >= 2) return } catch {}
+
+    // Do not start dragging when interacting with inline editors/inputs inside the box
+    const target = e.target instanceof Element ? e.target : null
+    const interactive = target ? target.closest('[contenteditable="true"], textarea, input') : null
+    if (interactive) return
+
+    // Special case: inside a table cell wrapper
+    const insideTableCell = !!(target && target.closest('[data-table-cell]'))
+    if (insideTableCell) {
+      e.stopPropagation()
+      e.preventDefault()
+      onSelect()
+      return // Don't start dragging when clicking table cells
+    }
+
+    // If shape text editing is active for this element, do not drag
+    if (shapeEditingId === el.id) return
+
+    isPressedRef.current = true
+    onSelect()
+
+    // Defer drag start until pointer moves beyond a small threshold to preserve double-clicks/typing
+    downPosRef.current = { x: e.clientX, y: e.clientY }
+    const threshold = 4
+    const maybeStart = (ev) => {
+      if (!downPosRef.current) return
+      const dx = (ev.clientX ?? 0) - downPosRef.current.x
+      const dy = (ev.clientY ?? 0) - downPosRef.current.y
+      if (Math.hypot(dx, dy) >= threshold) {
+        // Start drag using current pointer location for freshest layout
+        startDragFromEvent(ev)
+        // Cleanup threshold listeners (startDragFromEvent installs its own)
+        try {
+          window.removeEventListener('mousemove', thresholdMoveHandlerRef.current)
+          window.removeEventListener('pointermove', thresholdMoveHandlerRef.current)
+          window.removeEventListener('mouseup', thresholdUpHandlerRef.current)
+          window.removeEventListener('pointerup', thresholdUpHandlerRef.current)
+        } catch {}
+        thresholdMoveHandlerRef.current = null
+        thresholdUpHandlerRef.current = null
+        downPosRef.current = null
+      }
+    }
+    const clearPending = () => {
+      try {
+        window.removeEventListener('mousemove', thresholdMoveHandlerRef.current)
+        window.removeEventListener('pointermove', thresholdMoveHandlerRef.current)
+        window.removeEventListener('mouseup', thresholdUpHandlerRef.current)
+        window.removeEventListener('pointerup', thresholdUpHandlerRef.current)
+      } catch {}
+      thresholdMoveHandlerRef.current = null
+      thresholdUpHandlerRef.current = null
+      downPosRef.current = null
+    }
+    // Prevent text selection and other handlers during pending drag (but not when inside a table cell to preserve dblclick)
+    if (!insideTableCell) { try { e.stopPropagation(); e.preventDefault() } catch {} }
+    thresholdMoveHandlerRef.current = maybeStart
+    thresholdUpHandlerRef.current = clearPending
+    window.addEventListener('mousemove', thresholdMoveHandlerRef.current)
+    window.addEventListener('pointermove', thresholdMoveHandlerRef.current)
+    window.addEventListener('mouseup', thresholdUpHandlerRef.current)
+    window.addEventListener('pointerup', thresholdUpHandlerRef.current)
   }
 
   const onMouseMove = (e) => {
-    setDrag((d) => {
-      if (!d) return null
-      
-      // Calculate movement in pixels
-      const deltaX = e.clientX - d.startX
-      const deltaY = e.clientY - d.startY
-      
-      // Calculate scale factor to convert screen pixels to logical coordinates
-      const REF_WIDTH = 960
-      const REF_HEIGHT = 540
-      const scaleX = d.containerDimensions.width / REF_WIDTH
-      const scaleY = d.containerDimensions.height / REF_HEIGHT
-      const scale = Math.min(scaleX, scaleY)
-      
-      // Convert pixel movement back to logical coordinates
-      const logicalDeltaX = deltaX / scale
-      const logicalDeltaY = deltaY / scale
-      
-      // Calculate new position in logical coordinates
-      // Restrict element to stay completely within slide boundaries
-      const nx = Math.max(0, Math.min(REF_WIDTH - el.w+50, d.offsetX + logicalDeltaX))
-      const ny = Math.max(0, Math.min(REF_HEIGHT - el.h, d.offsetY + logicalDeltaY))
-      
-      onChange({ x: nx, y: ny })
-      return { ...d }
-    })
+    // Continue dragging until explicit mouseup
+    e.preventDefault()
+    const d = dragDataRef.current
+    if (!d) return
+    const { startX, startY, startElX, startElY, scale } = d
+
+    const REF_WIDTH = 960
+    const REF_HEIGHT = 540
+
+    // Compute logical deltas from pointer movement
+    const dxLogical = (e.clientX - startX) / scale
+    const dyLogical = (e.clientY - startY) / scale
+
+    let nx = startElX + dxLogical
+    let ny = startElY + dyLogical
+
+    // Clamp using rotated AABB so the element stays within slide while dragging
+    const rot = Number.isFinite(el.rotation) ? el.rotation : 0
+    const rad = (rot * Math.PI) / 180
+    const cos = Math.cos(rad)
+    const sin = Math.sin(rad)
+    const halfW = (el.w || 0) / 2
+    const halfH = (el.h || 0) / 2
+    const extX = Math.abs(halfW * cos) + Math.abs(halfH * sin)
+    const extY = Math.abs(halfW * sin) + Math.abs(halfH * cos)
+    let cx = nx + halfW
+    let cy = ny + halfH
+    const minCx = extX
+    const maxCx = REF_WIDTH - extX
+    const minCy = extY
+    const maxCy = REF_HEIGHT - extY
+    if (minCx > maxCx) { cx = REF_WIDTH / 2 } else { cx = Math.max(minCx, Math.min(maxCx, cx)) }
+    if (minCy > maxCy) { cy = REF_HEIGHT / 2 } else { cy = Math.max(minCy, Math.min(maxCy, cy)) }
+    nx = Math.max(0, Math.min(REF_WIDTH - el.w, cx - halfW))
+    ny = Math.max(0, Math.min(REF_HEIGHT - el.h, cy - halfH))
+
+    onChange({ x: nx, y: ny })
   }
 
   const onMouseUp = () => {
+    isPressedRef.current = false
+    if (dragStartTimerRef.current) {
+      try { clearTimeout(dragStartTimerRef.current) } catch {}
+      dragStartTimerRef.current = null
+    }
+    dragDataRef.current = null
     setDrag(null)
+    setGlobalNoSelect(false)
     window.removeEventListener('mousemove', onMouseMove)
     window.removeEventListener('mouseup', onMouseUp)
+    window.removeEventListener('pointermove', onMouseMove)
+    window.removeEventListener('pointerup', onMouseUp)
+    window.removeEventListener('pointercancel', onMouseUp)
+    window.removeEventListener('blur', onMouseUp)
+  }
+
+  const startRotate = (e) => {
+    if (!isPrimaryPointer(e)) return
+    e.stopPropagation()
+    e.preventDefault()
+    onSelect()
+    if (!boxRef.current) return
+    const rect = boxRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const angleFromCenter = (clientX, clientY) => Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI
+    const startAngle = angleFromCenter(e.clientX, e.clientY)
+    const startRotation = Number.isFinite(el.rotation) ? el.rotation : 0
+    const data = { centerX, centerY, startAngle, startRotation }
+    rotateDataRef.current = data
+    setRotating(data)
+    setGlobalNoSelect(true)
+    window.addEventListener('mousemove', onRotating)
+    window.addEventListener('mouseup', endRotate)
+    window.addEventListener('pointermove', onRotating)
+    window.addEventListener('pointerup', endRotate)
+  }
+
+  const onRotating = (e) => {
+    // Continue rotating until explicit mouseup
+    e.preventDefault()
+    const r = rotateDataRef.current
+    if (!r) return
+    const angle = Math.atan2(e.clientY - r.centerY, e.clientX - r.centerX) * 180 / Math.PI
+    let newRot = r.startRotation + (angle - r.startAngle)
+    // Normalize to [-180, 180]
+    newRot = ((newRot + 180) % 360 + 360) % 360 - 180
+    // Snap with Shift to 15deg
+    if (e.shiftKey) newRot = Math.round(newRot / 15) * 15
+
+    // Keep rotated AABB within slide bounds by adjusting center (cx, cy)
+    const REF_WIDTH = 960
+    const REF_HEIGHT = 540
+    const rad = (newRot * Math.PI) / 180
+    const cos = Math.cos(rad)
+    const sin = Math.sin(rad)
+    const halfW = (el.w || 0) / 2
+    const halfH = (el.h || 0) / 2
+    // Rotated AABB half-extents
+    const extX = Math.abs(halfW * cos) + Math.abs(halfH * sin)
+    const extY = Math.abs(halfW * sin) + Math.abs(halfH * cos)
+    // Current center from element logical x,y
+    let cx = (el.x || 0) + halfW
+    let cy = (el.y || 0) + halfH
+    // Clamp center so AABB stays inside slide
+    const minCx = extX
+    const maxCx = REF_WIDTH - extX
+    const minCy = extY
+    const maxCy = REF_HEIGHT - extY
+    // If element is too large to fully fit, center it as best effort
+    if (minCx > maxCx) { cx = REF_WIDTH / 2 } else { cx = Math.max(minCx, Math.min(maxCx, cx)) }
+    if (minCy > maxCy) { cy = REF_HEIGHT / 2 } else { cy = Math.max(minCy, Math.min(maxCy, cy)) }
+    const nx = Math.max(0, Math.min(REF_WIDTH - el.w, cx - halfW))
+    const ny = Math.max(0, Math.min(REF_HEIGHT - el.h, cy - halfH))
+
+    onChange({ rotation: Math.round(newRot), x: Math.round(nx), y: Math.round(ny) })
+  }
+
+  const endRotate = () => {
+    rotateDataRef.current = null
+    setRotating(null)
+    setGlobalNoSelect(false)
+    window.removeEventListener('mousemove', onRotating)
+    window.removeEventListener('mouseup', endRotate)
+    window.removeEventListener('pointermove', onRotating)
+    window.removeEventListener('pointerup', endRotate)
   }
 
   const startResize = (e, dir) => {
+    if (!isPrimaryPointer(e)) return
     e.stopPropagation()
+    e.preventDefault()
     onSelect()
     const startX = e.clientX
     const startY = e.clientY
-    setResize({ startX, startY, dir, start: { x: el.x, y: el.y, w: el.w, h: el.h } })
+    const data = { startX, startY, dir, start: { x: el.x, y: el.y, w: el.w, h: el.h } }
+    resizeDataRef.current = data
+    setResize(data)
+    setGlobalNoSelect(true)
     window.addEventListener('mousemove', onResizing)
     window.addEventListener('mouseup', endResize)
+    window.addEventListener('pointermove', onResizing)
+    window.addEventListener('pointerup', endResize)
   }
 
   const onResizing = (e) => {
-    setResize((r) => {
-      if (!r) return null
-      let { x, y, w, h } = r.start
-      
-      // Calculate scale factor to convert screen pixels to logical coordinates
-      const REF_WIDTH = 960
-      const REF_HEIGHT = 540
-      const scaleX = containerDimensions.width / REF_WIDTH
-      const scaleY = containerDimensions.height / REF_HEIGHT
-      const scale = Math.min(scaleX, scaleY)
-      const MARGIN=50 
-      
-      // Convert pixel deltas to logical coordinates
-      const logicalDx = (e.clientX - r.startX) / scale
-      const logicalDy = (e.clientY - r.startY) / scale
-      
-      if (r.dir.includes('e')) {
-        // Expanding eastward - stay within slide boundary
-        w = Math.max(40, Math.min(REF_WIDTH - x, r.start.w + logicalDx))
+    // Continue resizing until explicit mouseup
+    e.preventDefault()
+    const r = resizeDataRef.current
+    if (!r) return
+    let { x, y, w, h } = r.start
+    
+    // Calculate scale factor to convert screen pixels to logical coordinates
+    const REF_WIDTH = 960
+    const REF_HEIGHT = 540
+    const scaleX = containerDimensions.width / REF_WIDTH
+    const scaleY = containerDimensions.height / REF_HEIGHT
+    const scale = Math.min(scaleX, scaleY)
+    const MARGIN=0 
+    
+    // Convert pixel deltas to logical coordinates
+    const logicalDx = (e.clientX - r.startX) / scale
+    const logicalDy = (e.clientY - r.startY) / scale
+    
+    if (r.dir.includes('e')) {
+      // Expanding eastward - stay within slide boundary
+      w = Math.max(40, Math.min(REF_WIDTH - x, r.start.w + logicalDx))
+    }
+    if (r.dir.includes('s')) {
+      // Expanding southward - stay within slide boundary
+      h = Math.max(40, Math.min(REF_HEIGHT - y, r.start.h + logicalDy))
+    }
+    if (r.dir.includes('w')) { 
+      // Expanding westward - allow slight negative position to reach edge
+      const newW = Math.max(40, r.start.w - logicalDx)
+      const newX = Math.max(-MARGIN, r.start.x + logicalDx) // Allow slight negative
+      // Apply with generous bounds
+      if (newX + newW <= REF_WIDTH + MARGIN * 2) {
+        w = newW
+        x = newX
       }
-      if (r.dir.includes('s')) {
-        // Expanding southward - stay within slide boundary
-        h = Math.max(40, Math.min(REF_HEIGHT - y, r.start.h + logicalDy))
+    }
+    if (r.dir.includes('n')) { 
+      // Expanding northward - allow slight negative position to reach edge
+      const newH = Math.max(40, r.start.h - logicalDy)
+      const newY = Math.max(-MARGIN, r.start.y + logicalDy) // Allow slight negative
+      // Apply with generous bounds
+      if (newY + newH <= REF_HEIGHT + MARGIN * 2) {
+        h = newH
+        y = newY
       }
-      if (r.dir.includes('w')) { 
-        // Expanding westward - allow slight negative position to reach edge
-        const newW = Math.max(40, r.start.w - logicalDx)
-        const newX = Math.max(-MARGIN, r.start.x + logicalDx) // Allow slight negative
-        // Apply with generous bounds
-        if (newX + newW <= REF_WIDTH + MARGIN * 2) {
-          w = newW
-          x = newX
-        }
-      }
-      if (r.dir.includes('n')) { 
-        // Expanding northward - allow slight negative position to reach edge
-        const newH = Math.max(40, r.start.h - logicalDy)
-        const newY = Math.max(-MARGIN, r.start.y + logicalDy) // Allow slight negative
-        // Apply with generous bounds
-        if (newY + newH <= REF_HEIGHT + MARGIN * 2) {
-          h = newH
-          y = newY
-        }
-      }
-      
-      // Final safety check with very generous boundaries
-      x = Math.max(-MARGIN, Math.min(REF_WIDTH + MARGIN, x))
-      y = Math.max(-MARGIN, Math.min(REF_HEIGHT + MARGIN, y))
-      w = Math.min(w, REF_WIDTH + MARGIN * 2)
-      h = Math.min(h, REF_HEIGHT + MARGIN * 2)
-      
-      onChange({ x, y, w, h })
-      return { ...r }
-    })
+    }
+    
+    // Final safety check within slide boundaries
+    // Ensure position is not negative; if it is, reduce size accordingly
+    if (x < 0) { w += x; x = 0 }
+    if (y < 0) { h += y; y = 0 }
+    // Ensure size is within bounds and element stays inside the slide
+    w = Math.max(40, Math.min(w, REF_WIDTH - x))
+    h = Math.max(40, Math.min(h, REF_HEIGHT - y))
+    x = Math.max(0, Math.min(x, REF_WIDTH - w))
+    y = Math.max(0, Math.min(y, REF_HEIGHT - h))
+    
+    onChange({ x, y, w, h })
   }
 
   const endResize = () => {
+    resizeDataRef.current = null
     setResize(null)
+    setGlobalNoSelect(false)
     window.removeEventListener('mousemove', onResizing)
     window.removeEventListener('mouseup', endResize)
+    window.removeEventListener('pointermove', onResizing)
+    window.removeEventListener('pointerup', endResize)
   }
 
-  const onDoubleClick = () => {
-    if (el.type === 'text') setEditingTextId(el.id)
+  const onDoubleClick = (e) => {
+    // Cancel any pending drag timer so dblclick can enter edit
+    if (dragStartTimerRef.current) { try { clearTimeout(dragStartTimerRef.current) } catch {}; dragStartTimerRef.current = null }
+    try { onMouseUp() } catch {}
+    if (el.type === 'text') {
+      e?.stopPropagation?.()
+      e?.preventDefault?.()
+      onSelect()
+      setEditingTextId(el.id)
+    }
+    // For tables, double-click is handled by the TableElement component itself
+    if (el.type === 'table') {
+      // Let the event propagate to table cells
+      return
+    }
+    // For non-text (shapes), allow event to bubble to the shape's own double-click handler
   }
-  const stopEditing = () => setEditingTextId(null)
+  const stopEditing = () => {
+    try {
+      const sel = window.getSelection?.()
+      if (sel && sel.removeAllRanges) sel.removeAllRanges()
+      if (document && document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur()
+      }
+    } catch {}
+    setEditingTextId(null)
+  }
 
   const responsiveCoords = getResponsiveStyle()
   const localScale = responsiveCoords.scale || 1
@@ -276,7 +581,8 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   const boxStyle = {
     position: 'absolute',
     ...coords,
-    transform: `rotate(${el.rotation}deg)`,
+    transform: `rotate(${Number.isFinite(el.rotation) ? el.rotation : 0}deg)`,
+    transformOrigin: 'center center',
     cursor: selected ? 'move' : 'pointer',
     border: el.borderWidth ? `${el.borderWidth}px solid ${el.borderColor || '#000000'}` : undefined,
   }
@@ -284,39 +590,150 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   return (
     <div
       ref={boxRef}
+      data-el-box
+      data-el-id={el.id}
+      draggable={false}
       className={`absolute ${selected ? 'ring-2 ring-brand-500' : ''}`}
-      style={boxStyle}
+      style={{ ...boxStyle, zIndex: selected ? 20 : 10, pointerEvents: 'auto', userSelect: 'auto', WebkitUserSelect: 'auto', touchAction: 'none' }}
       onMouseDown={onMouseDown}
+      onPointerDown={(e)=>{
+        // If interacting with an editor or table cell, don't capture or start drag
+        const target = e.target instanceof Element ? e.target : null
+        const interactive = target ? target.closest('[contenteditable="true"], textarea, input') : null
+        const inTableCell = target ? target.closest('[data-table-cell]') : null
+        if (interactive || inTableCell) return
+        // Prefer pointer events for reliable capture across devices
+        try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+        // Skip initiating drag if this is a double tap/click
+        if ((e.detail && e.detail >= 2)) return
+        // Emulate the same behavior as mouse down for dragging across devices
+        if (isPrimaryPointer(e)) onMouseDown(e)
+      }}
       onDoubleClick={onDoubleClick}
     >
-      {renderElement(el, { editing: editingTextId === el.id, onChange, stopEditing, scale: localScale })}
+      {renderElement(el, { editing: ((editingTextId === el.id || shapeEditingId === el.id) && selected), onChange, stopEditing, scale: localScale, selected, onSelect })}
 
           {selected && (
         <>
           {['n','e','s','w','ne','nw','se','sw'].map(dir => (
-            <div key={dir} onMouseDown={(e)=>startResize(e, dir)} className={`absolute bg-white border border-brand-500 rounded-full w-3 h-3 -translate-x-1/2 -translate-y-1/2`}
-              style={handleStyle(dir, el.w, el.h, containerDimensions)}
-            />
+              <div
+                key={dir}
+                onMouseDown={(e)=>startResize(e, dir)}
+                onPointerDown={(e)=>{ try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch {}; if (isPrimaryPointer(e)) startResize(e, dir) }}
+                className={`absolute bg-white border border-brand-500 rounded-full w-3 h-3 -translate-x-1/2 -translate-y-1/2`}
+                style={{
+                  ...handleStyle(dir, el.w, el.h, containerDimensions),
+                  cursor: resizeCursor(dir),
+                  pointerEvents: 'auto',
+                  zIndex: 25,
+                  touchAction: 'none',
+                }}
+              />
           ))}
 
+          {/* Rotation handle */}
+          <div
+            onMouseDown={startRotate}
+            onPointerDown={(e)=>{ try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch {}; if (isPrimaryPointer(e)) startRotate(e) }}
+            title="Rotate"
+            className="absolute -top-6 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border border-brand-500 rounded-full shadow"
+            style={{ cursor: 'grab', pointerEvents: 'auto', zIndex: 25, touchAction: 'none' }}
+          />
+
+          {/* Move handle */}
+          <div
+            onMouseDown={(e)=>{ e.preventDefault(); e.stopPropagation(); startDragFromEvent(e) }}
+            onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch {}; startDragFromEvent(e) }}
+            title="Move"
+            className="absolute -top-3 left-3 w-6 h-6 bg-white border border-brand-500 rounded-full shadow flex items-center justify-center"
+            style={{ cursor: 'move', pointerEvents: 'auto', zIndex: 25, touchAction: 'none' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M12 2v20M2 12h20" />
+            </svg>
+          </div>
+
           {/* Delete button */}
-          <button onClick={(e)=>{e.stopPropagation(); onDelete()}} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-6 h-6 text-xs shadow">✕</button>
+          <button
+            type="button"
+            onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); }}
+            onMouseDown={(e)=>{ e.preventDefault(); e.stopPropagation(); }}
+            onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); onDelete() }}
+            className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-6 h-6 text-xs shadow"
+            style={{ zIndex: 99, pointerEvents: 'auto', touchAction: 'none' }}
+            title="Delete"
+            aria-label="Delete element"
+          >
+            ✕
+          </button>
         </>
       )}
     </div>
   )
 }
 
-function handleStyle(dir, w, h, containerDimensions) {
-  // Calculate the actual rendered dimensions
+function SlideBackground({ containerDimensions, background }) {
+  const { isDark } = useTheme()
   const REF_WIDTH = 960
   const REF_HEIGHT = 540
-  const scaleX = containerDimensions.width / REF_WIDTH
-  const scaleY = containerDimensions.height / REF_HEIGHT
-  const scale = Math.min(scaleX, scaleY)
+  const scale = Math.min(
+    (containerDimensions.width || 0) / REF_WIDTH,
+    (containerDimensions.height || 0) / REF_HEIGHT,
+  ) || 0
+  const contentW = REF_WIDTH * scale
+  const contentH = REF_HEIGHT * scale
+  const offsetX = Math.max(0, (containerDimensions.width - contentW) / 2)
+  const offsetY = Math.max(0, (containerDimensions.height - contentH) / 2)
+
+  // Support string (color/gradient) or image object { type:'image', src, mode }
+  const baseStyle = { position: 'absolute', left: offsetX, top: offsetY, width: contentW, height: contentH, border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.08)', boxShadow: '0 8px 28px rgba(0,0,0,0.35), 0 2px 10px rgba(0,0,0,0.25)' }
+  let bgStyle = {}
+  if (background && typeof background === 'object' && background.type === 'image' && background.src) {
+    const size = (background.mode === 'stretch') ? '100% 100%' : (background.mode === 'custom' && typeof background.scale === 'number') ? `${background.scale}% auto` : (background.mode || 'cover')
+    bgStyle = { backgroundImage: `url(${background.src})`, backgroundSize: size, backgroundPosition: (background.position || 'center'), backgroundRepeat: 'no-repeat' }
+  } else if (typeof background === 'string') {
+    bgStyle = { background: background }
+  } else {
+    bgStyle = { background: '#ffffff' }
+  }
+
+  return (
+    <div style={{ ...baseStyle, ...bgStyle }} />
+  )
+}
+
+function resizeCursor(dir) {
+  switch (dir) {
+    case 'n':
+    case 's':
+      return 'ns-resize'
+    case 'e':
+    case 'w':
+      return 'ew-resize'
+    case 'ne':
+    case 'sw':
+      return 'nesw-resize'
+    case 'nw':
+    case 'se':
+      return 'nwse-resize'
+    default:
+      return 'default'
+  }
+}
+
+function handleStyle(dir, w, h, containerDimensions) {
+  // Calculate the actual rendered dimensions with safe fallback
+  const REF_WIDTH = 960
+  const REF_HEIGHT = 540
+  let scale = 1
+  if (containerDimensions && containerDimensions.width > 0 && containerDimensions.height > 0) {
+    const scaleX = containerDimensions.width / REF_WIDTH
+    const scaleY = containerDimensions.height / REF_HEIGHT
+    scale = Math.min(scaleX, scaleY) || 1
+  }
   
-  const scaledW = w * scale
-  const scaledH = h * scale
+  const scaledW = (Number(w) || 0) * scale
+  const scaledH = (Number(h) || 0) * scale
   
   const pos = {
     n: { left: scaledW/2, top: 0 },
@@ -337,32 +754,63 @@ function renderElement(el, opts={}) {
     case 'text':
       return <EditableText el={el} editing={opts.editing} onChange={opts.onChange} stopEditing={opts.stopEditing} scale={scale} />
     case 'table':
-      return <TableElement el={el} editing={opts.editing} onChange={opts.onChange} stopEditing={opts.stopEditing} scale={scale} />
+      return <TableElement el={el} editing={opts.editing} selected={opts.selected} onSelect={opts.onSelect} onChange={opts.onChange} stopEditing={opts.stopEditing} scale={scale} />
     case 'chart':
       return <ChartElement el={el} scale={scale} />
     case 'rect':
-      return <ShapeWithText el={el} shapeClass="rounded-md" scale={scale} />
+      return <ShapeWithText el={el} shapeClass="rounded-md" scale={scale} onChange={opts.onChange} editing={opts.editing} />
     case 'square':
-      return <ShapeWithText el={el} shapeClass="rounded-md" scale={scale} />
+      return <ShapeWithText el={el} shapeClass="rounded-md" scale={scale} onChange={opts.onChange} editing={opts.editing} />
     case 'circle':
-      return <ShapeWithText el={el} shapeClass="rounded-full" scale={scale} />
+      return <ShapeWithText el={el} shapeClass="rounded-full" scale={scale} onChange={opts.onChange} editing={opts.editing} />
     case 'triangle':
-      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 0% 100%, 100% 100%)" scale={scale} />
+      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 0% 100%, 100% 100%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
     case 'diamond':
-      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" scale={scale} />
+      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
     case 'star':
-      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" scale={scale} />
+      return <ShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
+    case 'roundRect':
+      return <ShapeWithText el={el} shapeClass="rounded-xl" scale={scale} onChange={opts.onChange} editing={opts.editing} />
+    case 'parallelogram':
+      return <ShapeWithText el={el} clipPath="polygon(20% 0%, 100% 0%, 80% 100%, 0% 100%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
+    case 'trapezoid':
+      return <ShapeWithText el={el} clipPath="polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
+    case 'pentagon':
+      return <ShapeWithText el={el} clipPath="polygon(50% 0%, 100% 38%, 81% 100%, 19% 100%, 0% 38%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
+    case 'hexagon':
+      return <ShapeWithText el={el} clipPath="polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
+    case 'octagon':
+      return <ShapeWithText el={el} clipPath="polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
+    case 'chevron':
+      return <ShapeWithText el={el} clipPath="polygon(0% 0%, 75% 0%, 100% 50%, 75% 100%, 0% 100%, 25% 50%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
+    case 'arrowRight':
+      return <ShapeWithText el={el} clipPath="polygon(0% 0%, 80% 0%, 80% 25%, 100% 50%, 80% 75%, 80% 100%, 0% 100%, 0% 0%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
+    case 'cloud':
+      return <ShapeWithText el={el} clipPath="polygon(10% 60%, 20% 45%, 35% 40%, 45% 25%, 60% 30%, 70% 45%, 85% 50%, 90% 65%, 80% 80%, 60% 85%, 40% 80%, 25% 75%)" scale={scale} onChange={opts.onChange} editing={opts.editing} />
     case 'message':
-      return <MessageShape el={el} scale={scale} />
+      return <MessageShape el={el} scale={scale} onChange={opts.onChange} editing={opts.editing} />
     case 'image':
-      return <img src={el.src} alt="" className="w-full h-full object-contain pointer-events-none" draggable={false} />
+      return (
+        el.src ? (
+          <img src={el.src} alt="" className="w-full h-full object-contain pointer-events-none" draggable={false} />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center border border-dashed border-gray-300 bg-white/70 text-gray-500 select-none">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+              <path d="M6 17 L11 12 L18 19" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <div className="text-xs mt-1">Add image</div>
+          </div>
+        )
+      )
     default:
       return null
   }
 }
 
-function ShapeWithText({ el, shapeClass, clipPath, scale = 1 }) {
-  const [isEditing, setIsEditing] = useState(false)
+function ShapeWithText({ el, shapeClass, clipPath, scale = 1, onChange, editing }) {
+  const [isEditing, setIsEditing] = useState(!!editing)
   const [text, setText] = useState(el.text || '')
   const inputRef = useRef(null)
 
@@ -374,22 +822,39 @@ function ShapeWithText({ el, shapeClass, clipPath, scale = 1 }) {
   }, [isEditing])
 
   React.useEffect(() => {
+    if (typeof editing === 'boolean') setIsEditing(editing)
+  }, [editing])
+
+  React.useEffect(() => {
     setText(el.text || '')
   }, [el.text])
 
   const handleDoubleClick = (e) => {
-    e.stopPropagation()
+    // Allow bubbling so parent can cancel drag; just flip into editing
     setIsEditing(true)
   }
 
-  const handleBlur = () => {
-    setIsEditing(false)
-    if (text !== el.text) {
-      // Update the element with new text
-      window.dispatchEvent(new CustomEvent('updateElement', { 
-        detail: { id: el.id, patch: { text } } 
-      }))
+  const handleBlur = (e) => {
+    // Only exit editing when user clicks inside the slide container but outside this textarea
+    const target = e?.relatedTarget || document.activeElement
+    const withinSlide = (target instanceof Element) ? !!target.closest('[data-slide-container]') : false
+    const withinThis = (target instanceof Element) ? (inputRef.current && (target === inputRef.current || inputRef.current.contains(target))) : false
+    if (!withinSlide || withinThis) {
+      // Restore focus to keep editing when clicking outside slide (e.g., toolbar/nav)
+      requestAnimationFrame(() => { try { inputRef.current && inputRef.current.focus() } catch {} })
+      return
     }
+    setIsEditing(false)
+    if (text !== (el.text || '')) {
+      if (typeof onChange === 'function') {
+        onChange({ text })
+      } else {
+        try {
+          window.dispatchEvent(new CustomEvent('updateElement', { detail: { id: el.id, patch: { text } } }))
+        } catch {}
+      }
+    }
+    try { window.dispatchEvent(new CustomEvent('stopShapeText', { detail: { id: el.id } })) } catch {}
   }
 
   const handleKeyDown = (e) => {
@@ -409,6 +874,14 @@ function ShapeWithText({ el, shapeClass, clipPath, scale = 1 }) {
     ...(clipPath && { clipPath })
   }
 
+  const fontFamily = el.fontFamily || 'Inter, system-ui, sans-serif'
+  const fontWeight = el.bold ? 700 : 400
+  const fontStyle = el.italic ? 'italic' : 'normal'
+  const textAlign = el.textAlign || 'center'
+  const textVAlign = el.textVAlign || 'middle'
+  const alignItems = textAlign === 'right' ? 'flex-end' : (textAlign === 'center' ? 'center' : 'flex-start')
+  const justifyContent = textVAlign === 'bottom' ? 'flex-end' : (textVAlign === 'middle' ? 'center' : 'flex-start')
+
   return (
     <div 
       className={`w-full h-full ${shapeClass}`}
@@ -417,40 +890,65 @@ function ShapeWithText({ el, shapeClass, clipPath, scale = 1 }) {
     >
       {isEditing ? (
         <textarea
+          id={`shape-text-${el.id}`}
+          name={`shape-text-${el.id}`}
+          autoComplete="off"
+          aria-label="Shape text"
           ref={inputRef}
+          autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className="w-full h-full resize-none outline-none bg-transparent text-center p-2"
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="w-full h-full resize-none outline-none bg-transparent p-2"
           style={{
-            color: el.textColor,
+            color: (text && text.length) ? el.textColor : '#9ca3af',
             fontSize: `${el.fontSize * scale}px`,
-            fontFamily: 'Inter, system-ui, sans-serif'
+            fontFamily,
+            fontWeight,
+            fontStyle,
+            textAlign,
+            textDecoration: el.underline ? 'underline' : 'none'
           }}
         />
       ) : (
         <div 
-          className="w-full h-full flex items-center justify-center p-2 cursor-pointer"
+          className="w-full h-full p-2 cursor-pointer"
           style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent,
+            alignItems,
             color: el.textColor,
             fontSize: `${el.fontSize * scale}px`,
-            fontFamily: 'Inter, system-ui, sans-serif',
+            fontFamily,
+            fontWeight,
+            fontStyle,
+            textDecoration: el.underline ? 'underline' : 'none',
             wordWrap: 'break-word',
-            textAlign: 'center'
+            textAlign
           }}
         >
-          {text || 'Double-click to edit'}
+          {text}
         </div>
       )}
     </div>
   )
 }
 
-function MessageShape({ el, scale = 1 }) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [text, setText] = useState(el.text || 'Message')
+function MessageShape({ el, scale = 1, onChange, editing }) {
+  const [isEditing, setIsEditing] = useState(!!editing)
+  const [text, setText] = useState(el.text || '')
   const inputRef = useRef(null)
+  const fontFamily = el.fontFamily || 'Inter, system-ui, sans-serif'
+  const fontWeight = el.bold ? 700 : 400
+  const fontStyle = el.italic ? 'italic' : 'normal'
+  const textAlign = el.textAlign || 'center'
+  const textVAlign = el.textVAlign || 'middle'
+  const alignItems = textAlign === 'right' ? 'flex-end' : (textAlign === 'center' ? 'center' : 'flex-start')
+  const justifyContent = textVAlign === 'bottom' ? 'flex-end' : (textVAlign === 'middle' ? 'center' : 'flex-start')
 
   React.useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -460,21 +958,37 @@ function MessageShape({ el, scale = 1 }) {
   }, [isEditing])
 
   React.useEffect(() => {
-    setText(el.text || 'Message')
+    if (typeof editing === 'boolean') setIsEditing(editing)
+  }, [editing])
+
+  React.useEffect(() => {
+    setText(el.text || '')
   }, [el.text])
 
   const handleDoubleClick = (e) => {
-    e.stopPropagation()
+    // Allow bubbling so parent can cancel drag; just flip into editing
     setIsEditing(true)
   }
 
-  const handleBlur = () => {
-    setIsEditing(false)
-    if (text !== el.text) {
-      window.dispatchEvent(new CustomEvent('updateElement', { 
-        detail: { id: el.id, patch: { text } } 
-      }))
+  const handleBlur = (e) => {
+    const target = e?.relatedTarget || document.activeElement
+    const withinSlide = (target instanceof Element) ? !!target.closest('[data-slide-container]') : false
+    const withinThis = (target instanceof Element) ? (inputRef.current && (target === inputRef.current || inputRef.current.contains(target))) : false
+    if (!withinSlide || withinThis) {
+      requestAnimationFrame(() => { try { inputRef.current && inputRef.current.focus() } catch {} })
+      return
     }
+    setIsEditing(false)
+    if (text !== (el.text || '')) {
+      if (typeof onChange === 'function') {
+        onChange({ text })
+      } else {
+        try {
+          window.dispatchEvent(new CustomEvent('updateElement', { detail: { id: el.id, patch: { text } } }))
+        } catch {}
+      }
+    }
+    try { window.dispatchEvent(new CustomEvent('stopShapeText', { detail: { id: el.id } })) } catch {}
   }
 
   const handleKeyDown = (e) => {
@@ -503,27 +1017,45 @@ function MessageShape({ el, scale = 1 }) {
       >
         {isEditing ? (
           <textarea
+            id={`message-text-${el.id}`}
+            name={`message-text-${el.id}`}
+            autoComplete="off"
+            aria-label="Message text"
             ref={inputRef}
+            autoFocus
             value={text}
             onChange={(e) => setText(e.target.value)}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             className="w-full h-full resize-none outline-none bg-transparent p-2"
             style={{
               color: el.textColor,
               fontSize: `${el.fontSize * scale}px`,
-              fontFamily: 'Inter, system-ui, sans-serif'
+              fontFamily,
+              fontWeight,
+              fontStyle,
+              textAlign,
+              textDecoration: el.underline ? 'underline' : 'none'
             }}
           />
         ) : (
           <div 
-            className="w-full h-full flex items-center justify-center p-2 cursor-pointer"
+            className="w-full h-full p-2 cursor-pointer"
             style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent,
+              alignItems,
               color: el.textColor,
               fontSize: `${el.fontSize * scale}px`,
-              fontFamily: 'Inter, system-ui, sans-serif',
+              fontFamily,
+              fontWeight,
+              fontStyle,
+              textDecoration: el.underline ? 'underline' : 'none',
               wordWrap: 'break-word',
-              textAlign: 'center'
+              textAlign
             }}
           >
             {text}
@@ -554,226 +1086,405 @@ function MessageShape({ el, scale = 1 }) {
 function ChartElement({ el, scale = 1 }) {
   const { chartType, data, labels, colors } = el
   const [hoveredIndex, setHoveredIndex] = useState(null)
+
+  // Safe arrays and defaults
+  const dataArr = Array.isArray(data) ? data : []
+  const labelsArr = Array.isArray(labels) ? labels : []
+  const xLabels = dataArr.map((_, i) => labelsArr[i] ?? String(i + 1))
+  const colorsArr = (Array.isArray(colors) && colors.length ? colors : ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'])
   
+  // Common metrics based on element size to keep visuals inside the element box
+  const P = Math.max(4, Math.round(6 * scale)) // padding
+  const labelH = Math.max(12, Math.round(14 * scale)) // x-axis labels area height
+  const innerW = Math.max(0, el.w * scale - P * 2)
+  const innerH = Math.max(0, el.h * scale - P * 2)
+
   if (chartType === 'bar') {
-    const maxValue = Math.max(...data)
-    const minValue = Math.min(...data)
-    const range = maxValue - minValue || 1
-    
+    // Prefer numeric labels when present; otherwise use data
+    const parsedFromLabels = labelsArr.map((l) => {
+      const v = parseFloat(l)
+      return Number.isFinite(v) ? v : null
+    })
+    const preferLabelValues = parsedFromLabels.some(v => v !== null)
+    const series = (preferLabelValues ? parsedFromLabels : dataArr).map((v, i) => {
+      if (v === null || !Number.isFinite(v)) return Number.isFinite(dataArr[i]) ? dataArr[i] : 0
+      return v
+    })
+
+    const hasData = series.length > 0
+    const maxValue = hasData ? Math.max(...series) : 1
+    const minValue = hasData ? Math.min(...series) : 0
+    const range = Math.max(1e-6, maxValue - minValue)
+
+    const chartH = Math.max(0, innerH - labelH)
+    const yAxisW = Math.max(28, Math.round(32 * scale))
+    const plotW = Math.max(0, innerW - yAxisW)
+    const barGap = Math.max(1, Math.round(2 * scale))
+    const barCount = series.length
+    const barW = barCount ? Math.max(1, Math.floor((plotW - (barCount - 1) * barGap) / barCount)) : 0
+    const axisT = Math.max(1, Math.round(1 * scale))
+
     return (
-      <div className="w-full h-full bg-white p-4 flex flex-col">
-        {/* Chart area with proper height */}
-        <div className="flex-1 flex items-end gap-1 relative" style={{ minHeight: '180px', height: '180px' }}>
-          {data.map((value, index) => {
-            // Calculate height as percentage of the chart area
-            const heightPercent = range > 0 ? ((value - minValue) / range) * 100 : 50
-            const actualHeight = Math.max((heightPercent / 100) * 180, 2) // Minimum 2px height
-            
-            return (
-              <div 
-                key={index} 
-                className="flex-1 flex flex-col justify-end items-center relative group"
+      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', border: '1px solid #e5e7eb', borderRadius: 2 }}>
+        {/* Bars area with axes */}
+        <div style={{ position: 'absolute', left: P, top: P, width: innerW, height: chartH }}>
+          {/* Axes */}
+          <div style={{ position: 'absolute', left: yAxisW, bottom: 0, width: plotW, height: axisT, backgroundColor: '#9ca3af' }} />
+          <div style={{ position: 'absolute', left: yAxisW, bottom: 0, width: axisT, height: chartH, backgroundColor: '#9ca3af' }} />
+
+          {/* Bars */}
+          <div className="relative w-full h-full" style={{ position: 'absolute', left: yAxisW, top: 0, width: plotW, height: chartH, display: 'flex', alignItems: 'flex-end' }}>
+            {series.map((value, index) => (
+              <div
+                key={index}
+                className="relative group"
                 onMouseEnter={() => setHoveredIndex(index)}
                 onMouseLeave={() => setHoveredIndex(null)}
-                style={{ height: '180px' }}
+                style={{
+                  width: barW,
+                  height: chartH,
+                  marginRight: index < barCount - 1 ? barGap : 0,
+                  display: 'flex',
+                  alignItems: 'flex-end'
+                }}
               >
-                {/* Bar container */}
-                <div 
-                  className="w-full rounded-t cursor-pointer transition-all hover:opacity-80 relative"
-                  style={{ 
-                    height: `${actualHeight}px`,
-                    backgroundColor: colors[index % colors.length],
-                    minHeight: '2px'
+                <div
+                  className="w-full rounded-t cursor-pointer transition-opacity hover:opacity-80"
+                  style={{
+                    height: Math.max(Math.round(((range > 0 ? ((value - minValue) / range) : 0.5) * chartH)), 2),
+                    backgroundColor: colorsArr[index % colorsArr.length]
                   }}
                 />
-                
-                {/* Tooltip */}
+
                 {hoveredIndex === index && (
-                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-3 py-1.5 rounded text-xs whitespace-nowrap z-10 shadow-lg">
-                    {labels[index]}: {value}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-2 py-0.5 rounded text-[10px] whitespace-nowrap z-10 shadow-lg">
+                    {xLabels[index]}: {value}
                   </div>
                 )}
+              </div>
+            ))}
+          </div>
+
+          {/* Y-axis tick labels */}
+          <div style={{ position: 'absolute', left: 0, top: 0, width: yAxisW - 4, height: chartH }}>
+            {Array.from({ length: 5 }).map((_, i) => {
+              const t = i / 4
+              const val = (minValue + (1 - t) * range)
+              const y = Math.round(t * chartH)
+              return (
+                <div key={i} style={{ position: 'absolute', left: 0, top: y - 6, width: '100%', textAlign: 'right', fontSize: Math.max(8, Math.round(10 * scale)), color: '#6b7280' }}>
+                  {Number.isFinite(val) ? Math.round(val) : ''}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* X-axis labels area (aligned with bars) */}
+        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, height: labelH, display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 4 }}>
+          {(preferLabelValues ? labelsArr : xLabels).map((label, index) => (
+            <span key={index} className="text-gray-600 truncate" style={{ fontSize: Math.max(8, Math.round(10 * scale)), maxWidth: barW }}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (chartType === 'line') {
+    const hasData = dataArr.length > 0
+    const maxValue = hasData ? Math.max(...dataArr) : 1
+    const minValue = hasData ? Math.min(...dataArr) : 0
+    const range = Math.max(1e-6, maxValue - minValue)
+
+    const chartH = Math.max(0, innerH - labelH)
+    const yAxisW = Math.max(28, Math.round(32 * scale))
+    const plotW = Math.max(0, innerW - yAxisW)
+
+    // Compute points in pixel coordinates for exact fit with horizontal padding
+    const padX = Math.max(1, Math.round(2 * scale))
+    const effW = Math.max(0, plotW - 2 * padX)
+    const pxPoints = dataArr.map((value, index) => {
+      const x = (index / Math.max(1, dataArr.length - 1)) * effW + padX
+      const y = chartH - ((value - minValue) / range) * chartH
+      return `${x},${y}`
+    }).join(' ')
+
+    return (
+      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', border: '1px solid #e5e7eb', borderRadius: 2 }}>
+        {/* Y-axis tick labels */}
+        <div style={{ position: 'absolute', left: P, top: P, width: yAxisW - 4, height: chartH }}>
+          {Array.from({ length: 5 }).map((_, i) => {
+            const t = i / 4
+            const val = (minValue + (1 - t) * range)
+            const y = Math.round(t * chartH)
+            return (
+              <div key={i} style={{ position: 'absolute', left: 0, top: y - 6, width: '100%', textAlign: 'right', fontSize: Math.max(8, Math.round(10 * scale)), color: '#6b7280' }}>
+                {Number.isFinite(val) ? Math.round(val) : ''}
               </div>
             )
           })}
         </div>
-        
-        {/* X-axis labels */}
-        <div className="flex justify-around border-t border-gray-300 pt-2 mt-2 h-8">
-          {labels.map((label, index) => (
-            <span 
-              key={index} 
-              className="text-gray-600 text-center flex-1 truncate" 
-              style={{ fontSize: `${10 * scale}px` }}
-              title={label}
-            >
-              {label}
-            </span>
+
+        {/* Line chart area */}
+        <div style={{ position: 'absolute', left: P + yAxisW, top: P, width: plotW, height: chartH, overflow: 'hidden' }}>
+          <svg viewBox={`0 0 ${plotW} ${chartH}`} width="100%" height="100%" preserveAspectRatio="none" onMouseLeave={() => setHoveredIndex(null)}>
+            {/* Axes */}
+            <line x1="0" y1={chartH} x2={plotW} y2={chartH} stroke="#9ca3af" strokeWidth={Math.max(1, Math.round(1 * scale))} />
+            <line x1="0" y1="0" x2="0" y2={chartH} stroke="#9ca3af" strokeWidth={Math.max(1, Math.round(1 * scale))} />
+            <polyline 
+              points={pxPoints} 
+              fill="none" 
+              stroke={colorsArr[0]} 
+              strokeWidth="2"
+              onMouseMove={(e) => {
+                const n = dataArr.length
+                if (!n) return
+                const rect = e.currentTarget.getBoundingClientRect()
+                const localX = e.clientX - rect.left
+                const idx = Math.round(((localX - padX) / Math.max(1, plotW - 2 * padX)) * (n - 1))
+                const clamped = Math.max(0, Math.min(n - 1, idx))
+                setHoveredIndex(clamped)
+              }}
+            />
+            {dataArr.map((value, index) => {
+              const x = (index / Math.max(1, dataArr.length - 1)) * (plotW - 2 * padX) + padX
+              const y = chartH - ((value - minValue) / range) * chartH
+              return (
+                <circle key={index} cx={x} cy={y} r="2" fill={colorsArr[0]} onMouseEnter={() => setHoveredIndex(index)} onMouseLeave={() => setHoveredIndex(null)} />
+              )
+            })}
+          </svg>
+          {hoveredIndex !== null && dataArr.length > 0 && (
+            (() => {
+              const n = dataArr.length
+              const x = (hoveredIndex / Math.max(1, n - 1)) * (plotW - 2 * padX) + padX
+              const y = chartH - ((dataArr[hoveredIndex] - minValue) / range) * chartH
+              return (
+                <div className="absolute" style={{ left: x, top: y, transform: 'translate(-50%, -120%)', background: 'rgba(17,24,39,0.92)', color: '#fff', fontSize: Math.max(8, Math.round(10 * scale)), padding: '4px 6px', borderRadius: 4, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                  #{hoveredIndex + 1} {xLabels[hoveredIndex]}: {dataArr[hoveredIndex]}
+                </div>
+              )
+            })()
+          )}
+        </div>
+        {/* X-axis labels area */}
+        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, height: labelH, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {xLabels.map((label, index) => (
+            <span key={index} className="text-gray-600 truncate" style={{ fontSize: Math.max(8, Math.round(10 * scale)) }}>{label}</span>
           ))}
         </div>
       </div>
     )
   }
-  
-  if (chartType === 'line') {
-    const maxValue = Math.max(...data)
-    const minValue = Math.min(...data)
-    const range = maxValue - minValue || 1
-    
-    const points = data.map((value, index) => {
-      const x = (index / (data.length - 1)) * 100
-      const y = 90 - ((value - minValue) / range) * 80
-      return `${x},${y}`
-    }).join(' ')
-    
+
+  if (chartType === 'pie') {
+    const total = Math.max(1, dataArr.reduce((sum, val) => sum + val, 0))
+
+    // Use the available inner box and center the pie so it always fits inside the element box
+    const diameter = Math.max(0, Math.min(innerW, innerH))
+    const radius = Math.max(0, Math.floor(diameter / 2) - Math.max(1, Math.round(2 * scale)))
+
+    let currentAngle = 0
     return (
-      <div className="w-full h-full bg-white p-4 relative flex flex-col">
-        <svg viewBox="0 0 100 100" className="w-full flex-1" style={{ minHeight: '200px' }}>
-          <polyline
-            points={points}
-            fill="none"
-            stroke={colors[0]}
-            strokeWidth="2"
-          />
-          {data.map((value, index) => {
-            const x = (index / (data.length - 1)) * 100
-            const y = 90 - ((value - minValue) / range) * 80
-            return (
-              <g key={index}>
-                <circle
-                  cx={x}
-                  cy={y}
-                  r="4"
-                  fill={colors[0]}
-                  className="cursor-pointer transition-all"
+      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', border: '1px solid #e5e7eb', borderRadius: 2 }}>
+        <div style={{ position: 'absolute', left: P, top: P, width: innerW, height: innerH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg viewBox="0 0 100 100" width={Math.max(10, diameter)} height={Math.max(10, diameter)}>
+            {dataArr.map((value, index) => {
+              const percentage = value / total
+              const angle = percentage * 360
+              const startAngle = currentAngle
+              const endAngle = currentAngle + angle
+              currentAngle = endAngle
+
+              const r = diameter > 0 ? Math.max(1, (radius / diameter) * 100) * 0.8 : 40 // keep a bit of inner padding
+              const x1 = 50 + r * Math.cos((startAngle - 90) * Math.PI / 180)
+              const y1 = 50 + r * Math.sin((startAngle - 90) * Math.PI / 180)
+              const x2 = 50 + r * Math.cos((endAngle - 90) * Math.PI / 180)
+              const y2 = 50 + r * Math.sin((endAngle - 90) * Math.PI / 180)
+              const largeArc = angle > 180 ? 1 : 0
+
+              return (
+                <path
+                  key={index}
+                  d={`M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                  fill={colorsArr[index % colorsArr.length]}
                   onMouseEnter={() => setHoveredIndex(index)}
                   onMouseLeave={() => setHoveredIndex(null)}
                 />
-              </g>
-            )
-          })}
-        </svg>
-        <div className="flex justify-between border-t border-gray-300 pt-2 mt-2">
-          {labels.map((label, index) => (
-            <span 
-              key={index} 
-              className="text-gray-600 truncate" 
-              style={{ fontSize: `${10 * scale}px` }}
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-        
-        {hoveredIndex !== null && (
-          <div 
-            className="absolute bg-gray-900 text-white px-3 py-1.5 rounded text-xs whitespace-nowrap z-10 pointer-events-none"
-            style={{
-              left: `${(hoveredIndex / (data.length - 1)) * 80 + 10}%`,
-              top: `${(90 - ((data[hoveredIndex] - minValue) / range) * 80) * 0.7}%`
-            }}
-          >
-            {labels[hoveredIndex]}: {data[hoveredIndex]}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+              )
+            })}
+          </svg>
+          {/* Legend */}
+          <div style={{ position: 'absolute', right: P, top: P, display: 'flex', flexDirection: 'column', gap: Math.max(2, Math.round(4 * scale)), maxWidth: innerW * 0.45 }}>
+            {xLabels.map((lbl, i) => (
+              <div key={`pie-lg-${i}`} style={{ display: 'flex', alignItems: 'center', gap: Math.max(4, Math.round(6 * scale)) }}>
+                <div style={{ width: Math.max(8, Math.round(10 * scale)), height: Math.max(8, Math.round(10 * scale)), backgroundColor: colorsArr[i % colorsArr.length], borderRadius: 2 }} />
+                <div style={{ fontSize: Math.max(8, Math.round(10 * scale)), color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lbl}</div>
+              </div>
+            ))}
           </div>
-        )}
-      </div>
-    )
-  }
-  
-  if (chartType === 'pie') {
-    const total = data.reduce((sum, val) => sum + val, 0)
-    let currentAngle = 0
-    
-    return (
-      <div className="w-full h-full bg-white p-4 flex gap-4 items-center justify-center relative">
-        <svg viewBox="0 0 100 100" className="w-1/2 h-3/4">
-          {data.map((value, index) => {
-            const percentage = value / total
-            const angle = percentage * 360
-            const startAngle = currentAngle
-            const endAngle = currentAngle + angle
-            currentAngle = endAngle
-            
-            const x1 = 50 + 40 * Math.cos((startAngle - 90) * Math.PI / 180)
-            const y1 = 50 + 40 * Math.sin((startAngle - 90) * Math.PI / 180)
-            const x2 = 50 + 40 * Math.cos((endAngle - 90) * Math.PI / 180)
-            const y2 = 50 + 40 * Math.sin((endAngle - 90) * Math.PI / 180)
-            const largeArc = angle > 180 ? 1 : 0
-            
-            return (
-              <path
-                key={index}
-                d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                fill={colors[index % colors.length]}
-                className="cursor-pointer hover:opacity-80 transition-opacity"
-                onMouseEnter={() => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
-              />
-            )
-          })}
-        </svg>
-        
-        <div className="flex flex-col gap-1">
-          {data.map((value, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <div 
-                className="w-3 h-3 rounded-sm" 
-                style={{ backgroundColor: colors[index % colors.length] }}
-              />
-              <span 
-                className="text-gray-700" 
-                style={{ fontSize: `${10 * scale}px` }}
-              >
-                {labels[index]}: {value}
-              </span>
+          {/* Tooltip */}
+          {hoveredIndex !== null && (
+            <div className="absolute" style={{ left: P + 8, top: P + 8, background: 'rgba(17,24,39,0.92)', color: '#fff', fontSize: Math.max(8, Math.round(10 * scale)), padding: '4px 6px', borderRadius: 4, pointerEvents: 'none' }}>
+              {xLabels[hoveredIndex]}: {dataArr[hoveredIndex]} ({((dataArr[hoveredIndex] / total) * 100).toFixed(1)}%)
             </div>
-          ))}
+          )}
         </div>
-        
-        {hoveredIndex !== null && (
-          <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 bg-gray-900 text-white px-3 py-1.5 rounded text-xs whitespace-nowrap z-10 pointer-events-none">
-            {labels[hoveredIndex]}: {data[hoveredIndex]} ({((data[hoveredIndex] / total) * 100).toFixed(1)}%)
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-          </div>
-        )}
       </div>
     )
   }
-  
+
   return null
 }
 
-function TableElement({ el, editing, onChange, stopEditing, scale = 1 }) {
+function TableElement({ el, editing, selected = true, onSelect, onChange, stopEditing, scale = 1 }) {
   const [editingCellIndex, setEditingCellIndex] = useState(null)
-  
-  const cellWidth = el.w / el.cols
-  const cellHeight = el.h / el.rows
-  
-  const updateCell = (cellIndex, newText) => {
+  const tableRef = useRef(null)
+
+  // Use scaled cell dimensions so positioning matches the rendered size
+  const cellWidthPx = (el.w * scale) / el.cols
+  const cellHeightPx = (el.h * scale) / el.rows
+  // Default table border color; header cells may override with el.headerBorderColor
+  const hexToRgb = (hex) => {
+    try {
+      const m = String(hex || '').replace('#','')
+      const v = m.length === 3 ? m.split('').map(ch=>ch+ch).join('') : m
+      const int = parseInt(v, 16)
+      return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 }
+    } catch { return { r: 0, g: 0, b: 0 } }
+  }
+  const withAlpha = (hex, alphaPct) => {
+    const a = Number.isFinite(alphaPct) ? Math.max(0, Math.min(100, alphaPct)) : 100
+    if (a >= 100 || !hex || /^rgba?\(/i.test(hex)) return hex || '#000000'
+    const { r, g, b } = hexToRgb(hex)
+    return `rgba(${r}, ${g}, ${b}, ${a/100})`
+  }
+
+  // Track the currently edited cell globally so sidebar tools can act on it
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (editingCellIndex !== null) {
+        window.currentEditingTableCell = { id: el.id, cellIndex: editingCellIndex }
+      }
+    }
+  }, [editingCellIndex, el.id])
+
+  const commitCell = (cellIndex, newText) => {
     const newCells = [...el.cells]
     newCells[cellIndex] = { ...newCells[cellIndex], text: newText }
     onChange({ cells: newCells })
   }
-  
+
+  const handleWrapperDblClick = (e) => {
+    e.stopPropagation()
+    if (typeof onSelect === 'function') onSelect()
+    const rect = tableRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const rx = e.clientX - rect.left
+    const ry = e.clientY - rect.top
+    const col = Math.max(0, Math.min(el.cols - 1, Math.floor(rx / (rect.width / el.cols))))
+    const row = Math.max(0, Math.min(el.rows - 1, Math.floor(ry / (rect.height / el.rows))))
+    const idx = row * el.cols + col
+    setEditingCellIndex(idx)
+  }
+
+  // Ensure textarea receives focus when entering edit mode
+  React.useEffect(() => {
+    if (editingCellIndex === null) return
+    const cell = el.cells?.[editingCellIndex]
+    if (!cell) return
+    const id = `table-cell-${cell.id}`
+    const focusLater = () => {
+      const ta = document.getElementById(id)
+      if (ta) { try { ta.focus(); /* do not select to avoid caret jumps */ } catch {} }
+    }
+    const raf = requestAnimationFrame(focusLater)
+    return () => { try { cancelAnimationFrame(raf) } catch {} }
+  }, [editingCellIndex, el.cells])
+
+  // Stop editing when the table is deselected
+  React.useEffect(() => {
+    if (selected) return
+    if (editingCellIndex === null) return
+    try {
+      const cell = el.cells?.[editingCellIndex]
+      const id = cell ? `table-cell-${cell.id}` : null
+      const node = id ? document.getElementById(id) : null
+      const txt = node ? (node.textContent || '') : (cell?.text || '')
+      commitCell(editingCellIndex, txt)
+    } catch {}
+    setEditingCellIndex(null)
+  }, [selected, editingCellIndex, el.cells])
+
+  // Allow external requests to edit a specific cell (from sidebar)
+  React.useEffect(() => {
+    const onEditCell = (e) => {
+      const tId = e?.detail?.tableId
+      const cIdx = e?.detail?.cellIndex
+      if (tId === el.id && Number.isInteger(cIdx)) {
+        if (typeof onSelect === 'function') onSelect()
+        setEditingCellIndex(Math.max(0, Math.min(el.rows * el.cols - 1, cIdx)))
+      }
+    }
+    window.addEventListener('editTableCell', onEditCell)
+    return () => window.removeEventListener('editTableCell', onEditCell)
+  }, [el.id, el.rows, el.cols])
+
   return (
-    <div className="w-full h-full relative bg-white" style={{ boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div
+      ref={tableRef}
+      className="w-full h-full relative"
+      style={{ boxSizing: 'border-box', overflow: 'hidden', background: '#ffffff', border: `1px solid ${el.borderColor || '#000000'}` }}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (typeof onSelect === 'function') onSelect()
+      }}
+      onDoubleClick={handleWrapperDblClick}
+    >
       {el.cells.map((cell, index) => {
         const row = Math.floor(index / el.cols)
         const col = index % el.cols
         const isEditing = editingCellIndex === index
-        
+        const isHeader = !!el.headerRow && row === 0
+
+        const bgBase = (cell.styles?.bgColor)
+          ? cell.styles.bgColor
+          : (isHeader ? (el.headerBg || '#f3f4f6') : (el.cellBg || '#ffffff'))
+        const bgAlpha = (cell.styles?.bgColorAlpha != null)
+          ? cell.styles.bgColorAlpha
+          : (isHeader ? (el.headerBgAlpha != null ? el.headerBgAlpha : 100) : 100)
+        const bg = withAlpha(bgBase, bgAlpha)
+
+        const fgBase = isHeader ? (el.headerTextColor || '#111827') : (cell.styles?.color || '#111827')
+        const fgAlpha = isHeader ? (el.headerTextAlpha != null ? el.headerTextAlpha : 100) : (cell.styles?.colorAlpha != null ? cell.styles.colorAlpha : 100)
+        const fg = withAlpha(fgBase, fgAlpha)
+
+        const valign = cell.styles?.valign || 'middle'
+        const align = cell.styles?.align || 'center'
+        const borderBase = isHeader && el.headerBorderColor ? el.headerBorderColor : (el.borderColor || '#000000')
+        const borderAlpha = isHeader && el.headerBorderColor ? (el.headerBorderAlpha != null ? el.headerBorderAlpha : 100) : (el.borderAlpha != null ? el.borderAlpha : 100)
+        const cellBorderColor = withAlpha(borderBase, borderAlpha)
+
         return (
           <div
             key={cell.id}
-            className="absolute border border-black"
+            id={`table-cell-wrap-${cell.id}`}
+            data-table-cell
+            className="absolute"
             style={{
               boxSizing: 'border-box',
-              left: col * cellWidth,
-              top: row * cellHeight,
-              width: cellWidth,
-              height: cellHeight,
+              left: col * cellWidthPx,
+              top: row * cellHeightPx,
+              width: cellWidthPx,
+              height: cellHeightPx,
+              borderRight: `1px solid ${cellBorderColor}`,
+              borderBottom: `1px solid ${cellBorderColor}`,
+            }}
+            onMouseDown={(e) => {
+              // Track selected cell even when not editing so sidebar ops can use it
+              try { if (typeof window !== 'undefined') window.currentSelectedTableCell = { id: el.id, cellIndex: index } } catch {}
             }}
             onDoubleClick={(e) => {
               e.stopPropagation()
@@ -781,42 +1492,88 @@ function TableElement({ el, editing, onChange, stopEditing, scale = 1 }) {
             }}
           >
             {isEditing ? (
-              <textarea
-                autoFocus
-                value={cell.text}
-                onChange={(e) => updateCell(index, e.target.value)}
-                onBlur={() => setEditingCellIndex(null)}
+              <div
+                id={`table-cell-${cell.id}`}
+                contentEditable
+                suppressContentEditableWarning
+                aria-label={`Table cell ${index + 1}`}
+                onBlur={(e) => { 
+                  commitCell(index, e.currentTarget.textContent || '')
+                  // Keep editing unless user clicks inside slide container but outside this table
+                  const target = e?.relatedTarget || document.activeElement
+                  const withinSlide = (target instanceof Element) ? !!target.closest('[data-slide-container]') : false
+                  const withinTable = (target instanceof Element) ? !!target.closest('[data-table-cell]') : false
+                  const keepSidebar = typeof window !== 'undefined' && window.keepTableEditing
+                  // If user interacted with sidebar/tools, do NOT refocus immediately to allow dropdowns/inputs to work
+                  if (keepSidebar) {
+                    // Preserve editing state by not clearing editingCellIndex
+                    return
+                  }
+                  if (!withinSlide || withinTable) {
+                    const id = `table-cell-${cell.id}`
+                    requestAnimationFrame(() => {
+                      const ta = document.getElementById(id)
+                      if (ta) { try { ta.focus() } catch {} }
+                    })
+                  } else {
+                    setEditingCellIndex(null)
+                  }
+                }}
                 onMouseDown={(e) => e.stopPropagation()}
-                className="w-full h-full resize-none outline-none p-2"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault() } }}
+                onPaste={(e) => {
+                  try {
+                    e.preventDefault()
+                    const txt = (e.clipboardData || window.clipboardData).getData('text') || ''
+                    const sanitized = txt.replace(/\r?\n/g, ' ')
+                    const ok = document.execCommand && document.execCommand('insertText', false, sanitized)
+                    if (!ok) {
+                      const sel = window.getSelection && window.getSelection()
+                      if (sel && sel.getRangeAt && sel.rangeCount) {
+                        const r = sel.getRangeAt(0); r.deleteContents(); r.insertNode(document.createTextNode(sanitized))
+                      } else {
+                        e.currentTarget.textContent += sanitized
+                      }
+                    }
+                  } catch {}
+                }}
+                className="w-full h-full p-2 outline-none"
                 style={{
                   boxSizing: 'border-box',
-                  fontSize: `${cell.styles.fontSize * scale}px`,
-                  fontFamily: cell.styles.fontFamily,
-                  color: cell.styles.color,
-                  fontWeight: cell.styles.bold ? 700 : 400,
-                  fontStyle: cell.styles.italic ? 'italic' : 'normal',
-                  textDecoration: cell.styles.underline ? 'underline' : 'none',
-                  textAlign: cell.styles.align,
+                  background: bg,
+                  color: fg,
+                  fontSize: `${(cell.styles?.fontSize || 14) * scale}px`,
+                  fontFamily: cell.styles?.fontFamily || 'Inter, system-ui, sans-serif',
+                  fontWeight: cell.styles?.bold ? 700 : 400,
+                  fontStyle: cell.styles?.italic ? 'italic' : 'normal',
+                  textDecoration: cell.styles?.underline ? 'underline' : 'none',
+                  textAlign: align,
                   display: 'flex',
-                  alignItems: cell.styles.valign === 'middle' ? 'center' : 
-                            cell.styles.valign === 'bottom' ? 'flex-end' : 'flex-start'
+                  alignItems: valign === 'middle' ? 'center' : (valign === 'bottom' ? 'flex-end' : 'flex-start'),
+                  justifyContent: align === 'right' ? 'flex-end' : (align === 'center' ? 'center' : 'flex-start'),
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  overflow: 'hidden'
                 }}
-              />
+              >{cell.text}</div>
             ) : (
               <div
                 className="w-full h-full p-2 select-none"
                 style={{
-                  fontSize: `${cell.styles.fontSize * scale}px`,
-                  fontFamily: cell.styles.fontFamily,
-                  color: cell.styles.color,
-                  fontWeight: cell.styles.bold ? 700 : 400,
-                  fontStyle: cell.styles.italic ? 'italic' : 'normal',
-                  textDecoration: cell.styles.underline ? 'underline' : 'none',
-                  textAlign: cell.styles.align,
+                  background: bg,
+                  color: fg,
+                  fontSize: `${(cell.styles?.fontSize || 14) * scale}px`,
+                  fontFamily: cell.styles?.fontFamily || 'Inter, system-ui, sans-serif',
+                  fontWeight: cell.styles?.bold ? 700 : 400,
+                  fontStyle: cell.styles?.italic ? 'italic' : 'normal',
+                  textDecoration: cell.styles?.underline ? 'underline' : 'none',
+                  textAlign: align,
                   whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  overflow: 'hidden',
                   display: 'flex',
-                  alignItems: cell.styles.valign === 'middle' ? 'center' : 
-                            cell.styles.valign === 'bottom' ? 'flex-end' : 'flex-start'
+                  alignItems: valign === 'middle' ? 'center' : (valign === 'bottom' ? 'flex-end' : 'flex-start'),
+                  justifyContent: align === 'right' ? 'flex-end' : (align === 'center' ? 'center' : 'flex-start')
                 }}
               >
                 {cell.text}
@@ -912,7 +1669,9 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
   if (!editing) {
     // If HTML content exists, render it
     if (el.html) {
-      const align = el.styles.align || 'left'
+      const stylesSafe = el.styles || {}
+      const align = stylesSafe.align || 'left'
+      const isEmpty = !(el.text && String(el.text).trim().length)
       const getHorizontalAlignment = () => {
         switch (align) {
           case 'center': return 'center'
@@ -922,32 +1681,52 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
         }
       }
       
-      return (
-        <div 
-          className="w-full h-full select-none p-2" 
-          style={{ 
-            backgroundColor: bgColor, 
-            fontFamily: el.styles.fontFamily, 
-            fontSize: `${el.styles.fontSize * scale}px`, 
-            whiteSpace: 'pre-wrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: 'flex',
-            flexDirection: 'column',
-            textAlign: el.styles.align || 'left',
-            // Horizontal align with alignItems to match editor
-            alignItems: (el.styles.align === 'center') ? 'center' : (el.styles.align === 'right') ? 'flex-end' : 'flex-start',
-            // Vertical align to match editor
-            justifyContent: el.styles?.valign === 'middle' ? 'center' : 
-                            el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
-          }}
-          dangerouslySetInnerHTML={{ __html: el.html }}
-        />
+    return (
+      <div 
+        className="w-full h-full select-none p-2" 
+        style={{ 
+          backgroundColor: bgColor, 
+          fontFamily: (stylesSafe.fontFamily || 'Inter, system-ui, sans-serif'), 
+          fontSize: `${(stylesSafe.fontSize || 16) * scale}px`, 
+          color: stylesSafe.color || '#111827',
+          fontWeight: stylesSafe.bold ? 700 : 400,
+          fontStyle: stylesSafe.italic ? 'italic' : 'normal',
+          textDecoration: stylesSafe.underline ? 'underline' : 'none',
+          overflow: 'visible',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: getHorizontalAlignment(),
+          ...getVerticalAlignStyle(),
+          pointerEvents: 'none', // let wrapper capture drag/resize when not editing
+        }}
+      >
+          {isEmpty ? (
+            <div style={{ width: '100%', textAlign: stylesSafe.align || 'left' }}>
+              {el.placeholder ? (
+                <span style={{ color: '#9ca3af', fontWeight: el.placeholderBold ? 700 : 400 }}>
+                  {el.placeholder}
+                </span>
+              ) : 'Double-click to edit'}
+            </div>
+          ) : (
+            <div
+              style={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                textAlign: stylesSafe.align || 'left',
+                textOverflow: 'ellipsis',
+                width: '100%'
+              }}
+              dangerouslySetInnerHTML={{ __html: el.html }}
+            />
+          )}
+        </div>
       )
     }
     
     // Otherwise render plain text with list formatting
-    const align = el.styles.align || 'left'
+    const stylesSafe2 = el.styles || {}
+    const align = stylesSafe2.align || 'left'
     const getHorizontalAlignment = () => {
       switch (align) {
         case 'center': return 'center'
@@ -960,27 +1739,40 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
     return (
       <div className="w-full h-full select-none p-2" style={{ 
         backgroundColor: bgColor, 
-        fontFamily: el.styles.fontFamily, 
-        color: el.styles.color, 
-        fontSize: `${el.styles.fontSize * scale}px`, 
-        fontWeight: el.styles.bold ? 700 : 400, 
-        fontStyle: el.styles.italic ? 'italic' : 'normal', 
-        textDecoration: el.styles.underline ? 'underline' : 'none', 
-        whiteSpace: 'nowrap', // Keep text in single line like before editing
-        overflow: 'hidden', // Hide overflow to prevent text from spilling out
-        textOverflow: 'ellipsis', // Add ellipsis for long text
+        fontFamily: stylesSafe2.fontFamily || 'Inter, system-ui, sans-serif', 
+        color: stylesSafe2.color || '#111827', 
+        fontSize: `${(stylesSafe2.fontSize || 16) * scale}px`, 
+        fontWeight: stylesSafe2.bold ? 700 : 400, 
+        fontStyle: stylesSafe2.italic ? 'italic' : 'normal', 
+        textDecoration: stylesSafe2.underline ? 'underline' : 'none', 
+        overflow: 'visible',
         display: 'flex',
-        justifyContent: getHorizontalAlignment(),
-        alignItems: el.styles?.valign === 'middle' ? 'center' : 
-                    el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
+        flexDirection: 'column',
+        alignItems: getHorizontalAlignment(),
+        ...getVerticalAlignStyle(),
       }}>
-        {formatTextWithList(el.text)}
+        <div style={{
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          textAlign: stylesSafe2.align || 'left',
+          textOverflow: 'ellipsis',
+          width: '100%',
+          pointerEvents: 'none',
+        }}>
+          {(el.text && el.text.trim().length)
+            ? formatTextWithList(el.text)
+            : (el.placeholder ? (
+                <span style={{ color: '#9ca3af', fontWeight: el.placeholderBold ? 700 : 400 }}>
+                  {el.placeholder}
+                </span>
+              ) : 'Double-click to edit')}
+        </div>
       </div>
     )
   }
 
   return (
-    <textarea ref={inputRef} value={val} onChange={(e)=>setVal(e.target.value)} onBlur={()=>{ onChange({ text: val }); stopEditing() }}
+    <textarea id={`text-box-${el.id}`} name={`text-box-${el.id}`} autoComplete="off" aria-label="Text box" ref={inputRef} value={val} onChange={(e)=>setVal(e.target.value)} onBlur={()=>{ onChange({ text: val }); stopEditing() }}
       className="w-full h-full resize-none outline-none p-2"
       style={{ 
         backgroundColor: bgColor, 

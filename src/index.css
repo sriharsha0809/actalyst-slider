@@ -1,6 +1,11 @@
+/* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
+
+html, body, #root { height: 100%; }
+body { background-color: #ebebeb; }
 
 :root {
   --canvas-bg: #ffffff;
@@ -225,11 +230,14 @@
     font-size: 0.5rem !important;
     line-height: 1 !important;
   }
+  /* Re-show labels explicitly marked */
+  .responsive-toolbar-button span.keep-default, .responsive-toolbar-button span.show-label { display: inline !important; }
 }
 
 /***** Rich Text Content Formatting *****/
 .rich-text-content {
-  /* Ensure formatting tags are properly displayed */
+  display: inline-block;
+  width: 100%;
 }
 
 .rich-text-content b,
@@ -320,7 +328,9 @@
   padding: 0 !important;
 }
 
-/***** General Text Direction Rules *****/
+/* Ensure lists render markers inside the editor box (not clipped) */
+
+/* General Text Direction Rules */
 /* Ensure all text elements have proper left-to-right direction */
 .rich-text-content,
 [contenteditable],
@@ -332,6 +342,18 @@ input[type="text"],
   unicode-bidi: normal !important;
 }
 
+/* Ensure lists render markers inside the editor box (not clipped) */
+[contenteditable="true"] ul,
+[contenteditable="true"] ol {
+  display: block !important;
+  list-style-position: inside !important;
+  padding-inline-start: 1.25em !important; /* room for markers */
+  margin: 0 !important;
+}
+[contenteditable="true"] li {
+  display: list-item !important;
+}
+
 /* Force LTR for all text containers */
 .slide-canvas .text-box,
 .slide-canvas [contenteditable] {
@@ -339,7 +361,229 @@ input[type="text"],
   text-align: left; /* Default alignment */
 }
 
+/* Disable text selection globally while dragging/resizing */
+.no-user-select, .no-user-select * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+/* But always allow typing/selecting inside active editors */
+.no-user-select textarea,
+.no-user-select [contenteditable="true"] {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
 /***** Utilities *****/
+/* Toolbar uniform sizing */
+.toolbar button:not(.keep-default):not(.active-capable), .toolbar select:not(.keep-default), .toolbar label:not(.keep-default), .toolbar input[type="number"]:not(.keep-default), .toolbar .responsive-toolbar-button:not(.keep-default):not(.active-capable) {
+  height: 32px !important;
+  min-height: 32px !important;
+  line-height: 32px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 6px !important;
+  text-align: center;
+}
+/* Interaction states */
+.toolbar button, .toolbar .responsive-toolbar-button {
+  cursor: pointer !important;
+}
+
+/* Presentation animations */
+
+/* CSS-only chevron icons for dropdown toggles */
+
+/* Rows/Columns dropdown: block options with staged enter animation */
+.ops-panel .ops-item {
+  display: inline-flex;
+  opacity: 0;
+  transform: translateY(150%);
+  transition-property: transform, opacity !important;
+  transition-duration: 3000ms !important;
+  transition-timing-function: ease !important;
+  will-change: transform, opacity;
+}
+.ops-panel.ops-open .ops-item {
+  opacity: 1;
+  transform: translateY(0%);
+}
+/* Stagger timing for first 8 items */
+.ops-panel.ops-open .ops-list > .ops-item:nth-child(1) { transition-delay: 0ms; }
+.ops-panel.ops-open .ops-list > .ops-item:nth-child(2) { transition-delay: 50ms; }
+.ops-panel.ops-open .ops-list > .ops-item:nth-child(3) { transition-delay: 100ms; }
+.ops-panel.ops-open .ops-list > .ops-item:nth-child(4) { transition-delay: 150ms; }
+.ops-panel.ops-open .ops-list > .ops-item:nth-child(5) { transition-delay: 200ms; }
+.ops-panel.ops-open .ops-list > .ops-item:nth-child(6) { transition-delay: 250ms; }
+.ops-panel.ops-open .ops-list > .ops-item:nth-child(7) { transition-delay: 300ms; }
+.ops-panel.ops-open .ops-list > .ops-item:nth-child(8) { transition-delay: 350ms; }
+.gg-chevron-up {
+  box-sizing: border-box;
+  position: relative;
+  transform: scale(var(--ggs, 1));
+  width: 22px;
+  height: 22px;
+  border: 2px solid transparent;
+  border-radius: 100px;
+}
+.gg-chevron-up::after {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid;
+  border-right: 2px solid;
+  transform: rotate(-45deg);
+  left: 4px;
+  bottom: 2px;
+}
+
+.gg-chevron-down {
+  box-sizing: border-box;
+  position: relative;
+  transform: scale(var(--ggs, 1));
+  width: 22px;
+  height: 22px;
+  border: 2px solid transparent;
+  border-radius: 100px;
+}
+
+.gg-chevron-down::after {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-bottom: 2px solid;
+  border-right: 2px solid;
+  transform: rotate(45deg);
+  left: 4px;
+  top: 2px;
+}
+@keyframes slide-in-next {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slide-in-prev {
+  from { transform: translateX(-24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.slide-anim-next {
+  animation: slide-in-next 300ms ease both;
+}
+.slide-anim-prev {
+  animation: slide-in-prev 300ms ease both;
+}
+
+@keyframes keynote-pop {
+  0% { transform: translateY(12px) scale(0.98); opacity: 0; }
+  60% { transform: translateY(0) scale(1.02); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.keynote-pop {
+  animation: keynote-pop 500ms cubic-bezier(.2,.7,.2,1) both;
+}
+
+/* Prevent scroll anchoring and scroll chaining in right sidebar */
+.sidebar-scroll {
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+}
+
+/* Sidebar shimmer skeletons */
+.skeleton-line,
+.skeleton-rect {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(0,0,0,0.08) 25%, rgba(0,0,0,0.14) 37%, rgba(0,0,0,0.08) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+.skeleton-line { border-radius: 4px; }
+.skeleton-rect { border-radius: 8px; }
+
+/* Dropdown panel animation + glassmorphism */
+.dropdown-panel {
+  animation: dropdown-enter 180ms ease both;
+  transform-origin: top right;
+  background: rgba(255,255,255,0.10) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  box-shadow: 0 8px 28px rgba(17,25,40,0.25) !important;
+}
+@keyframes dropdown-enter {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.toolbar button:hover, .toolbar .responsive-toolbar-button:hover,
+.toolbar button:focus-visible, .toolbar .responsive-toolbar-button:focus-visible {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+/* Exceptions and overrides */
+.toolbar .force-black { color: #000 !important; fill: #000 !important; stroke: #000 !important; }
+.toolbar .force-border { border: 1px solid #000 !important; border-radius: 0.5rem !important; }
+/* Normalize icon sizes */
+.toolbar button svg, .toolbar label svg {
+  width: 18px !important;
+  height: 18px !important;
+  flex-shrink: 0;
+}
+/* Compact toolbar container padding */
+.toolbar { padding-top: 2px !important; padding-bottom: 2px !important; }
+
+/* Ensure Insert icon buttons show labels beneath icons */
+.toolbar .responsive-toolbar-button.w-16,
+.toolbar .responsive-toolbar-button.w-20 {
+  height: auto !important;
+  min-height: 48px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 6px 8px !important;
+  gap: 4px !important;
+  flex-direction: column !important;
+  background: transparent !important;
+  border: none !important;
+}
+/* Always show spans under these buttons */
+.toolbar .responsive-toolbar-button.w-16 span,
+.toolbar .responsive-toolbar-button.w-20 span { display: inline !important; }
+
+.tool-btn { background: transparent !important; border: none !important; box-shadow: none !important; }
+/* Smooth zoom/hover/active animation */
+.toolbar .tool-btn { transition: transform 150ms ease, background-color 150ms ease, color 150ms ease; transform: scale(1); }
+.toolbar .tool-btn:hover { transform: scale(1.05); font-weight: 700 !important; }
+.toolbar .tool-btn.tool-active, .toolbar button.tool-active { transform: scale(1.05); font-weight: 700 !important; }
+
+/* Transparent base for zoomable buttons */
+.toolbar .anim-zoom { background: transparent !important; transition: transform 150ms ease, color 150ms ease; transform: scale(1); }
+.toolbar .anim-zoom:hover, .toolbar .anim-zoom.is-active, .toolbar .is-active.anim-zoom { transform: scale(1.06); font-weight: 700 !important; }
+
+/* Unify hover/active bg with +Text/+New Slide for all buttons except font family and font size */
+.toolbar button.anim-zoom:hover,
+.toolbar button.anim-zoom.is-active,
+.toolbar .responsive-toolbar-button.anim-zoom:hover,
+.toolbar .responsive-toolbar-button.anim-zoom.is-active,
+.toolbar label.anim-zoom:hover,
+.toolbar label.anim-zoom.is-active,
+.toolbar .tool-btn.tool-active {
+  background: #4A7FA7 !important;
+  color: #ffffff !important;
+}
+.toolbar .anim-zoom:hover { background: transparent !important; }
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;

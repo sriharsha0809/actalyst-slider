@@ -5,9 +5,10 @@ export default function LandingPage({ onEnterApp }) {
 
   const handleEnterApp = () => {
     setIsLoading(true)
+    // Show logo animation briefly, then enter app
     setTimeout(() => {
       onEnterApp()
-    }, 1000)
+    }, 1200)
   }
 
   return (
@@ -140,6 +141,22 @@ export default function LandingPage({ onEnterApp }) {
         <div className="absolute top-1/3 right-1/4 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob" style={{animationDelay: '2s'}}></div>
         <div className="absolute bottom-1/4 left-1/3 w-56 h-56 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob" style={{animationDelay: '4s'}}></div>
       </div>
+
+      {/* Loading overlay animation */}
+      {isLoading && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-white/80 backdrop-blur-sm">
+          <div className="relative">
+            <div className="w-28 h-28 mx-auto bg-gradient-to-r from-blue-500 via-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-2xl animate-pulse">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="white" className="transition-transform duration-700 ease-out">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+              </svg>
+            </div>
+            <div className="absolute inset-0 -z-10 flex items-center justify-center">
+              <div className="w-36 h-36 rounded-full border-2 border-purple-400/30 border-t-purple-600 animate-spin"></div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
