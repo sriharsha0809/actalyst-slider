@@ -394,16 +394,46 @@ export const factories = {
     borderColor: '#000000',
     cells: Array.from({ length: rows*cols }, () => ({ id: nanoid(), text: '', styles: { fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14, color: '#111827', bold: false, italic: false, underline: false, align: 'center', valign: 'middle' } }))
   }),
-  chart: (chartType, x, y, w, h) => ({
-    id: nanoid(),
-    type: 'chart',
-    chartType,
-    x, y, w, h,
-    rotation: 0,
-    data: chartType === 'pie' ? [30, 25, 20, 15, 10] : [65, 59, 80, 81, 56, 55, 40],
-    labels: chartType === 'pie'
+  chart: (chartType, x, y, w, h, opts = {}) => {
+    const baseData = chartType === 'pie' ? [30, 25, 20, 15, 10] : [65, 59, 80, 81, 56, 55, 40]
+    const baseLabels = chartType === 'pie'
       ? ['Category A', 'Category B', 'Category C', 'Category D', 'Category E']
-      : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
-    colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
-  }),
+      : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+
+    // Seed structuredData for charts that need multiple series by default (e.g., stacked)
+    let structuredData = undefined
+    if (chartType === 'bar') {
+      const style = String(opts.chartStyle || '2d')
+      const needsMulti = style.includes('stacked') // stacked or stacked100 or 3d-stacked or horizontal-stacked
+      const s1 = baseData
+      const s2 = s1.map(v => Math.max(1, Math.round(Number(v || 0) * 0.6)))
+      structuredData = {
+        categories: baseLabels,
+        series: needsMulti
+          ? [ { name: 'Series 1', data: s1 }, { name: 'Series 2', data: s2 } ]
+          : [ { name: 'Series 1', data: s1 } ]
+      }
+    } else if (chartType === 'line') {
+      structuredData = {
+        categories: baseLabels,
+        series: [ { name: 'Series 1', data: baseData } ]
+      }
+    } else if (chartType === 'pie') {
+      structuredData = undefined
+    }
+
+    return ({
+      id: nanoid(),
+      type: 'chart',
+      chartType,
+      x, y, w, h,
+      rotation: 0,
+      // default style per type; can be overridden by opts.chartStyle
+      chartStyle: opts.chartStyle ?? (chartType === 'line' ? 'simple' : '2d'),
+      data: baseData,
+      labels: baseLabels,
+      colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
+      ...(structuredData ? { structuredData } : {}),
+    })
+  },
 }

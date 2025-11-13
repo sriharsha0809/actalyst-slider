@@ -407,7 +407,7 @@ input[type="text"],
   opacity: 0;
   transform: translateY(150%);
   transition-property: transform, opacity !important;
-  transition-duration: 3000ms !important;
+  transition-duration: 2000ms !important;
   transition-timing-function: ease !important;
   will-change: transform, opacity;
 }
@@ -424,6 +424,10 @@ input[type="text"],
 .ops-panel.ops-open .ops-list > .ops-item:nth-child(6) { transition-delay: 250ms; }
 .ops-panel.ops-open .ops-list > .ops-item:nth-child(7) { transition-delay: 300ms; }
 .ops-panel.ops-open .ops-list > .ops-item:nth-child(8) { transition-delay: 350ms; }
+
+/* Stack variant: allow block-level containers and column layout per item */
+.ops-panel.ops-stack .ops-item { display: block; }
+.ops-panel.ops-stack .ops-item.ops-flexcol { display: flex; flex-direction: column; gap: 0.5rem; }
 .gg-chevron-up {
   box-sizing: border-box;
   position: relative;
@@ -527,6 +531,14 @@ input[type="text"],
   to { opacity: 1; transform: scale(1); }
 }
 
+/* Active state for dropdown trigger buttons */
+.drop-btn { transition: box-shadow 150ms ease, transform 150ms ease, background-color 150ms ease, border-color 150ms ease; }
+.drop-btn-active {
+  background: rgba(255,255,255,0.9) !important;
+  border-color: rgba(0,0,0,0.25) !important;
+  box-shadow: 0 6px 18px rgba(17,25,40,0.18) !important;
+}
+
 .toolbar button:hover, .toolbar .responsive-toolbar-button:hover,
 .toolbar button:focus-visible, .toolbar .responsive-toolbar-button:focus-visible {
   background: #ffffff !important;
@@ -591,4 +603,350 @@ input[type="text"],
   .scrollbar-thin::-webkit-scrollbar { height: 8px; width: 8px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: theme('colors.gray.300'); border-radius: 9999px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+}
+
+/***** React Spreadsheet Custom Styling - Keynote Inspired *****/
+.keynote-spreadsheet {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+}
+
+.keynote-spreadsheet .Spreadsheet {
+  width: 100%;
+  overflow: visible;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.keynote-spreadsheet .Spreadsheet table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  table-layout: fixed;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Base cell styling */
+.keynote-spreadsheet .Spreadsheet td {
+  border-right: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 10px 12px;
+  min-width: 100px;
+  height: 40px;
+  background: white;
+  position: relative;
+  transition: all 0.15s ease;
+  font-size: 13px;
+  color: #1f2937;
+  text-align: center;
+}
+
+/* Remove borders on outer edges for clean look */
+.keynote-spreadsheet .Spreadsheet tr:last-child td {
+  border-bottom: none;
+}
+
+.keynote-spreadsheet .Spreadsheet td:last-child {
+  border-right: none;
+}
+
+/* Hover effect on cells */
+.keynote-spreadsheet .Spreadsheet td:hover {
+  background: #f8fafc;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  transform: translateY(-1px);
+}
+
+/* Focus/Active cell with glowing border */
+.keynote-spreadsheet .Spreadsheet td:focus,
+.keynote-spreadsheet .Spreadsheet td:focus-within {
+  outline: none;
+  background: white;
+  box-shadow: 0 0 0 2px #3b82f6, 0 2px 8px rgba(59,130,246,0.2);
+  z-index: 10;
+  transform: translateY(0);
+}
+
+/* Input styling */
+.keynote-spreadsheet .Spreadsheet input,
+.keynote-spreadsheet .Spreadsheet textarea {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1f2937;
+  text-align: inherit;
+}
+
+/* Header cells - first row and first column */
+.keynote-spreadsheet .Spreadsheet tr:first-child td {
+  background: linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%);
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 2px solid #d1d5db;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.keynote-spreadsheet .Spreadsheet td:first-child {
+  background: linear-gradient(90deg, #f9fafb 0%, #f3f4f6 100%);
+  font-weight: 600;
+  color: #374151;
+  border-right: 2px solid #d1d5db;
+  text-align: left;
+  padding-left: 16px;
+}
+
+/* Top-left corner cell */
+.keynote-spreadsheet .Spreadsheet tr:first-child td:first-child {
+  background: #e5e7eb;
+  border-right: 2px solid #d1d5db;
+  border-bottom: 2px solid #d1d5db;
+}
+
+/* Data cells - override header styles when not in header */
+.keynote-spreadsheet .Spreadsheet tr:not(:first-child) td:not(:first-child) {
+  background: white;
+  font-weight: 400;
+}
+
+/* Selected cell */
+.keynote-spreadsheet .Spreadsheet .Spreadsheet__cell--selected {
+  background: #dbeafe !important;
+  border-color: #3b82f6;
+}
+
+/* Active/editing cell with pulsing border */
+.keynote-spreadsheet .Spreadsheet .Spreadsheet__cell--active {
+  background: white !important;
+  box-shadow: 0 0 0 2px #3b82f6, 0 0 12px rgba(59,130,246,0.3);
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    box-shadow: 0 0 0 2px #3b82f6, 0 0 12px rgba(59,130,246,0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 2px #3b82f6, 0 0 20px rgba(59,130,246,0.5);
+  }
+}
+
+/* Data viewer */
+.keynote-spreadsheet .Spreadsheet__data-viewer {
+  padding: 0;
+  min-height: 20px;
+  width: 100%;
+  cursor: cell;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Invalid cells with red border */
+.keynote-spreadsheet .Spreadsheet td.invalid {
+  border: 2px solid #ef4444;
+  background: #fef2f2;
+}
+
+/* Smooth transitions for all interactions */
+.keynote-spreadsheet .Spreadsheet td,
+.keynote-spreadsheet .Spreadsheet input {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* First row rounded corners */
+.keynote-spreadsheet .Spreadsheet tr:first-child td:first-child {
+  border-top-left-radius: 8px;
+}
+
+.keynote-spreadsheet .Spreadsheet tr:first-child td:last-child {
+  border-top-right-radius: 8px;
+}
+
+/* Last row rounded corners */
+.keynote-spreadsheet .Spreadsheet tr:last-child td:first-child {
+  border-bottom-left-radius: 8px;
+}
+
+.keynote-spreadsheet .Spreadsheet tr:last-child td:last-child {
+  border-bottom-right-radius: 8px;
+}
+
+/***** Custom Keynote Grid Styling *****/
+.keynote-grid-custom table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.keynote-grid-custom td {
+  border: 1px solid #e0e0e0;
+  padding: 0;
+  min-width: 100px;
+  height: 44px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.keynote-grid-custom td:hover:not(.corner-cell) {
+  background: #f8fafc;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+}
+
+.keynote-grid-custom td.corner-cell {
+  background: #e5e7eb;
+  cursor: default;
+  pointer-events: none;
+}
+
+.keynote-grid-custom td.header-cell {
+  background: linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%);
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.keynote-grid-custom td.data-cell {
+  text-align: center;
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.keynote-grid-custom input {
+  width: 100%;
+  height: 100%;
+  border: 2px solid #3b82f6;
+  background: white;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+  animation: pulse-input 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-input {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.25);
+  }
+}
+
+.keynote-grid-custom tr:first-child td:first-child {
+  border-top-left-radius: 10px;
+}
+
+.keynote-grid-custom tr:first-child td:last-child {
+  border-top-right-radius: 10px;
+}
+
+.keynote-grid-custom tr:last-child td:first-child {
+  border-bottom-left-radius: 10px;
+}
+
+.keynote-grid-custom tr:last-child td:last-child {
+  border-bottom-right-radius: 10px;
+}
+
+/***** Apple Keynote Style Grid *****/
+.apple-keynote-grid {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+}
+
+.apple-keynote-grid table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.apple-keynote-grid td {
+  border: 1px solid #d1d5db;
+  padding: 0;
+  min-width: 100px;
+  height: 36px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.apple-keynote-grid td.corner {
+  background: #f3f4f6;
+  cursor: default;
+  pointer-events: none;
+  border-right: 1px solid #9ca3af;
+  border-bottom: 1px solid #9ca3af;
+}
+
+.apple-keynote-grid td.header {
+  background: #f9fafb;
+  font-weight: 600;
+  font-size: 13px;
+  color: #374151;
+  text-align: center;
+  border-bottom: 1px solid #9ca3af;
+}
+
+.apple-keynote-grid td.color-cell {
+  background: #f9fafb;
+  font-weight: 500;
+  font-size: 13px;
+  color: #374151;
+  border-right: 1px solid #9ca3af;
+  padding-left: 12px;
+}
+
+.apple-keynote-grid td.data {
+  background: white;
+  text-align: center;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.apple-keynote-grid td:hover:not(.corner) {
+  background: #f0f9ff;
+}
+
+.apple-keynote-grid td .cell-content {
+  padding: 8px 12px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.apple-keynote-grid td.header .cell-content,
+.apple-keynote-grid td.color-cell .cell-content {
+  font-weight: 600;
+}
+
+.apple-keynote-grid input {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  text-align: center;
+  outline: none;
+  background: white;
 }

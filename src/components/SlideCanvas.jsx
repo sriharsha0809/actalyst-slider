@@ -2,6 +2,10 @@ import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import RichTextEditor from './RichTextEditor.jsx'
+import KeynoteChart from './KeynoteChart.jsx'
+import KeynotePieChart from './KeynotePieChart.jsx'
+import KeynoteLineChart from './KeynoteLineChart.jsx'
+import KeynoteBarChart from './KeynoteBarChart.jsx'
 
 // Global no-select helper shared by all element interactions
 let __noSelectCount = 0
@@ -166,6 +170,7 @@ export default function SlideCanvas() {
                 setEditingTextId={setEditingTextId}
                 containerDimensions={containerDimensions}
                 shapeEditingId={editingShapeId}
+                slideId={slide?.id}
               />
             ))}
           </div>
@@ -175,7 +180,7 @@ export default function SlideCanvas() {
   )
 }
 
-function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId, setEditingTextId, containerDimensions, shapeEditingId }) {
+function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId, setEditingTextId, containerDimensions, shapeEditingId, slideId }) {
   const boxRef = useRef(null)
   const [drag, setDrag] = useState(null)
   const [resize, setResize] = useState(null)
@@ -611,7 +616,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       }}
       onDoubleClick={onDoubleClick}
     >
-      {renderElement(el, { editing: ((editingTextId === el.id || shapeEditingId === el.id) && selected), onChange, stopEditing, scale: localScale, selected, onSelect })}
+      {renderElement(el, { editing: ((editingTextId === el.id || shapeEditingId === el.id) && selected), onChange, stopEditing, scale: localScale, selected, onSelect, slideId })}
 
           {selected && (
         <>
@@ -756,7 +761,7 @@ function renderElement(el, opts={}) {
     case 'table':
       return <TableElement el={el} editing={opts.editing} selected={opts.selected} onSelect={opts.onSelect} onChange={opts.onChange} stopEditing={opts.stopEditing} scale={scale} />
     case 'chart':
-      return <ChartElement el={el} scale={scale} />
+      return <ChartElement el={el} scale={scale} slideId={opts.slideId} selected={opts.selected} />
     case 'rect':
       return <ShapeWithText el={el} shapeClass="rounded-md" scale={scale} onChange={opts.onChange} editing={opts.editing} />
     case 'square':
@@ -888,32 +893,27 @@ function ShapeWithText({ el, shapeClass, clipPath, scale = 1, onChange, editing 
       style={shapeStyle}
       onDoubleClick={handleDoubleClick}
     >
-      {isEditing ? (
-        <textarea
-          id={`shape-text-${el.id}`}
-          name={`shape-text-${el.id}`}
-          autoComplete="off"
-          aria-label="Shape text"
-          ref={inputRef}
-          autoFocus
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          className="w-full h-full resize-none outline-none bg-transparent p-2"
-          style={{
-            color: (text && text.length) ? el.textColor : '#9ca3af',
-            fontSize: `${el.fontSize * scale}px`,
-            fontFamily,
-            fontWeight,
-            fontStyle,
-            textAlign,
-            textDecoration: el.underline ? 'underline' : 'none'
-          }}
-        />
-      ) : (
+        {isEditing ? (
+          <div className="w-full h-full p-1" onMouseDown={(e)=>e.stopPropagation()}>
+            <textarea
+              ref={inputRef}
+              value={text}
+              onChange={(e)=> setText(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className="w-full h-full resize-none outline-none bg-transparent p-1"
+              style={{
+                color: el.textColor,
+                fontSize: `${el.fontSize * scale}px`,
+                fontFamily,
+                fontWeight,
+                fontStyle,
+                textDecoration: el.underline ? 'underline' : 'none',
+                textAlign: el.textAlign || 'center',
+              }}
+            />
+          </div>
+        ) : (
         <div 
           className="w-full h-full p-2 cursor-pointer"
           style={{
@@ -1016,30 +1016,25 @@ function MessageShape({ el, scale = 1, onChange, editing }) {
         }}
       >
         {isEditing ? (
-          <textarea
-            id={`message-text-${el.id}`}
-            name={`message-text-${el.id}`}
-            autoComplete="off"
-            aria-label="Message text"
-            ref={inputRef}
-            autoFocus
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            onPointerDown={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="w-full h-full resize-none outline-none bg-transparent p-2"
-            style={{
-              color: el.textColor,
-              fontSize: `${el.fontSize * scale}px`,
-              fontFamily,
-              fontWeight,
-              fontStyle,
-              textAlign,
-              textDecoration: el.underline ? 'underline' : 'none'
-            }}
-          />
+          <div className="w-full h-full p-1" onMouseDown={(e)=>e.stopPropagation()}>
+            <textarea
+              ref={inputRef}
+              value={text}
+              onChange={(e)=> setText(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className="w-full h-full resize-none outline-none bg-transparent p-1"
+              style={{
+                color: el.textColor,
+                fontSize: `${el.fontSize * scale}px`,
+                fontFamily,
+                fontWeight,
+                fontStyle,
+                textDecoration: el.underline ? 'underline' : 'none',
+                textAlign: el.textAlign || 'center',
+              }}
+            />
+          </div>
         ) : (
           <div 
             className="w-full h-full p-2 cursor-pointer"
@@ -1083,260 +1078,131 @@ function MessageShape({ el, scale = 1, onChange, editing }) {
   )
 }
 
-function ChartElement({ el, scale = 1 }) {
+function ChartElement({ el, scale = 1, slideId, selected }) {
   const { chartType, data, labels, colors } = el
-  const [hoveredIndex, setHoveredIndex] = useState(null)
+  const structured = el.structuredData || null
+  const contRef = React.useRef(null)
 
-  // Safe arrays and defaults
+  const openEditor = () => {
+    console.log('[ChartElement] openEditor called for chart:', el.id, chartType)
+    const chartData = structured || toStructuredFromFlat(el)
+    console.log('[ChartElement] chartData:', chartData)
+    console.log('[ChartElement] window.openChartEditor exists?', typeof window.openChartEditor === 'function')
+    if (typeof window.openChartEditor === 'function') {
+      window.openChartEditor(el.id, chartType, chartData)
+    } else {
+      console.error('[ChartElement] window.openChartEditor is not a function!')
+    }
+  }
+
+  // Safe arrays and defaults (fallbacks to legacy flat fields)
   const dataArr = Array.isArray(data) ? data : []
   const labelsArr = Array.isArray(labels) ? labels : []
-  const xLabels = dataArr.map((_, i) => labelsArr[i] ?? String(i + 1))
-  const colorsArr = (Array.isArray(colors) && colors.length ? colors : ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'])
-  
-  // Common metrics based on element size to keep visuals inside the element box
-  const P = Math.max(4, Math.round(6 * scale)) // padding
-  const labelH = Math.max(12, Math.round(14 * scale)) // x-axis labels area height
-  const innerW = Math.max(0, el.w * scale - P * 2)
-  const innerH = Math.max(0, el.h * scale - P * 2)
+  const xLabels = labelsArr.length ? labelsArr : dataArr.map((_, i) => String(i + 1))
 
   if (chartType === 'bar') {
-    // Prefer numeric labels when present; otherwise use data
-    const parsedFromLabels = labelsArr.map((l) => {
-      const v = parseFloat(l)
-      return Number.isFinite(v) ? v : null
+    const variant = el.chartStyle || '2d'
+    const cats = structured?.categories || xLabels
+    const allSeries = structured?.series || [{ name: 'Series 1', data: dataArr }]
+    
+    // Build data with all series dynamically
+    const dataBar = cats.map((name, i) => {
+      const point = { name }
+      allSeries.forEach((series, sIdx) => {
+        const key = sIdx === 0 ? 'value' : `v${sIdx + 1}`
+        point[key] = Number(series.data[i]) || 0
+      })
+      return point
     })
-    const preferLabelValues = parsedFromLabels.some(v => v !== null)
-    const series = (preferLabelValues ? parsedFromLabels : dataArr).map((v, i) => {
-      if (v === null || !Number.isFinite(v)) return Number.isFinite(dataArr[i]) ? dataArr[i] : 0
-      return v
-    })
-
-    const hasData = series.length > 0
-    const maxValue = hasData ? Math.max(...series) : 1
-    const minValue = hasData ? Math.min(...series) : 0
-    const range = Math.max(1e-6, maxValue - minValue)
-
-    const chartH = Math.max(0, innerH - labelH)
-    const yAxisW = Math.max(28, Math.round(32 * scale))
-    const plotW = Math.max(0, innerW - yAxisW)
-    const barGap = Math.max(1, Math.round(2 * scale))
-    const barCount = series.length
-    const barW = barCount ? Math.max(1, Math.floor((plotW - (barCount - 1) * barGap) / barCount)) : 0
-    const axisT = Math.max(1, Math.round(1 * scale))
-
+    
+    console.log('[ChartElement] Bar chart data with all series:', dataBar)
     return (
-      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', border: '1px solid #e5e7eb', borderRadius: 2 }}>
-        {/* Bars area with axes */}
-        <div style={{ position: 'absolute', left: P, top: P, width: innerW, height: chartH }}>
-          {/* Axes */}
-          <div style={{ position: 'absolute', left: yAxisW, bottom: 0, width: plotW, height: axisT, backgroundColor: '#9ca3af' }} />
-          <div style={{ position: 'absolute', left: yAxisW, bottom: 0, width: axisT, height: chartH, backgroundColor: '#9ca3af' }} />
-
-          {/* Bars */}
-          <div className="relative w-full h-full" style={{ position: 'absolute', left: yAxisW, top: 0, width: plotW, height: chartH, display: 'flex', alignItems: 'flex-end' }}>
-            {series.map((value, index) => (
-              <div
-                key={index}
-                className="relative group"
-                onMouseEnter={() => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
-                style={{
-                  width: barW,
-                  height: chartH,
-                  marginRight: index < barCount - 1 ? barGap : 0,
-                  display: 'flex',
-                  alignItems: 'flex-end'
-                }}
-              >
-                <div
-                  className="w-full rounded-t cursor-pointer transition-opacity hover:opacity-80"
-                  style={{
-                    height: Math.max(Math.round(((range > 0 ? ((value - minValue) / range) : 0.5) * chartH)), 2),
-                    backgroundColor: colorsArr[index % colorsArr.length]
-                  }}
-                />
-
-                {hoveredIndex === index && (
-                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-2 py-0.5 rounded text-[10px] whitespace-nowrap z-10 shadow-lg">
-                    {xLabels[index]}: {value}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Y-axis tick labels */}
-          <div style={{ position: 'absolute', left: 0, top: 0, width: yAxisW - 4, height: chartH }}>
-            {Array.from({ length: 5 }).map((_, i) => {
-              const t = i / 4
-              const val = (minValue + (1 - t) * range)
-              const y = Math.round(t * chartH)
-              return (
-                <div key={i} style={{ position: 'absolute', left: 0, top: y - 6, width: '100%', textAlign: 'right', fontSize: Math.max(8, Math.round(10 * scale)), color: '#6b7280' }}>
-                  {Number.isFinite(val) ? Math.round(val) : ''}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* X-axis labels area (aligned with bars) */}
-        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, height: labelH, display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 4 }}>
-          {(preferLabelValues ? labelsArr : xLabels).map((label, index) => (
-            <span key={index} className="text-gray-600 truncate" style={{ fontSize: Math.max(8, Math.round(10 * scale)), maxWidth: barW }}>
-              {label}
-            </span>
-          ))}
-        </div>
+      <div ref={contRef} className="w-full h-full relative" style={{ boxSizing: 'border-box', backgroundColor: 'transparent', border: 'none', borderRadius: 2, minHeight: '200px', minWidth: '200px' }} onDoubleClick={(e)=>{ console.log('[ChartElement] Double clicked'); openEditor() }}>
+        <KeynoteBarChart data={dataBar} variant={variant} showLegend={el.legendOptions?.show !== false} />
+        {selected && (
+          <button
+            type="button"
+            className="absolute top-2 right-2 z-[100] px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium shadow-lg"
+            style={{ pointerEvents: 'auto' }}
+            onMouseDown={(e)=>{ console.log('[ChartElement] Button mousedown'); e.stopPropagation(); e.preventDefault() }}
+            onClick={(e)=>{ console.log('[ChartElement] Button clicked!'); e.stopPropagation(); e.preventDefault(); openEditor() }}
+            onPointerDown={(e)=>{ console.log('[ChartElement] Button pointerdown'); e.stopPropagation() }}
+            title="Edit Data"
+          >
+            📊 Edit Data
+          </button>
+        )}
       </div>
     )
   }
 
   if (chartType === 'line') {
-    const hasData = dataArr.length > 0
-    const maxValue = hasData ? Math.max(...dataArr) : 1
-    const minValue = hasData ? Math.min(...dataArr) : 0
-    const range = Math.max(1e-6, maxValue - minValue)
+    const variant = el.chartStyle || 'simple'
+    const cats = structured?.categories || xLabels
+    const allSeries = structured?.series || [{ name: 'Series 1', data: dataArr }]
 
-    const chartH = Math.max(0, innerH - labelH)
-    const yAxisW = Math.max(28, Math.round(32 * scale))
-    const plotW = Math.max(0, innerW - yAxisW)
-
-    // Compute points in pixel coordinates for exact fit with horizontal padding
-    const padX = Math.max(1, Math.round(2 * scale))
-    const effW = Math.max(0, plotW - 2 * padX)
-    const pxPoints = dataArr.map((value, index) => {
-      const x = (index / Math.max(1, dataArr.length - 1)) * effW + padX
-      const y = chartH - ((value - minValue) / range) * chartH
-      return `${x},${y}`
-    }).join(' ')
+    // Build data with all series dynamically (value, v2, v3, ...)
+    const dataLine = cats.map((name, i) => {
+      const point = { name }
+      allSeries.forEach((series, sIdx) => {
+        const key = sIdx === 0 ? 'value' : `v${sIdx + 1}`
+        point[key] = Number(series.data[i]) || 0
+      })
+      return point
+    })
 
     return (
-      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', border: '1px solid #e5e7eb', borderRadius: 2 }}>
-        {/* Y-axis tick labels */}
-        <div style={{ position: 'absolute', left: P, top: P, width: yAxisW - 4, height: chartH }}>
-          {Array.from({ length: 5 }).map((_, i) => {
-            const t = i / 4
-            const val = (minValue + (1 - t) * range)
-            const y = Math.round(t * chartH)
-            return (
-              <div key={i} style={{ position: 'absolute', left: 0, top: y - 6, width: '100%', textAlign: 'right', fontSize: Math.max(8, Math.round(10 * scale)), color: '#6b7280' }}>
-                {Number.isFinite(val) ? Math.round(val) : ''}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Line chart area */}
-        <div style={{ position: 'absolute', left: P + yAxisW, top: P, width: plotW, height: chartH, overflow: 'hidden' }}>
-          <svg viewBox={`0 0 ${plotW} ${chartH}`} width="100%" height="100%" preserveAspectRatio="none" onMouseLeave={() => setHoveredIndex(null)}>
-            {/* Axes */}
-            <line x1="0" y1={chartH} x2={plotW} y2={chartH} stroke="#9ca3af" strokeWidth={Math.max(1, Math.round(1 * scale))} />
-            <line x1="0" y1="0" x2="0" y2={chartH} stroke="#9ca3af" strokeWidth={Math.max(1, Math.round(1 * scale))} />
-            <polyline 
-              points={pxPoints} 
-              fill="none" 
-              stroke={colorsArr[0]} 
-              strokeWidth="2"
-              onMouseMove={(e) => {
-                const n = dataArr.length
-                if (!n) return
-                const rect = e.currentTarget.getBoundingClientRect()
-                const localX = e.clientX - rect.left
-                const idx = Math.round(((localX - padX) / Math.max(1, plotW - 2 * padX)) * (n - 1))
-                const clamped = Math.max(0, Math.min(n - 1, idx))
-                setHoveredIndex(clamped)
-              }}
-            />
-            {dataArr.map((value, index) => {
-              const x = (index / Math.max(1, dataArr.length - 1)) * (plotW - 2 * padX) + padX
-              const y = chartH - ((value - minValue) / range) * chartH
-              return (
-                <circle key={index} cx={x} cy={y} r="2" fill={colorsArr[0]} onMouseEnter={() => setHoveredIndex(index)} onMouseLeave={() => setHoveredIndex(null)} />
-              )
-            })}
-          </svg>
-          {hoveredIndex !== null && dataArr.length > 0 && (
-            (() => {
-              const n = dataArr.length
-              const x = (hoveredIndex / Math.max(1, n - 1)) * (plotW - 2 * padX) + padX
-              const y = chartH - ((dataArr[hoveredIndex] - minValue) / range) * chartH
-              return (
-                <div className="absolute" style={{ left: x, top: y, transform: 'translate(-50%, -120%)', background: 'rgba(17,24,39,0.92)', color: '#fff', fontSize: Math.max(8, Math.round(10 * scale)), padding: '4px 6px', borderRadius: 4, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-                  #{hoveredIndex + 1} {xLabels[hoveredIndex]}: {dataArr[hoveredIndex]}
-                </div>
-              )
-            })()
-          )}
-        </div>
-        {/* X-axis labels area */}
-        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, height: labelH, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {xLabels.map((label, index) => (
-            <span key={index} className="text-gray-600 truncate" style={{ fontSize: Math.max(8, Math.round(10 * scale)) }}>{label}</span>
-          ))}
-        </div>
+      <div ref={contRef} className="w-full h-full relative" style={{ boxSizing: 'border-box', backgroundColor: 'transparent', border: 'none', borderRadius: 2, minHeight: '200px', minWidth: '200px' }} onDoubleClick={(e)=>{ console.log('[ChartElement] Double clicked'); openEditor() }}>
+        <KeynoteLineChart data={dataLine} variant={variant} showLegend={el.legendOptions?.show !== false} />
+        {selected && (
+          <button
+            type="button"
+            className="absolute top-2 right-2 z-[100] px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium shadow-lg"
+            style={{ pointerEvents: 'auto' }}
+            onMouseDown={(e)=>{ console.log('[ChartElement] Button mousedown'); e.stopPropagation(); e.preventDefault() }}
+            onClick={(e)=>{ console.log('[ChartElement] Button clicked!'); e.stopPropagation(); e.preventDefault(); openEditor() }}
+            onPointerDown={(e)=>{ console.log('[ChartElement] Button pointerdown'); e.stopPropagation() }}
+            title="Edit Data"
+          >
+            📊 Edit Data
+          </button>
+        )}
       </div>
     )
   }
 
   if (chartType === 'pie') {
-    const total = Math.max(1, dataArr.reduce((sum, val) => sum + val, 0))
-
-    // Use the available inner box and center the pie so it always fits inside the element box
-    const diameter = Math.max(0, Math.min(innerW, innerH))
-    const radius = Math.max(0, Math.floor(diameter / 2) - Math.max(1, Math.round(2 * scale)))
-
-    let currentAngle = 0
+    const variant = el.chartStyle || '2d'
+    const cats = structured?.categories || xLabels
+    const s0 = structured?.series?.[0]?.data || dataArr
+    const dataPie = cats.map((name, i) => ({ name, value: Number(s0[i]) || 0 }))
     return (
-      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', border: '1px solid #e5e7eb', borderRadius: 2 }}>
-        <div style={{ position: 'absolute', left: P, top: P, width: innerW, height: innerH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg viewBox="0 0 100 100" width={Math.max(10, diameter)} height={Math.max(10, diameter)}>
-            {dataArr.map((value, index) => {
-              const percentage = value / total
-              const angle = percentage * 360
-              const startAngle = currentAngle
-              const endAngle = currentAngle + angle
-              currentAngle = endAngle
-
-              const r = diameter > 0 ? Math.max(1, (radius / diameter) * 100) * 0.8 : 40 // keep a bit of inner padding
-              const x1 = 50 + r * Math.cos((startAngle - 90) * Math.PI / 180)
-              const y1 = 50 + r * Math.sin((startAngle - 90) * Math.PI / 180)
-              const x2 = 50 + r * Math.cos((endAngle - 90) * Math.PI / 180)
-              const y2 = 50 + r * Math.sin((endAngle - 90) * Math.PI / 180)
-              const largeArc = angle > 180 ? 1 : 0
-
-              return (
-                <path
-                  key={index}
-                  d={`M 50 50 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                  fill={colorsArr[index % colorsArr.length]}
-                  onMouseEnter={() => setHoveredIndex(index)}
-                  onMouseLeave={() => setHoveredIndex(null)}
-                />
-              )
-            })}
-          </svg>
-          {/* Legend */}
-          <div style={{ position: 'absolute', right: P, top: P, display: 'flex', flexDirection: 'column', gap: Math.max(2, Math.round(4 * scale)), maxWidth: innerW * 0.45 }}>
-            {xLabels.map((lbl, i) => (
-              <div key={`pie-lg-${i}`} style={{ display: 'flex', alignItems: 'center', gap: Math.max(4, Math.round(6 * scale)) }}>
-                <div style={{ width: Math.max(8, Math.round(10 * scale)), height: Math.max(8, Math.round(10 * scale)), backgroundColor: colorsArr[i % colorsArr.length], borderRadius: 2 }} />
-                <div style={{ fontSize: Math.max(8, Math.round(10 * scale)), color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lbl}</div>
-              </div>
-            ))}
-          </div>
-          {/* Tooltip */}
-          {hoveredIndex !== null && (
-            <div className="absolute" style={{ left: P + 8, top: P + 8, background: 'rgba(17,24,39,0.92)', color: '#fff', fontSize: Math.max(8, Math.round(10 * scale)), padding: '4px 6px', borderRadius: 4, pointerEvents: 'none' }}>
-              {xLabels[hoveredIndex]}: {dataArr[hoveredIndex]} ({((dataArr[hoveredIndex] / total) * 100).toFixed(1)}%)
-            </div>
-          )}
-        </div>
+      <div ref={contRef} className="w-full h-full relative" style={{ boxSizing: 'border-box', backgroundColor: 'transparent', border: 'none', borderRadius: 2, minHeight: '200px', minWidth: '200px' }} onDoubleClick={(e)=>{ console.log('[ChartElement] Double clicked'); openEditor() }}>
+        <KeynotePieChart data={dataPie} animateKey={slideId} variant={variant} showLegend={el.legendOptions?.show !== false} />
+        {selected && (
+          <button
+            type="button"
+            className="absolute top-2 right-2 z-[100] px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium shadow-lg"
+            style={{ pointerEvents: 'auto' }}
+            onMouseDown={(e)=>{ console.log('[ChartElement] Button mousedown'); e.stopPropagation(); e.preventDefault() }}
+            onClick={(e)=>{ console.log('[ChartElement] Button clicked!'); e.stopPropagation(); e.preventDefault(); openEditor() }}
+            onPointerDown={(e)=>{ console.log('[ChartElement] Button pointerdown'); e.stopPropagation() }}
+            title="Edit Data"
+          >
+            📊 Edit Data
+          </button>
+        )}
       </div>
     )
   }
 
   return null
+}
+
+function toStructuredFromFlat(el){
+  const labels = Array.isArray(el.labels) ? el.labels : []
+  const data = Array.isArray(el.data) ? el.data : []
+  return { categories: labels, series: [{ name: 'Series 1', data }] }
 }
 
 function TableElement({ el, editing, selected = true, onSelect, onChange, stopEditing, scale = 1 }) {
@@ -1596,10 +1462,6 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
 
   React.useEffect(() => { setVal(el.text) }, [el.text])
 
-  // Use rich text editor when editing
-  if (editing) {
-    return <RichTextEditor ref={window.currentTextEditorRef} el={el} onChange={onChange} onBlur={stopEditing} scale={scale} />
-  }
 
   const bgColor = el.bgColor || 'transparent'
   const listStyle = el.styles?.listStyle || 'none'
@@ -1771,19 +1633,14 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
     )
   }
 
+  // Use RichTextEditor for editing so toolbar inline styles work
   return (
-    <textarea id={`text-box-${el.id}`} name={`text-box-${el.id}`} autoComplete="off" aria-label="Text box" ref={inputRef} value={val} onChange={(e)=>setVal(e.target.value)} onBlur={()=>{ onChange({ text: val }); stopEditing() }}
-      className="w-full h-full resize-none outline-none p-2"
-      style={{ 
-        backgroundColor: bgColor, 
-        fontFamily: el.styles.fontFamily, 
-        color: el.styles.color, 
-        fontSize: `${el.styles.fontSize * scale}px`, 
-        fontWeight: el.styles.bold ? 700 : 400, 
-        fontStyle: el.styles.italic ? 'italic' : 'normal', 
-        textDecoration: el.styles.underline ? 'underline' : 'none', 
-        textAlign: el.styles.align || 'left',
-      }}
+    <RichTextEditor
+      ref={window.currentTextEditorRef}
+      el={el}
+      scale={scale}
+      onChange={(patch) => onChange(patch)}
+      onBlur={stopEditing}
     />
   )
 }

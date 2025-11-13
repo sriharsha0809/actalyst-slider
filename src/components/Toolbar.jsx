@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useSlides, factories } from '../context/SlidesContext.jsx'
+import ChartSelectionDialog from './ChartSelectionDialog.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { VscListOrdered } from 'react-icons/vsc'
 
@@ -36,6 +37,7 @@ export default function Toolbar({ activeTab, onToggleSidebar, onPresent, onSlide
   const [tableGridPos, setTableGridPos] = useState({ top: 0, left: 0 })
   const [showChartDialog, setShowChartDialog] = useState(false)
   const [chartType, setChartType] = useState('bar')
+  const [showChartChild, setShowChartChild] = useState(false)
   const [showWatermarkDialog, setShowWatermarkDialog] = useState(false)
   const [wmText, setWmText] = useState('CONFIDENTIAL')
   const [wmOpacity, setWmOpacity] = useState(0.15)
@@ -701,6 +703,15 @@ const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-rom
   const handleInsertChart = () => {
     const chart = factories.chart(chartType, 150, 100, 600, 350)
     dispatch({ type: 'ADD_ELEMENT', element: chart })
+    setShowChartDialog(false)
+  }
+
+  // Called after child variation is chosen
+  const handleSelectChartVariant = (type, variant) => {
+    try { console.log('[ChartPicker] Selected:', type, variant) } catch {}
+    const chart = factories.chart(type || chartType, 150, 100, 600, 350, { chartStyle: variant })
+    dispatch({ type: 'ADD_ELEMENT', element: chart })
+    setShowChartChild(false)
     setShowChartDialog(false)
   }
 
@@ -1452,10 +1463,10 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default`}
             
             <div className="flex gap-2 mt-6">
               <button 
-                onClick={handleInsertChart}
+                onClick={() => { setShowChartChild(true); try { console.log('[ChartPicker] Open child for type:', chartType) } catch {} }}
                 className="flex-1 px-4 py-2 bg-black text-white rounded hover:bg-gray-900"
               >
-                Insert
+                Select
               </button>
               <button 
                 onClick={() => setShowChartDialog(false)}
@@ -1466,6 +1477,17 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default`}
             </div>
           </div>
         </div>,
+        document.body
+      )}
+
+      {/* Child Chart Variations Dialog (nested) */}
+      {createPortal(
+        <ChartSelectionDialog
+          isOpen={showChartChild}
+          initialType={chartType}
+          onClose={() => setShowChartChild(false)}
+          onChartSelect={(type, variant) => handleSelectChartVariant(type, variant)}
+        />,
         document.body
       )}
 

@@ -7,7 +7,7 @@ import SlidePreview from './components/SlidePreview.jsx'
 import SlideCanvas from './components/SlideCanvas.jsx'
 import Toolbar from './components/Toolbar.jsx'
 import ShapeToolbox from './components/ShapeToolbox.jsx'
-import ChartEditor from './components/ChartEditor.jsx'
+import ChartSidebar from './components/ChartSidebar.jsx'
 import PresentationModal from './components/PresentationModal.jsx'
 import SymbolStylePanel from './components/SymbolStylePanel.jsx'
 import TextStylePanel from './components/TextStylePanel.jsx'
@@ -15,6 +15,7 @@ import BgImagePanel from './components/BgImagePanel.jsx'
 import TableStylePanel from './components/TableStylePanel.jsx'
 import FileMenu from './components/FileMenu.jsx'
 import LandingPage from './components/LandingPage.jsx'
+import SimpleChartEditor from './components/SimpleChartEditor.jsx'
 
 function AppContent() {
   const [showLandingPage, setShowLandingPage] = useState(true)
@@ -25,8 +26,43 @@ function AppContent() {
   const [showFileMenu, setShowFileMenu] = useState(false)
   const [fileName, setFileName] = useState('Untitled Presentation')
   
+  // Chart editor state at App level
+  const [chartEditorState, setChartEditorState] = useState({
+    isOpen: false,
+    chartType: null,
+    chartData: null,
+    chartId: null
+  })
+  
   const { getThemeColors, isDark } = useTheme()
   const colors = getThemeColors()
+  
+  // Listen for chart editor open requests
+  React.useEffect(() => {
+    const handleOpenChartEditor = (e) => {
+      console.log('[App] Opening chart editor:', e.detail)
+      setChartEditorState({
+        isOpen: true,
+        chartId: e.detail.chartId,
+        chartType: e.detail.chartType,
+        chartData: e.detail.chartData
+      })
+    }
+    window.addEventListener('openChartEditor', handleOpenChartEditor)
+    
+    // Set up global function
+    window.openChartEditor = (chartId, chartType, chartData) => {
+      console.log('[App] window.openChartEditor called:', { chartId, chartType, chartData })
+      window.dispatchEvent(new CustomEvent('openChartEditor', { 
+        detail: { chartId, chartType, chartData } 
+      }))
+    }
+    
+    return () => {
+      window.removeEventListener('openChartEditor', handleOpenChartEditor)
+      delete window.openChartEditor
+    }
+  }, [])
 
   const handleFileOpen = (newFileName) => {
     setFileName(newFileName)
@@ -85,7 +121,7 @@ function AppContent() {
             />
 
             {/* Canvas + Shape toolbox - Responsive grid */}
-            <div className={`flex-1 min-h-0 grid grid-cols-[1fr_320px] gap-4 responsive-toolbar-gap px-6 pt-6 transition-all duration-500`} style={{ paddingBottom: '30px', backgroundColor: isDark ? '#000000' : '#f2f2f2' }}>
+            <div className={`flex-1 min-h-0 grid grid-cols-[1fr_320px] gap-4 responsive-toolbar-gap pl-6 pr-0 pt-6 transition-all duration-500`} style={{ paddingBottom: '30px', backgroundColor: isDark ? '#000000' : '#f2f2f2' }}>
               <div className={`rounded-lg overflow-hidden animate-slideInUp`} style={{animationDelay: '0.2s', backgroundColor: '#f2f2f2'}}>
                 <SlideCanvas />
               </div>
@@ -110,9 +146,31 @@ function AppContent() {
         onFileOpen={handleFileOpen}
         onSave={handleSave}
       />
+      
+      {/* Global Chart Editor */}
+      <SimpleChartEditor
+        isOpen={chartEditorState.isOpen}
+        chartType={chartEditorState.chartType}
+        chartData={chartEditorState.chartData}
+        onDataChange={(newData) => {
+          console.log('[App] Chart data changed:', newData)
+          // Update chart via custom event
+          if (chartEditorState.chartId) {
+            const primary = newData?.series?.[0]?.data || []
+            const cats = newData?.categories || []
+            const patch = { structuredData: newData, data: primary, labels: cats }
+            console.log('[App] Dispatching updateElement with patch:', patch)
+            window.dispatchEvent(new CustomEvent('updateElement', { 
+              detail: { id: chartEditorState.chartId, patch } 
+            }))
+          }
+        }}
+        onClose={() => setChartEditorState({ isOpen: false, chartType: null, chartData: null, chartId: null })}
+      />
     </SlidesProvider>
   )
 }
+
 
 function SidePanel({ activeTab }) {
   const { state } = useSlides()
@@ -140,7 +198,7 @@ function SidePanel({ activeTab }) {
       if (isTableLike) {
         panel = <TableStylePanel />
       } else if (selected.type === 'chart') {
-        panel = <ChartEditor />
+        panel = <ChartSidebar />
       } else if (isSymbol) {
         panel = <SymbolStylePanel />
       } else if (selected.type === 'text') {
@@ -155,7 +213,7 @@ function SidePanel({ activeTab }) {
       if (isTableLike) {
         panel = <TableStylePanel />
       } else if (selected.type === 'chart') {
-        panel = <ChartEditor />
+        panel = <ChartSidebar />
       } else if (selected.type === 'text') {
         panel = <TextStylePanel />
       } else if (isSymbol) {
@@ -169,7 +227,7 @@ function SidePanel({ activeTab }) {
       if (isTableLike) {
         panel = <TableStylePanel />
       } else if (selected.type === 'chart') {
-        panel = <ChartEditor />
+        panel = <ChartSidebar />
       } else if (selected.type === 'text') {
         panel = <TextStylePanel />
       } else if (isSymbol) {
@@ -181,7 +239,7 @@ function SidePanel({ activeTab }) {
     // Other tabs fallback
     if (selected) {
       if (selected.type === 'table') panel = <TableStylePanel />
-      else if (selected.type === 'chart') panel = <ChartEditor />
+      else if (selected.type === 'chart') panel = <ChartSidebar />
       else if (selected.type === 'text') panel = <TextStylePanel />
       else if (isSymbol) panel = <SymbolStylePanel />
     }
