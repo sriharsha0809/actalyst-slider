@@ -8,6 +8,9 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
   const [showShareSubmenu, setShowShareSubmenu] = useState(false)
   const [showNewConfirm, setShowNewConfirm] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [showThemeConfirm, setShowThemeConfirm] = useState(false)
+  const [pendingTheme, setPendingTheme] = useState(null)
+  const [applyThemeToAllSlides, setApplyThemeToAllSlides] = useState(false)
 
   useEffect(() => { setClosing(false) }, [isOpen])
 
@@ -646,20 +649,34 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
     { name: 'Sand', background: 'linear-gradient(135deg, #e6dada 0%, #274046 100%)', preview: { header: '#f0eaea', block1: '#e4dbdb', block2: '#d9d1d1' } },
   ]
 
-  const applyThemeToFour = (theme) => {
-    const startIdx = state.slides.findIndex(s => s.id === state.currentSlideId)
-    if (startIdx < 0) return
-    const originalId = state.currentSlideId
-    // Ensure there are 4 slides from startIdx
-    const needed = Math.max(0, (startIdx + 4) - state.slides.length)
-    for (let i = 0; i < needed; i++) {
-      dispatch({ type: 'ADD_SLIDE' })
+  const applyThemeBackground = (theme, applyToAll = false) => {
+    if (!theme) return
+    if (applyToAll) {
+      state.slides.forEach((slide) => {
+        dispatch({ type: 'UPDATE_SLIDE_BACKGROUND', slideId: slide.id, background: theme.background })
+      })
+      return
     }
-    if (needed > 0) dispatch({ type: 'SET_CURRENT_SLIDE', id: originalId })
-    const ids = state.slides.slice(startIdx, startIdx + 4).map(s => s.id)
-    ids.forEach((id) => {
-      dispatch({ type: 'UPDATE_SLIDE_BACKGROUND', slideId: id, background: theme.background })
-    })
+    if (state.currentSlideId) {
+      dispatch({ type: 'UPDATE_SLIDE_BACKGROUND', slideId: state.currentSlideId, background: theme.background })
+    }
+  }
+
+  const openThemeConfirm = (theme) => {
+    setPendingTheme(theme)
+    setApplyThemeToAllSlides(false)
+    setShowThemeConfirm(true)
+  }
+
+  const handleThemeProceed = () => {
+    applyThemeBackground(pendingTheme, applyThemeToAllSlides)
+    setShowThemeConfirm(false)
+    setPendingTheme(null)
+  }
+
+  const handleThemeCancel = () => {
+    setShowThemeConfirm(false)
+    setPendingTheme(null)
   }
 
   const applyTemplate = (template) => {
@@ -825,9 +842,9 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
                 {designThemes.map((th, idx) => (
                   <button
                     key={th.name}
-                    onClick={() => applyThemeToFour(th)}
+                    onClick={() => openThemeConfirm(th)}
                     className="bg-white rounded-2xl shadow-sm p-3 transition-all duration-500 ease-out hover:scale-[1.02] hover:shadow-lg border border-white/60 text-left"
-                    title={`${th.name} – applies to 4 slides`}
+                    title={`${th.name} – click to choose how it's applied`}
                   >
                     <div className="rounded-xl mb-2 w-full h-28 relative overflow-hidden" style={{ background: th.background }}>
                       <div className="absolute left-3 right-3 top-2 h-2 rounded" style={{ background: th.preview?.header || 'rgba(255,255,255,0.7)' }} />
@@ -858,6 +875,51 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
           </div>
         </div>
       </div>
+
+      {/* Theme apply dialog */}
+      {showThemeConfirm && pendingTheme && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl w-[480px] p-7 border border-white/80 relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.65),_transparent_70%)] pointer-events-none" />
+            <div className="relative">
+              <h3 className="text-xl font-semibold text-gray-900 mb-1">Apply “{pendingTheme.name}” Theme</h3>
+              <p className="text-sm text-gray-600 mb-4">Choose whether to update only the current slide or every slide in this presentation.</p>
+              <div className="rounded-xl border border-gray-200 mb-4 overflow-hidden">
+                <div className="h-28" style={{ background: pendingTheme.background }} />
+                <div className="p-3 bg-white flex items-center justify-between text-xs text-gray-600">
+                  <span>Preview</span>
+                  <span>{applyThemeToAllSlides ? 'Will update all slides' : 'Will update current slide'}</span>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700 mb-6">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300"
+                  checked={applyThemeToAllSlides}
+                  onChange={(e) => setApplyThemeToAllSlides(e.target.checked)}
+                />
+                <span>Apply to all slides</span>
+              </label>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleThemeCancel}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleThemeProceed}
+                  className="px-5 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-500 text-white font-medium shadow hover:shadow-lg hover:from-blue-700 hover:to-indigo-600 transition-all"
+                >
+                  Proceed
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New confirmation dialog */}
       {showNewConfirm && (

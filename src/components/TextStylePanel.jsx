@@ -14,6 +14,13 @@ export default function TextStylePanel() {
   }
 
   const styles = selected.styles || {}
+  const bgFillEnabled = styles.enableBgColor ?? (!!selected.bgColor && selected.bgColor !== 'transparent')
+
+  const getBgColorFallback = () => {
+    if (selected.bgColor && selected.bgColor !== 'transparent') return selected.bgColor
+    if (styles.highlightColor) return styles.highlightColor
+    return '#fef08a'
+  }
 
   // Shared helpers copied from Toolbar to preserve functionality
   const getActiveEditorHandle = () => window.currentTextEditorRef?.current ?? null
@@ -67,6 +74,29 @@ export default function TextStylePanel() {
   const setBorderColor = (colorVal) => {
     const next = { ...styles, borderColor: colorVal }
     dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles: next } })
+  }
+
+  const setBgFillEnabled = (enabled) => {
+    const baseColor = getBgColorFallback()
+    const nextStyles = { ...styles, enableBgColor: enabled }
+    if (enabled) nextStyles.highlightColor = baseColor
+    dispatch({
+      type: 'UPDATE_ELEMENT',
+      id: selected.id,
+      patch: {
+        bgColor: enabled ? baseColor : 'transparent',
+        styles: nextStyles,
+      }
+    })
+  }
+
+  const applyBackgroundColor = (colorVal) => {
+    const nextStyles = { ...styles, highlightColor: colorVal }
+    const patch = { styles: nextStyles }
+    if (bgFillEnabled) {
+      patch.bgColor = colorVal
+    }
+    dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch })
   }
 
   const setTextOpacity = (opacityVal) => {
@@ -493,18 +523,29 @@ export default function TextStylePanel() {
         <div className="text-[11px] font-medium text-gray-600 flex items-center gap-2 flex-wrap">
           <span>Text Color</span>
           <span className="text-[10px] text-gray-400">/ Background</span>
-          <label className="ml-auto flex items-center gap-1 text-[10px] text-gray-600">
-            <input
-              type="checkbox"
-              className="rounded border-gray-300"
-              checked={!!styles.showBorder}
-              onChange={(e) => {
-                const next = { ...styles, showBorder: e.target.checked }
-                dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles: next } })
-              }}
-            />
-            <span>Border</span>
-          </label>
+          <div className="ml-auto flex items-center gap-3">
+            <label className="flex items-center gap-1 text-[10px] text-gray-600">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300"
+                checked={bgFillEnabled}
+                onChange={(e) => setBgFillEnabled(e.target.checked)}
+              />
+              <span>Fill</span>
+            </label>
+            <label className="flex items-center gap-1 text-[10px] text-gray-600">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300"
+                checked={!!styles.showBorder}
+                onChange={(e) => {
+                  const next = { ...styles, showBorder: e.target.checked }
+                  dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles: next } })
+                }}
+              />
+              <span>Border</span>
+            </label>
+          </div>
         </div>
         <div className="relative">
           <div className="flex items-center gap-2 pl-0">
@@ -522,13 +563,26 @@ export default function TextStylePanel() {
             {/* Background (highlight) color chip */}
             <button
               type="button"
-              onMouseDown={preventMouseDown}
+              disabled={!bgFillEnabled}
+              onMouseDown={(e) => {
+                if (!bgFillEnabled) return
+                preventMouseDown(e)
+              }}
               onClick={() => {
+                if (!bgFillEnabled) return
                 setColorPaletteMode('background')
                 setShowColorPalette((open) => !open)
               }}
-              className="h-6 w-6 rounded-full border border-black/10"
-              style={{ backgroundColor: styles.highlightColor || '#fef08a' }}
+              className={`h-6 w-6 rounded-full border ${bgFillEnabled ? 'border-black/10' : 'border-gray-200 opacity-40 cursor-not-allowed'}`}
+              style={
+                bgFillEnabled
+                  ? { backgroundColor: selected.bgColor || styles.highlightColor || '#fef08a' }
+                  : {
+                      backgroundColor: 'transparent',
+                      backgroundImage: 'linear-gradient(135deg, #e5e7eb 25%, transparent 25%, transparent 50%, #e5e7eb 50%, #e5e7eb 75%, transparent 75%, transparent)',
+                      backgroundSize: '6px 6px'
+                    }
+              }
             />
             {/* Border color chip (enabled when border is on) */}
             <button
@@ -567,9 +621,7 @@ export default function TextStylePanel() {
                       if (colorPaletteMode === 'text') {
                         setColor(c)
                       } else if (colorPaletteMode === 'background') {
-                        // Apply as text background (fill) for the whole text box
-                        const next = { ...selected, bgColor: c, styles: { ...(styles || {}), highlightColor: c } }
-                        dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: next })
+                        applyBackgroundColor(c)
                       } else if (colorPaletteMode === 'border') {
                         setBorderColor(c)
                       }
@@ -589,7 +641,7 @@ export default function TextStylePanel() {
                     colorPaletteMode === 'text'
                       ? (styles.color || '#111827')
                       : colorPaletteMode === 'background'
-                        ? (selected.bgColor || styles.highlightColor || '#fef08a')
+                        ? getBgColorFallback()
                         : (styles.borderColor || '#111827')
                   }
                   onChange={(e) => {
@@ -597,8 +649,7 @@ export default function TextStylePanel() {
                     if (colorPaletteMode === 'text') {
                       setColor(c)
                     } else if (colorPaletteMode === 'background') {
-                      const next = { ...selected, bgColor: c, styles: { ...(styles || {}), highlightColor: c } }
-                      dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: next })
+                      applyBackgroundColor(c)
                     } else if (colorPaletteMode === 'border') {
                       setBorderColor(c)
                     }

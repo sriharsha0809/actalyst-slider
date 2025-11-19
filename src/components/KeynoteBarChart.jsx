@@ -16,7 +16,7 @@ import {
  * Minimal, slide-friendly bar chart that fills its container.
  * No outer padding or titles, so the slide selection bounds hug the chart.
  */
-export default function KeynoteBarChart({ data, xKey = 'name', valueKey = 'value', showLegend = true, showTooltip = true, showAxes = true, showGrid = true, margin: marginProp = { top: 8, right: 12, bottom: 8, left: 8 }, variant = '2d' /* '2d'|'grouped'|'stacked'|'stacked100'|'3d'|'3d-grouped'|'3d-stacked'|'3d-stacked100'|'gradient'|'rounded'|'horizontal' (alias for 2d bar) */, scale = 1, animateKey = null, overrideColor = null, overridePalette = null, colorMode = 'solid', colorblindFriendly = false, seriesNames = null, xAxisLabel = null, yAxisLabel = null, showXAxis = true, showYAxis = true, showMinorGridlines = false }) {
+export default function KeynoteBarChart({ data, xKey = 'name', valueKey = 'value', showLegend = true, showTooltip = true, showAxes = true, showGrid = true, margin: marginProp = { top: 8, right: 12, bottom: 8, left: 8 }, variant = '2d' /* '2d'|'grouped'|'stacked'|'stacked100'|'3d'|'3d-grouped'|'3d-stacked'|'3d-stacked100'|'gradient'|'rounded'|'horizontal' (alias for 2d bar) */, scale = 1, animateKey = null, overrideColor = null, overridePalette = null, colorMode = 'solid', colorblindFriendly = false, seriesNames = null, xAxisLabel = null, yAxisLabel = null, showXAxis = true, showYAxis = true, showMinorGridlines = false, minorGridlineOpacity = 0.45 }) {
   const demo = [
     { name: 'Jan', value: 60 },
     { name: 'Feb', value: 55 },
@@ -133,6 +133,13 @@ export default function KeynoteBarChart({ data, xKey = 'name', valueKey = 'value
   const thicknessBase = perBand * (isGrouped ? 0.7 : 0.6) / (isGrouped ? seriesCount : 1)
   const dynamicBarSize = Math.max(12, Math.round((thicknessBase || 12) * (scale || 1)))
 
+  const minorOpacity = Math.max(0.05, Math.min(1, Number(minorGridlineOpacity) || 0.45))
+  const minorStroke = `rgba(15,23,42,${minorOpacity})`
+  const minorGridOrientation = isHorizontal
+    ? { horizontal: true, vertical: false }
+    : { horizontal: false, vertical: true }
+  const baseHorizontal = !(isHorizontal && showMinorGridlines)
+
   return (
     <div ref={wrapRef} className="w-full h-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -149,7 +156,14 @@ export default function KeynoteBarChart({ data, xKey = 'name', valueKey = 'value
               <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.18"/>
             </filter>
           </defs>
-          {showGrid && (<CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray={showMinorGridlines ? "3 3" : undefined} vertical={showMinorGridlines} horizontal={true} />)}
+          {showGrid && (
+            <>
+              <CartesianGrid stroke="rgba(0,0,0,0.08)" strokeDasharray="2 2" vertical={false} horizontal={baseHorizontal} />
+              {showMinorGridlines && (
+                <CartesianGrid stroke={minorStroke} strokeWidth={0.9} strokeDasharray="1.5 2.5" {...minorGridOrientation} />
+              )}
+            </>
+          )}
           {showAxes && (isHorizontal ? (
             <>
               <XAxis {...xAxisProps} tick={{ fill: '#334155', fontSize: Math.max(8, Math.round(12 * (scale || 1))) }} tickMargin={6} axisLine={showXAxis ? { stroke: '#94A3B8', strokeWidth: 1.5 } : false} tickLine={showXAxis ? { stroke: '#94A3B8' } : false} label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -4, style: { fill: '#334155', fontSize: Math.max(10, Math.round(13 * (scale || 1))), fontWeight: 600 } } : undefined} />

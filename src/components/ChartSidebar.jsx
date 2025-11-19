@@ -79,6 +79,7 @@ export default function ChartSidebar() {
   const showXAxis = legendOpts.showXAxis !== false
   const showYAxis = legendOpts.showYAxis !== false
   const showMinorGridlines = !!legendOpts.showMinorGridlines
+  const minorGridlineOpacity = legendOpts.minorGridlineOpacity ?? 0.45
 
   // Recommended subsets per chart type
   const isDonut = chartType === 'pie' && (selected.chartStyle === 'donut' || selected.chartStyle === 'ring')
@@ -546,6 +547,26 @@ export default function ChartSidebar() {
                     />
                     Show minor gridlines
                   </label>
+                  {showMinorGridlines && (
+                    <div className="pl-6 space-y-1 text-xs text-gray-600">
+                      <div className="flex items-center justify-between">
+                        <span>Opacity</span>
+                        <span>{Math.round((minorGridlineOpacity ?? 0.45) * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="1"
+                        step="0.05"
+                        value={minorGridlineOpacity}
+                        onChange={(e)=> {
+                          const value = parseFloat(e.target.value)
+                          updateLegendOptions({ minorGridlineOpacity: Number.isFinite(value) ? value : 0.45 })
+                        }}
+                        className="w-full accent-black"
+                      />
+                    </div>
+                  )}
 
                   {/* X-axis name toggle + input */}
                   <div className="space-y-1 text-sm">

@@ -60,6 +60,69 @@ function SlideBackground({ background }) {
   return <div style={style} />
 }
 
+const SHAPE_FONT_FAMILY = 'Inter, system-ui, sans-serif'
+
+const getHAlign = (align) => {
+  switch (align) {
+    case 'right': return 'flex-end'
+    case 'center': return 'center'
+    default: return 'flex-start'
+  }
+}
+
+const getVAlign = (valign) => {
+  switch (valign) {
+    case 'bottom': return 'flex-end'
+    case 'middle': return 'center'
+    default: return 'flex-start'
+  }
+}
+
+const renderShapeElement = (el, { clipPath, borderRadius } = {}) => {
+  const opacity = el.opacity == null ? 1 : el.opacity
+  const shapeStyle = {
+    background: el.fill || '#e5e7eb',
+    border: `2px solid ${el.stroke || 'transparent'}`,
+    borderRadius: borderRadius || 0,
+    clipPath,
+    opacity,
+  }
+  const textContent = (el.text || '').trim()
+  const fontWeight = el.bold ? 700 : 400
+  const fontStyle = el.italic ? 'italic' : 'normal'
+  const textAlign = el.textAlign || 'center'
+  const textVAlign = el.textVAlign || 'middle'
+
+  return (
+    <div className="w-full h-full relative">
+      <div className="w-full h-full" style={shapeStyle} />
+      {textContent ? (
+        <div
+          className="absolute inset-0 p-2"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: getHAlign(textAlign),
+            justifyContent: getVAlign(textVAlign),
+            color: el.textColor || '#111827',
+            fontSize: el.fontSize || 18,
+            fontFamily: el.fontFamily || SHAPE_FONT_FAMILY,
+            fontWeight,
+            fontStyle,
+            textDecoration: el.underline ? 'underline' : 'none',
+            textAlign,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            pointerEvents: 'none',
+          }}
+        >
+          {textContent}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function RenderElement({ el, animateKey, hidePlaceholders = false }) {
   switch (el.type) {
     case 'text': {
@@ -138,6 +201,7 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
       const showXAxis = legendOpts.showXAxis !== false
       const showYAxis = legendOpts.showYAxis !== false
       const showMinorGridlines = !!legendOpts.showMinorGridlines
+      const minorGridlineOpacity = legendOpts.minorGridlineOpacity ?? 0.45
 
       const frameStyle = {
         width: '100%',
@@ -198,7 +262,8 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
                   yAxisLabel={yAxisLabel}
                   showXAxis={showXAxis}
                   showYAxis={showYAxis}
-                  showMinorGridlines={showMinorGridlines}
+                showMinorGridlines={showMinorGridlines}
+                minorGridlineOpacity={minorGridlineOpacity}
                 />
               </div>
             </div>
@@ -242,7 +307,8 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
                   yAxisLabel={yAxisLabel}
                   showXAxis={showXAxis}
                   showYAxis={showYAxis}
-                  showMinorGridlines={showMinorGridlines}
+                showMinorGridlines={showMinorGridlines}
+                minorGridlineOpacity={minorGridlineOpacity}
                 />
               </div>
             </div>
@@ -288,51 +354,34 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
       return null
     }
     case 'rect':
-    case 'square': {
-      const opacity = el.opacity == null ? 1 : el.opacity
-      return (
-        <div
-          className="w-full h-full rounded-md"
-          style={{ background: el.fill, border: `2px solid ${el.stroke}`, opacity }}
-        />
-      )
-    }
-    case 'circle': {
-      const opacity = el.opacity == null ? 1 : el.opacity
-      return (
-        <div
-          className="w-full h-full rounded-full"
-          style={{ background: el.fill, border: `2px solid ${el.stroke}`, opacity }}
-        />
-      )
-    }
-    case 'triangle': {
-      const opacity = el.opacity == null ? 1 : el.opacity
-      return (
-        <div
-          className="w-full h-full"
-          style={{ background: el.fill, border: `2px solid ${el.stroke}`, clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)', opacity }}
-        />
-      )
-    }
-    case 'diamond': {
-      const opacity = el.opacity == null ? 1 : el.opacity
-      return (
-        <div
-          className="w-full h-full"
-          style={{ background: el.fill, border: `2px solid ${el.stroke}`, clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)', opacity }}
-        />
-      )
-    }
-    case 'star': {
-      const opacity = el.opacity == null ? 1 : el.opacity
-      return (
-        <div
-          className="w-full h-full"
-          style={{ background: el.fill, border: `2px solid ${el.stroke}`, clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)', opacity }}
-        />
-      )
-    }
+    case 'square':
+      return renderShapeElement(el, { borderRadius: 8 })
+    case 'roundRect':
+      return renderShapeElement(el, { borderRadius: 18 })
+    case 'circle':
+      return renderShapeElement(el, { borderRadius: '50%' })
+    case 'triangle':
+      return renderShapeElement(el, { clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' })
+    case 'diamond':
+      return renderShapeElement(el, { clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' })
+    case 'star':
+      return renderShapeElement(el, { clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' })
+    case 'parallelogram':
+      return renderShapeElement(el, { clipPath: 'polygon(20% 0%, 100% 0%, 80% 100%, 0% 100%)' })
+    case 'trapezoid':
+      return renderShapeElement(el, { clipPath: 'polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%)' })
+    case 'pentagon':
+      return renderShapeElement(el, { clipPath: 'polygon(50% 0%, 100% 38%, 81% 100%, 19% 100%, 0% 38%)' })
+    case 'hexagon':
+      return renderShapeElement(el, { clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)' })
+    case 'octagon':
+      return renderShapeElement(el, { clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' })
+    case 'chevron':
+      return renderShapeElement(el, { clipPath: 'polygon(0% 0%, 75% 0%, 100% 50%, 75% 100%, 0% 100%, 25% 50%)' })
+    case 'arrowRight':
+      return renderShapeElement(el, { clipPath: 'polygon(0% 0%, 80% 0%, 80% 25%, 100% 50%, 80% 75%, 80% 100%, 0% 100%, 0% 0%)' })
+    case 'cloud':
+      return renderShapeElement(el, { clipPath: 'polygon(10% 60%, 20% 45%, 35% 40%, 45% 25%, 60% 30%, 70% 45%, 85% 50%, 90% 65%, 80% 80%, 60% 85%, 40% 80%, 25% 75%)' })
     case 'message': {
       const opacity = el.opacity == null ? 1 : el.opacity
       return (

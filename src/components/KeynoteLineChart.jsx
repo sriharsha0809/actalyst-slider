@@ -43,6 +43,7 @@ export default function KeynoteLineChart({
   showXAxis = true,
   showYAxis = true,
   showMinorGridlines = false,
+  minorGridlineOpacity = 0.45,
 }) {
   // Demo data (used if not provided)
   const demo = [
@@ -86,6 +87,9 @@ export default function KeynoteLineChart({
     return valueKeys.map((k, idx) => seriesNames[idx] ?? k)
   }, [seriesNames, valueKeys])
   
+  const minorOpacity = Math.max(0.05, Math.min(1, Number(minorGridlineOpacity) || 0.45))
+  const minorStroke = `rgba(15,23,42,${minorOpacity})`
+
   return (
     <div className="w-full h-72">
       <ResponsiveContainer width="100%" height="100%">
@@ -103,7 +107,14 @@ export default function KeynoteLineChart({
             </linearGradient>
           </defs>
   
-          {showGrid && (<CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray={showMinorGridlines ? "3 3" : undefined} vertical={showMinorGridlines} horizontal={true} />)}
+          {showGrid && (
+            <>
+              <CartesianGrid stroke="rgba(0,0,0,0.08)" strokeDasharray="2 2" vertical={false} horizontal />
+              {showMinorGridlines && (
+                <CartesianGrid stroke={minorStroke} strokeWidth={0.9} strokeDasharray="1.5 2.5" vertical horizontal={false} />
+              )}
+            </>
+          )}
           {showAxes && (<XAxis dataKey={xKey} tick={{ fill: '#334155', fontSize: Math.max(8, Math.round(12 * (scale || 1))) }} tickMargin={6} axisLine={showXAxis ? { stroke: '#94A3B8', strokeWidth: 1.5 } : false} tickLine={showXAxis ? { stroke: '#94A3B8' } : false} label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -4, style: { fill: '#334155', fontSize: Math.max(10, Math.round(13 * (scale || 1))), fontWeight: 600 } } : undefined} />)}
           {showAxes && (<YAxis tick={{ fill: '#334155', fontSize: Math.max(8, Math.round(12 * (scale || 1))) }} axisLine={showYAxis ? { stroke: '#94A3B8', strokeWidth: 1.5 } : false} tickLine={showYAxis ? { stroke: '#94A3B8' } : false} label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fill: '#334155', fontSize: Math.max(10, Math.round(13 * (scale || 1))), fontWeight: 600, textAnchor: 'middle' } } : undefined} />)}
           {showTooltip && (<Tooltip contentStyle={{ borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 8px 28px rgba(17,25,40,0.15)' }} wrapperStyle={{ outline: 'none' }} />)}

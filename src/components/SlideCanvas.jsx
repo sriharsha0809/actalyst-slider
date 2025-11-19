@@ -888,19 +888,6 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
             style={{ cursor: 'grab', pointerEvents: 'auto', zIndex: 25, touchAction: 'none', border: '1px solid rgba(0,0,0,0.25)' }}
           />
 
-          {/* Move handle */}
-          <div
-            onMouseDown={(e)=>{ e.preventDefault(); e.stopPropagation(); startDragFromEvent(e) }}
-            onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch {}; startDragFromEvent(e) }}
-            title="Move"
-            className="absolute -top-3 left-3 w-6 h-6 bg-white rounded-full shadow flex items-center justify-center"
-            style={{ cursor: 'move', pointerEvents: 'auto', zIndex: 25, touchAction: 'none', border: '1px solid rgba(0,0,0,0.25)' }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M12 2v20M2 12h20" />
-            </svg>
-          </div>
-
           {/* Delete button */}
           <button
             type="button"
@@ -1433,6 +1420,7 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
   const showXAxis = legendOpts.showXAxis !== false
   const showYAxis = legendOpts.showYAxis !== false
   const showMinorGridlines = !!legendOpts.showMinorGridlines
+  const minorGridlineOpacity = legendOpts.minorGridlineOpacity ?? 0.45
 
   const frameStyle = {
     width: '100%',
@@ -1519,6 +1507,7 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
                 showXAxis={showXAxis}
                 showYAxis={showYAxis}
                 showMinorGridlines={showMinorGridlines}
+                minorGridlineOpacity={minorGridlineOpacity}
               />
             </div>
           </div>
@@ -1585,6 +1574,7 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
                 showXAxis={showXAxis}
                 showYAxis={showYAxis}
                 showMinorGridlines={showMinorGridlines}
+                minorGridlineOpacity={minorGridlineOpacity}
               />
             </div>
           </div>
