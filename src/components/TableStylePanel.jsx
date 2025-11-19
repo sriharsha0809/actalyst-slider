@@ -915,13 +915,13 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
                   </label>
                 </div>
                 {/* Header background */}
-<div className="ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm">
+<div className={`ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm ${!table.headerRow ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="text-xs text-gray-700 font-medium">Header background</div>
                   <SwatchGrid onPick={(c)=>{ setHdrBgBase(c); update({ headerBg: rgbaFromHex(c, hdrBgAlpha) }) }} />
                   <OpacitySlider value={hdrBgAlpha} onChange={(a)=>{ setHdrBgAlpha(a); update({ headerBg: rgbaFromHex(hdrBgBase, a) }) }} />
                 </div>
                 {/* Header text color */}
-<div className="ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm">
+<div className={`ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm ${!table.headerRow ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="text-xs text-gray-700 font-medium">Header text color</div>
                   <SwatchGrid onPick={(c)=>{ setHdrTextBase(c); update({ headerTextColor: rgbaFromHex(c, hdrTextAlpha) }) }} />
                   <OpacitySlider value={hdrTextAlpha} onChange={(a)=>{ setHdrTextAlpha(a); update({ headerTextColor: rgbaFromHex(hdrTextBase, a) }) }} />

@@ -5,6 +5,7 @@
 /* stylelint-enable at-rule-no-unknown */
 
 html, body, #root { height: 100%; }
+html, body { margin: 0; padding: 0; }
 body { background-color: #ebebeb; }
 
 :root {
@@ -133,6 +134,39 @@ body { background-color: #ebebeb; }
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/***** Background tools dropdown animation *****/
+@keyframes bg-dropdown-up {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scaleY(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@keyframes bg-dropdown-down {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(8px) scaleY(0.96);
+  }
+}
+
+.bg-dropdown-menu-open {
+  animation: bg-dropdown-up 150ms ease-out;
+  transform-origin: bottom center;
+}
+
+.bg-dropdown-menu-close {
+  animation: bg-dropdown-down 150ms ease-in;
+  transform-origin: bottom center;
+}
+
 /***** Responsive Breakpoints *****/
 /* Custom responsive styles for screens under 1425px */
 @media (max-width: 1425px) {
@@ -232,6 +266,76 @@ body { background-color: #ebebeb; }
   }
   /* Re-show labels explicitly marked */
   .responsive-toolbar-button span.keep-default, .responsive-toolbar-button span.show-label { display: inline !important; }
+}
+
+/***** Apple-like toolbar interactions *****/
+.tool-btn,
+.responsive-toolbar-button {
+  color: #1c1c1e;
+  background-color: transparent;
+  border: 1px solid transparent;
+  transition: color 200ms ease, background-color 200ms ease, border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+.tool-btn:hover,
+.responsive-toolbar-button:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #007aff;
+  border-color: rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+/* Prevent hover border on specific buttons (play, undo, redo, toggle, zoom controls) */
+.no-hover-outline:hover {
+  border-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+}
+/* Also remove hover background/transform for these buttons */
+.no-hover-bg:hover {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.tool-btn:active,
+.responsive-toolbar-button:active {
+  background-color: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.tool-btn.is-active,
+.responsive-toolbar-button.is-active {
+  background-color: rgba(0, 122, 255, 0.1);
+  border-color: #007aff;
+  color: #007aff;
+}
+.tool-btn:disabled,
+.responsive-toolbar-button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/***** 3D slide thumbnails *****/
+.thumb-3d-wrap {
+  perspective: 800px;
+}
+.thumb-3d {
+  transform: rotateX(2deg);
+  will-change: transform, box-shadow;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08), 0 6px 12px rgba(0,0,0,0.10);
+}
+/* Selected gets a slightly stronger, persistent 3D effect */
+.thumb-3d.is-selected {
+  transform: rotateX(3deg) translateZ(2px) translateY(-0.5px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.12), 0 10px 18px rgba(0,0,0,0.12);
+}
+.group:hover .thumb-3d {
+  transform: rotateX(3.5deg) translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.10), 0 10px 18px rgba(0,0,0,0.12);
+}
+/* Selected + hover: slight extra lift */
+.group:hover .thumb-3d.is-selected {
+  transform: rotateX(4deg) translateZ(3px) translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.14), 0 12px 22px rgba(0,0,0,0.14);
 }
 
 /***** Rich Text Content Formatting *****/
@@ -498,10 +602,68 @@ input[type="text"],
   animation: keynote-pop 500ms cubic-bezier(.2,.7,.2,1) both;
 }
 
+/* Sidebar thumbnail pop-in (Apple Keynote style) */
+@keyframes thumb-pop {
+  from { opacity: 0.66; transform: translateY(-8px) scale(0.88); }
+  to   { opacity: 1;    transform: translateY(0)    scale(1); }
+}
+.thumb-pop-in {
+  animation: thumb-pop 180ms cubic-bezier(.2,.7,.2,1) both;
+}
+
+/* Duplication-specific pop-in (downward offset) */
+@keyframes thumb-dup {
+  from { opacity: 0.5; transform: translateY(8px) scale(0.88); }
+  to   { opacity: 1;   transform: translateY(0) scale(1); }
+}
+.thumb-dup-in {
+  animation: thumb-dup 190ms cubic-bezier(.2,.7,.2,1) both;
+}
+
+/* Brief source pulse/glow when duplicating */
+@keyframes thumb-source-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+.thumb-source-glow {
+  animation: thumb-source-pulse 150ms ease-in-out;
+}
+
 /* Prevent scroll anchoring and scroll chaining in right sidebar */
 .sidebar-scroll {
   overflow-anchor: none;
   overscroll-behavior: contain;
+}
+
+/* Image inspector hover effects */
+.image-inspector button,
+.image-inspector label,
+.image-inspector input[type="range"] {
+  transition: background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.image-inspector button:hover,
+.image-inspector label:hover {
+  background-color: rgba(15,23,42,0.04);
+  box-shadow: 0 2px 6px rgba(15,23,42,0.06);
+  transform: translateY(-0.5px);
+}
+
+/* Custom circular color inputs (fully filled circles) */
+input[type="color"].color-circle {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+input[type="color"].color-circle::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"].color-circle::-webkit-color-swatch {
+  border: none;
+  border-radius: 9999px;
 }
 
 /* Sidebar shimmer skeletons */
@@ -527,8 +689,8 @@ input[type="text"],
   box-shadow: 0 8px 28px rgba(17,25,40,0.25) !important;
 }
 @keyframes dropdown-enter {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Active state for dropdown trigger buttons */
@@ -539,10 +701,32 @@ input[type="text"],
   box-shadow: 0 6px 18px rgba(17,25,40,0.18) !important;
 }
 
+/* Fluid checkbox + dropdown interactions (top-to-bottom feel) */
+@keyframes checkbox-fluid-sweep {
+  0% { transform: translateY(-3px); opacity: 0.4; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* Apply to toolbar + right inspector checkboxes */
+.toolbar input[type="checkbox"],
+.responsive-sidebar-right input[type="checkbox"] {
+  transition: box-shadow 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+
+.toolbar input[type="checkbox"]:checked,
+.responsive-sidebar-right input[type="checkbox"]:checked {
+  animation: checkbox-fluid-sweep 180ms cubic-bezier(.2,.7,.2,1) both;
+  box-shadow: 0 2px 6px rgba(15,23,42,0.18);
+}
+
+
 .toolbar button:hover, .toolbar .responsive-toolbar-button:hover,
 .toolbar button:focus-visible, .toolbar .responsive-toolbar-button:focus-visible {
-  background: #ffffff !important;
-  color: #000000 !important;
+  background: rgba(219,234,254,0.95) !important; /* light blue */
+  color: #1d4ed8 !important; /* blue icon/text */
+  border: 1px solid #2563eb !important; /* blue outline */
+  box-shadow: 0 0 0 1px rgba(37,99,235,0.7), 0 2px 6px rgba(37,99,235,0.35);
+  border-radius: 0.5rem;
 }
 /* Exceptions and overrides */
 .toolbar .force-black { color: #000 !important; fill: #000 !important; stroke: #000 !important; }
@@ -584,18 +768,14 @@ input[type="text"],
 .toolbar .anim-zoom { background: transparent !important; transition: transform 150ms ease, color 150ms ease; transform: scale(1); }
 .toolbar .anim-zoom:hover, .toolbar .anim-zoom.is-active, .toolbar .is-active.anim-zoom { transform: scale(1.06); font-weight: 700 !important; }
 
-/* Unify hover/active bg with +Text/+New Slide for all buttons except font family and font size */
-.toolbar button.anim-zoom:hover,
+/* Unify active bg with +Text/+New Slide for all buttons except font family and font size */
 .toolbar button.anim-zoom.is-active,
-.toolbar .responsive-toolbar-button.anim-zoom:hover,
 .toolbar .responsive-toolbar-button.anim-zoom.is-active,
-.toolbar label.anim-zoom:hover,
 .toolbar label.anim-zoom.is-active,
 .toolbar .tool-btn.tool-active {
   background: #4A7FA7 !important;
   color: #ffffff !important;
 }
-.toolbar .anim-zoom:hover { background: transparent !important; }
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;

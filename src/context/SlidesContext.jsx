@@ -124,8 +124,10 @@ function reducer(state, action) {
     }
     case 'DELETE_SLIDE': {
       if (state.slides.length <= 1) return state
+      const delIdx = state.slides.findIndex(s => s.id === action.id)
       const slides = state.slides.filter(s => s.id !== action.id)
-      const currentSlideId = slides[Math.max(0, slides.length - 1)].id
+      const newIndex = delIdx >= 0 ? Math.min(delIdx, Math.max(0, slides.length - 1)) : Math.max(0, slides.length - 1)
+      const currentSlideId = slides[newIndex]?.id || state.currentSlideId
       return { 
         ...state, 
         slides, 
@@ -380,7 +382,31 @@ export const factories = {
   arrowRight: () => ({ id: nanoid(), type: 'arrowRight', x: REF_WIDTH*0.12, y: REF_HEIGHT*0.20, w: REF_WIDTH*0.26, h: REF_HEIGHT*0.16, rotation: 0, fill: '#bbf7d0', stroke: '#22c55e', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
   cloud: () => ({ id: nanoid(), type: 'cloud', x: REF_WIDTH*0.12, y: REF_HEIGHT*0.20, w: REF_WIDTH*0.24, h: REF_HEIGHT*0.16, rotation: 0, fill: '#e0f2fe', stroke: '#38bdf8', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 16 }),
   message: () => ({ id: nanoid(), type: 'message', x: REF_WIDTH*0.19, y: REF_HEIGHT*0.33, w: REF_WIDTH*0.21, h: REF_HEIGHT*0.15, rotation: 0, fill: '#d1fae5', stroke: '#10b981', text: '', placeholder: 'Double-click to edit', textColor: '#111827', fontSize: 14 }),
-  image: (src, w=REF_WIDTH*0.33, h=REF_HEIGHT*0.44) => ({ id: nanoid(), type: 'image', x: REF_WIDTH*0.125, y: REF_HEIGHT*0.22, w, h, rotation: 0, src }),
+  image: (src, w=REF_WIDTH*0.33, h=REF_HEIGHT*0.44) => ({
+    id: nanoid(),
+    type: 'image',
+    x: REF_WIDTH*0.125,
+    y: REF_HEIGHT*0.22,
+    w,
+    h,
+    rotation: 0,
+    src,
+    opacity: 1,
+    showTitle: false,
+    showCaption: false,
+    title: '',
+    caption: '',
+    // Corner radii (per corner) for shape formatting
+    cornerRadiusTL: 8,
+    cornerRadiusTR: 8,
+    cornerRadiusBR: 8,
+    cornerRadiusBL: 8,
+    shapePreset: 'rounded',
+    // Image color/tonal preset: 'original' | 'hdr' | 'cinematic' | 'bw' | 'custom'
+    filterPreset: 'original',
+    // Filter intensity (0–1)
+    filterStrength: 1,
+  }),
   table: (rows, cols, x, y, w, h, headerRow = true) => ({
     id: nanoid(),
     type: 'table',

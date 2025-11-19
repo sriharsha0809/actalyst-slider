@@ -1,8 +1,79 @@
 import React from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
+import SlideView from './SlideView.jsx'
+import { motion } from 'framer-motion'
 
 export default function Sidebar() {
   const { state, dispatch } = useSlides()
+
+  // Track per-slide delete animation
+  const [deletingIds, setDeletingIds] = React.useState({})
+  const [poppingIds, setPoppingIds] = React.useState({})
+  const [dupPoppingIds, setDupPoppingIds] = React.useState({})
+  const [glowIds, setGlowIds] = React.useState({})
+  const prevIdsRef = React.useRef(new Set())
+  const prevOrderRef = React.useRef([])
+  const pendingDupSourceRef = React.useRef(null)
+  const DELETE_DURATION_MS = 180
+  const POP_DURATION_MS = 200 // allow slight headroom
+
+  const requestDeleteSlide = (slideId) => {
+    // Start animation
+    setDeletingIds(prev => ({ ...prev, [slideId]: true }))
+    // After animation completes, remove from store
+    setTimeout(() => {
+      dispatch({ type: 'DELETE_SLIDE', id: slideId })
+      // Clean up local flag after list updates
+      setDeletingIds(prev => { const c = { ...prev }; delete c[slideId]; return c })
+    }, DELETE_DURATION_MS)
+  }
+
+  const requestDuplicateSlide = (slideId) => {
+    // Pulse the source briefly
+    setGlowIds(prev => ({ ...prev, [slideId]: true }))
+    setTimeout(() => setGlowIds(prev => { const n = { ...prev }; delete n[slideId]; return n }), 150)
+    // Mark the source so we can tag the next slide that appears beneath it
+    pendingDupSourceRef.current = slideId
+    dispatch({ type: 'DUPLICATE_SLIDE', id: slideId })
+  }
+
+  // Detect newly added slides and trigger pop-in only for them (and choose dup style when applicable)
+  React.useEffect(() => {
+    const currentIds = new Set(state.slides.map(s => s.id))
+    const currentOrder = state.slides.map(s => s.id)
+    const prevIds = prevIdsRef.current
+    const prevOrder = prevOrderRef.current
+    const newlyAdded = state.slides.filter(s => !prevIds.has(s.id))
+    if (newlyAdded.length) {
+      const srcId = pendingDupSourceRef.current
+      // Split new ids into duplicate or general pop-in
+      const dupIds = []
+      const genIds = []
+      newlyAdded.forEach(n => {
+        if (srcId) {
+          const idx = currentOrder.indexOf(n.id)
+          const srcIdx = currentOrder.indexOf(srcId)
+          if (srcIdx !== -1 && idx === srcIdx + 1) dupIds.push(n.id)
+          else genIds.push(n.id)
+        } else {
+          genIds.push(n.id)
+        }
+      })
+      if (genIds.length) {
+        setPoppingIds(prev => { const next = { ...prev }; genIds.forEach(id => next[id] = true); return next })
+        setTimeout(() => setPoppingIds(prev => { const next = { ...prev }; genIds.forEach(id => delete next[id]); return next }), POP_DURATION_MS)
+      }
+      if (dupIds.length) {
+        setDupPoppingIds(prev => { const next = { ...prev }; dupIds.forEach(id => next[id] = true); return next })
+        setTimeout(() => setDupPoppingIds(prev => { const next = { ...prev }; dupIds.forEach(id => delete next[id]); return next }), POP_DURATION_MS)
+      }
+      // Clear pending source if we consumed it
+      if (srcId && dupIds.length) pendingDupSourceRef.current = null
+    }
+    // Update refs for next comparison
+    prevIdsRef.current = currentIds
+    prevOrderRef.current = currentOrder
+  }, [state.slides])
 
   // Drag and drop state for reordering slides
   const dragIndexRef = React.useRef(null)
@@ -94,34 +165,41 @@ export default function Sidebar() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-3">
-        <div className="text-sm text-black font-medium">Slides</div>
-      </div>
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-auto p-3 space-y-3"
+        className="flex-1 overflow-auto p-2 space-y-1"
         onDragOver={handleContainerDragOver}
         onDragLeave={() => { autoScrollRef.current.speed = 0 }}
       >
         {state.slides.map((s, i) => {
           const isActive = state.currentSlideId === s.id
           const isDragOver = dragOverIndex === i && dragIndexRef.current !== i
+          const isDeleting = !!deletingIds[s.id]
+          const isPopping = !!poppingIds[s.id]
+          const isDupPopping = !!dupPoppingIds[s.id]
+          const isGlowing = !!glowIds[s.id]
           const thumbnailStyle = isActive
             ? {
                 background: '#ffffff',
-                border: '2px solid #000000',
-                boxShadow: 'none',
+                border: '1px solid rgba(0,0,0,0.1)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
               }
             : {
                 background: '#ffffff',
-                border: '1px solid #cccccc',
-                boxShadow: 'none',
+                border: '1px solid rgba(0,0,0,0.14)',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
               }
 
           return (
-          <div 
+          <motion.div 
             key={s.id} 
-            className={`w-full group ${isActive ? 'ring-2 ring-white/80 rounded-lg' : ''} ${isDragOver ? 'outline outline-2 outline-white/80 rounded-lg' : ''}`}
+            className={`w-full group rounded-lg p-1 border transition-all duration-200 ease-in-out ${isDeleting ? 'opacity-0 translate-x-3 scale-[0.96] ring-1 ring-black/5 pointer-events-none' : ''} ${isDupPopping ? 'thumb-dup-in' : isPopping ? 'thumb-pop-in' : ''} ${isGlowing ? 'thumb-source-glow ring-1 ring-black/5' : ''}`}
+            style={{ overflow: 'hidden', willChange: 'opacity, transform' }}
+            initial={{ backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : 'transparent', borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent' }}
+            animate={{ backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : 'transparent', borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent' }}
+            whileHover={!isActive ? { backgroundColor: 'rgba(0,0,0,0.06)', borderColor: 'rgba(0,0,0,0.15)', scale: 1 } : undefined}
+            whileTap={!isActive ? { backgroundColor: 'rgba(0,0,0,0.10)' } : undefined}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
             onDragOver={(e)=>handleDragOver(e, i)}
             onDragLeave={(e)=>handleDragLeave(e, i)}
             onDrop={(e)=>handleDrop(e, i)}
@@ -132,21 +210,29 @@ export default function Sidebar() {
               onDragEnd={handleDragEnd}
               onClick={() => dispatch({ type: 'SET_CURRENT_SLIDE', id: s.id })}
               className="w-full text-left"
+              disabled={isDeleting}
             >
-              <div
-                className="rounded-lg overflow-hidden transition-transform duration-200 hover:-translate-y-0.5"
-                style={thumbnailStyle}
-              >
-                <div className="aspect-video relative overflow-hidden">
-                  <SlideThumbnail slide={s} slideNumber={i + 1} isActive={isActive} />
-                </div>
+              <div className="thumb-3d-wrap">
+                <motion.div
+                  className={`thumb-3d overflow-hidden rounded-xl shadow-sm ${isActive ? 'is-selected border-2' : 'border'} `}
+                  style={{ borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent', backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : '#ffffff' }}
+                  initial={{ scale: 1, opacity: 1 }}
+                  animate={{ scale: 1, opacity: 1, borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent', backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : '#ffffff' }}
+                  whileHover={!isActive ? { scale: 1.015, backgroundColor: 'rgba(0,0,0,0.06)', borderColor: 'rgba(0,0,0,0.15)' } : undefined}
+                  whileTap={!isActive ? { scale: 0.985, backgroundColor: 'rgba(0,0,0,0.10)' } : undefined}
+                  transition={{ duration: 0.16, ease: 'easeOut' }}
+                >
+                  <div className="aspect-video relative overflow-hidden p-2">
+                    <SlideThumbnail slide={s} slideNumber={i + 1} isActive={isActive} />
+                  </div>
+                </motion.div>
               </div>
             </button>
-            <div className="mt-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-              <button className="text-xs px-2 py-1 rounded text-black hover:bg-gray-200" onClick={(e)=>{e.stopPropagation(); dispatch({type:'DUPLICATE_SLIDE', id:s.id})}}>Duplicate</button>
-              <button className="text-xs px-2 py-1 rounded text-black hover:bg-gray-200" onClick={(e)=>{e.stopPropagation(); dispatch({type:'DELETE_SLIDE', id:s.id})}}>Delete</button>
+            <div className={`mt-1 flex items-center gap-1 transition ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+              <button className={`text-xs px-2 py-1 rounded border-0 text-black ${isActive ? 'bg-transparent' : 'hover:bg-black/5'}`} disabled={isDeleting} onClick={(e)=>{e.stopPropagation(); requestDuplicateSlide(s.id)}}>Duplicate</button>
+              <button className={`text-xs px-2 py-1 rounded border-0 text-black ${isActive ? 'bg-transparent' : 'hover:bg-black/5'}`} disabled={isDeleting} onClick={(e)=>{e.stopPropagation(); requestDeleteSlide(s.id)}}>Delete</button>
             </div>
-          </div>
+          </motion.div>
         )})}
       </div>
     </div>
@@ -156,11 +242,54 @@ export default function Sidebar() {
 // SlideThumbnail component to render miniature version of slide content
 function SlideThumbnail({ slide, slideNumber, isActive }) {
   const containerRef = React.useRef(null)
-  const [scale, setScale] = React.useState(0.25)
+  const [scale, setScale] = React.useState(0.18)
+  const [liveOverrides, setLiveOverrides] = React.useState({})
+  const [animKey, setAnimKey] = React.useState(null)
+  const wasActiveRef = React.useRef(isActive)
+  React.useEffect(() => {
+    // When this slide becomes active (selected), retrigger animations once
+    if (isActive && !wasActiveRef.current) {
+      setAnimKey(`${slide.id}-${Date.now()}`)
+    }
+    wasActiveRef.current = isActive
+  }, [isActive, slide.id])
+
+  // Compute a lightweight signature for the slide to drive memoized SlideView re-render
+  const sig = React.useMemo(() => {
+    try {
+      const bg = (typeof slide.background === 'string')
+        ? slide.background
+        : slide.background && typeof slide.background === 'object'
+          ? JSON.stringify({ t: slide.background.type, src: slide.background.src, m: slide.background.mode, c: slide.background.color })
+          : ''
+      const els = Array.isArray(slide.elements) ? slide.elements : []
+      const parts = [bg, String(slide.id || ''), String(els.length)]
+      for (let i = 0; i < els.length; i++) {
+        const e = els[i] || {}
+        // Include stable fields that affect visuals
+        if (e.type === 'text') {
+          parts.push(`t:${e.id}:${e.x},${e.y},${e.w},${e.h},${e.rotation}|${e.text}|${e.html}|${e.styles?.fontSize}|${e.styles?.align}`)
+        } else if (e.type === 'chart') {
+          const sd = e.structuredData || {}
+          parts.push(`c:${e.id}:${e.chartType}:${e.chartStyle}:${e.x},${e.y},${e.w},${e.h},${e.rotation}|${(sd.categories||[]).length}|${(sd.series||[]).length}|${(e.data||[]).length}`)
+        } else if (e.type === 'image') {
+          parts.push(`i:${e.id}:${e.src}:${e.x},${e.y},${e.w},${e.h},${e.rotation}`)
+        } else if (e.type === 'table') {
+          parts.push(`b:${e.id}:${e.rows}x${e.cols}:${e.x},${e.y},${e.w},${e.h}`)
+        } else {
+          parts.push(`s:${e.id}:${e.type}:${e.x},${e.y},${e.w},${e.h},${e.rotation}:${e.fill}:${e.stroke}`)
+        }
+      }
+      return parts.join(';')
+    } catch {
+      return String(slide?.id || '')
+    }
+  }, [slide])
 
   React.useEffect(() => {
     const calcScale = () => {
       if (!containerRef.current) return
+      // Fit the fixed 960x540 slide into the container using transform scale
       const w = containerRef.current.clientWidth || 0
       const h = containerRef.current.clientHeight || 0
       if (w && h) {
@@ -175,525 +304,46 @@ function SlideThumbnail({ slide, slideNumber, isActive }) {
     return () => ro.disconnect()
   }, [])
 
-  const renderElement = (el) => {
-    const elementStyle = {
-      position: 'absolute',
-      left: `${el.x * scale}px`,
-      top: `${el.y * scale}px`,
-      width: `${el.w * scale}px`,
-      height: `${el.h * scale}px`,
-      transform: `rotate(${el.rotation || 0}deg)`,
-      pointerEvents: 'none',
-      overflow: 'hidden',
-      boxSizing: 'border-box'
+  // Listen for live element movement from the canvas to mirror during drag/inertia
+  React.useEffect(() => {
+    const onLive = (e) => {
+      const d = e?.detail || {}
+      if (!d || d.slideId !== slide.id) return
+      setLiveOverrides(prev => ({ ...prev, [d.id]: { x: d.x, y: d.y, rotation: d.rotation } }))
     }
-
-    switch (el.type) {
-      case 'text':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...elementStyle,
-              backgroundColor: el.bgColor || 'transparent',
-              color: el.styles?.color || '#111827',
-              fontSize: `${(el.styles?.fontSize || 28) * scale}px`,
-              fontWeight: el.styles?.bold ? 700 : 400,
-              fontStyle: el.styles?.italic ? 'italic' : 'normal',
-              textDecoration: el.styles?.underline ? 'underline' : 'none',
-              textAlign: el.styles?.align || 'left',
-              fontFamily: el.styles?.fontFamily || 'Inter, system-ui, sans-serif',
-              display: 'flex',
-              alignItems: el.styles?.valign === 'middle' ? 'center' : el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
-              padding: `${2 * scale}px`,
-              borderRadius: '2px',
-              overflow: 'hidden',
-              lineHeight: '1.2'
-            }}
-          >
-            <div className="truncate text-[8px]" style={{ fontSize: `${Math.max((el.styles?.fontSize || 28) * scale, 6)}px` }}>
-              {el.text || el.html || 'Text'}
-            </div>
-          </div>
-        )
-      
-      case 'image':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...elementStyle,
-              backgroundImage: el.src ? `url(${el.src})` : 'none',
-              backgroundSize: 'contain',
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'center',
-              backgroundColor: '#f3f4f6',
-              border: '1px solid #e5e7eb',
-              borderRadius: '2px'
-            }}
-          >
-            {!el.src && (
-              <div className="w-full h-full flex items-center justify-center text-gray-400" style={{ fontSize: '8px' }}>
-                📷
-              </div>
-            )}
-          </div>
-        )
-      
-      case 'rect':
-      case 'square':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...elementStyle,
-              backgroundColor: el.fill || '#fde68a',
-              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#f59e0b'}`,
-              borderRadius: '2px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: el.textColor || '#111827',
-              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
-              fontWeight: '500'
-            }}
-          >
-            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
-              {el.text || ''}
-            </span>
-          </div>
-        )
-      
-      case 'circle':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...elementStyle,
-              backgroundColor: el.fill || '#ddd6fe',
-              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#8b5cf6'}`,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: el.textColor || '#111827',
-              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
-              fontWeight: '500'
-            }}
-          >
-            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
-              {el.text || ''}
-            </span>
-          </div>
-        )
-      
-      case 'triangle':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...elementStyle,
-              backgroundColor: el.fill || '#fecaca',
-              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#ef4444'}`,
-              clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: el.textColor || '#111827',
-              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
-              fontWeight: '500'
-            }}
-          >
-            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
-              {el.text || ''}
-            </span>
-          </div>
-        )
-      
-      case 'diamond':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...elementStyle,
-              backgroundColor: el.fill || '#d8b4fe',
-              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#8b5cf6'}`,
-              clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: el.textColor || '#111827',
-              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
-              fontWeight: '500'
-            }}
-          >
-            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
-              {el.text || ''}
-            </span>
-          </div>
-        )
-      
-      case 'star':
-        return (
-          <div
-            key={el.id}
-            style={{
-              ...elementStyle,
-              backgroundColor: el.fill || '#fef3c7',
-              border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#f59e0b'}`,
-              clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: el.textColor || '#111827',
-              fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
-              fontWeight: '500'
-            }}
-          >
-            <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
-              {el.text || ''}
-            </span>
-          </div>
-        )
-      
-      case 'message':
-        return (
-          <div key={el.id} style={elementStyle}>
-            <div
-              style={{
-                width: '100%',
-                height: '85%',
-                backgroundColor: el.fill || '#d1fae5',
-                border: `${Math.max(1, 2 * scale)}px solid ${el.stroke || '#10b981'}`,
-                borderRadius: '3px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: el.textColor || '#111827',
-                fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px`,
-                fontWeight: '500'
-              }}
-            >
-              <span className="truncate" style={{ fontSize: `${Math.max((el.fontSize || 16) * scale, 6)}px` }}>
-                {el.text || 'Message'}
-              </span>
-            </div>
-            {/* Message tail - simplified for thumbnail */}
-            <div
-              style={
-                {
-                  position: 'absolute',
-                  bottom: 0,
-                  left: `${10 * scale}px`,
-                  width: 0,
-                  height: 0,
-                  borderLeft: `${5 * scale}px solid transparent`,
-                  borderRight: `${5 * scale}px solid transparent`,
-                  borderTop: `${7 * scale}px solid ${el.stroke || '#10b981'}`
-                }
-              }
-            />
-          </div>
-        )
-      
-      case 'chart': {
-        const chartType = el.chartType || 'bar'
-        const data = Array.isArray(el.data) ? el.data : []
-        const labels = Array.isArray(el.labels) ? el.labels : []
-        const colors = Array.isArray(el.colors) && el.colors.length ? el.colors : ['#60a5fa', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6']
-        const padding = 4 * scale
-
-        if (chartType === 'bar') {
-          // Prefer numeric labels when present; otherwise use data
-          const parsedFromLabels = labels.map((l) => {
-            const v = parseFloat(l)
-            return Number.isFinite(v) ? v : null
-          })
-          const preferLabelValues = parsedFromLabels.some(v => v !== null)
-          const series = (preferLabelValues ? parsedFromLabels : data).map((v, i) => {
-            if (v === null || !Number.isFinite(v)) return Number.isFinite(data[i]) ? data[i] : 0
-            return v
-          })
-
-          const min = Math.min(...series, 0)
-          const max = Math.max(...series, 1)
-          const range = Math.max(1e-6, max - min)
-          const barCount = series.length
-          const barGap = 2 * scale
-          const innerW = el.w * scale - padding * 2
-          const innerH = el.h * scale - padding * 2
-          const barW = barCount ? Math.max(1, (innerW - (barCount - 1) * barGap) / barCount) : 0
-          const axisT = Math.max(1, Math.round(1 * scale))
-          const labelFS = Math.max(6, Math.round(8 * scale))
-          return (
-            <div
-              key={el.id}
-              style={{
-                ...elementStyle,
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '2px',
-              }}
-            >
-              <div style={{ position: 'absolute', left: padding, right: padding, bottom: padding, top: padding }}>
-                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                  {series.map((v, i) => {
-                    const h = Math.max(2, ((v - min) / range) * innerH)
-                    const left = i * (barW + barGap)
-                    return (
-                      <div key={i} style={{
-                        position: 'absolute',
-                        left,
-                        bottom: 0,
-                        width: barW,
-                        height: h,
-                        backgroundColor: colors[i % colors.length] || '#9ca3af',
-                        borderRadius: `${1 * scale}px`
-                      }} />
-                    )
-                  })}
-                  {/* Y tick labels */}
-                  {Array.from({ length: 5 }).map((_, tIndex) => {
-                    const t = tIndex / 4
-                    const val = (min + (1 - t) * range)
-                    const y = t * innerH
-                    return (
-                      <div key={`yt-${tIndex}`} style={{ position: 'absolute', left: 0, top: y - 6, fontSize: Math.max(6, Math.round(8 * scale)), color: '#374151' }}>
-                        {Math.round(val)}
-                      </div>
-                    )
-                  })}
-                  {/* X labels */}
-                  {(preferLabelValues ? labels : labels).map((lbl, i) => {
-                    const left = i * (barW + barGap) + barW / 2
-                    return (
-                      <div key={`lbl-${i}`} style={{
-                        position: 'absolute',
-                        left,
-                        bottom: axisT + Math.max(1, Math.round(1 * scale)),
-                        transform: 'translateX(-50%)',
-                        fontSize: labelFS,
-                        color: '#6b7280',
-                        maxWidth: barW,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        textAlign: 'center'
-                      }}>
-                        {lbl}
-                      </div>
-                    )
-                  })}
-                  {/* Axes */}
-                  <div style={{ position: 'absolute', left: 0, bottom: 0, width: '100%', height: axisT, backgroundColor: '#d1d5db' }} />
-                  <div style={{ position: 'absolute', left: 0, bottom: 0, width: axisT, height: '100%', backgroundColor: '#d1d5db' }} />
-                </div>
-              </div>
-            </div>
-          )
-        }
-
-        if (chartType === 'line') {
-          const max = Math.max(...data)
-          const min = Math.min(...data)
-          const range = (max - min) || 1
-          const points = data.map((v, i) => {
-            const x = (i / Math.max(1, (data.length - 1))) * 100
-            const y = 90 - ((v - min) / range) * 80
-            return `${x},${y}`
-          }).join(' ')
-          return (
-            <div
-              key={el.id}
-              style={{
-                ...elementStyle,
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '2px',
-              }}
-            >
-              <svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="none" style={{ position: 'absolute', left: padding, right: padding, top: padding, bottom: padding }}>
-                {/* Axes */}
-                <line x1="5" y1="90" x2="95" y2="90" stroke="#d1d5db" strokeWidth={Math.max(1, Math.round(1 * scale))} />
-                <line x1="5" y1="10" x2="5" y2="90" stroke="#d1d5db" strokeWidth={Math.max(1, Math.round(1 * scale))} />
-                {/* Y tick labels */}
-                {Array.from({ length: 5 }).map((_, tIndex) => {
-                  const t = tIndex / 4
-                  const val = (min + (1 - t) * range)
-                  const y = 90 - t * 80
-                  return (
-                    <text key={`yt-${tIndex}`} x={3} y={y} fontSize={Math.max(6, Math.round(8 * scale))} fill="#6b7280" textAnchor="end">{Math.round(val)}</text>
-                  )
-                })}
-                {/* Line */}
-                <polyline points={data.map((v, i) => {
-                  const x = 5 + (i / Math.max(1, (data.length - 1))) * 90
-                  const y = 90 - ((v - min) / range) * 80
-                  return `${x},${y}`
-                }).join(' ')} fill="none" stroke={colors[0]} strokeWidth="2" />
-                {data.map((v, i) => {
-                  const x = 5 + (i / Math.max(1, (data.length - 1))) * 90
-                  const y = 90 - ((v - min) / range) * 80
-                  return <circle key={i} cx={x} cy={y} r="2" fill={colors[0]} />
-                })}
-                {/* X labels */}
-                {labels.map((lbl, i) => {
-                  const n = Math.max(1, labels.length - 1)
-                  const x = labels.length > 1 ? (i / n) * 90 + 5 : 50
-                  return (
-                    <text key={`lbl-${i}`} x={x} y={96} fontSize={Math.max(6, Math.round(8 * scale))} fill="#6b7280" textAnchor="middle">
-                      {lbl}
-                    </text>
-                  )
-                })}
-              </svg>
-            </div>
-          )
-        }
-
-        if (chartType === 'pie') {
-          const total = data.reduce((sum, val) => sum + val, 0) || 1
-          let currentAngle = 0
-          return (
-            <div
-              key={el.id}
-              style={{
-                ...elementStyle,
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '2px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ padding: `${padding}px` }}>
-                {data.map((value, index) => {
-                  const percentage = value / total
-                  const angle = percentage * 360
-                  const startAngle = currentAngle
-                  const endAngle = currentAngle + angle
-                  currentAngle = endAngle
-
-                  const x1 = 50 + 40 * Math.cos((startAngle - 90) * Math.PI / 180)
-                  const y1 = 50 + 40 * Math.sin((startAngle - 90) * Math.PI / 180)
-                  const x2 = 50 + 40 * Math.cos((endAngle - 90) * Math.PI / 180)
-                  const y2 = 50 + 40 * Math.sin((endAngle - 90) * Math.PI / 180)
-                  const largeArc = angle > 180 ? 1 : 0
-
-                  return (
-                    <path
-                      key={index}
-                      d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                      fill={colors[index % colors.length]}
-                    />
-                  )
-                })}
-              </svg>
-              {/* Legend */}
-              <div style={{ position: 'absolute', right: padding, top: padding, display: 'flex', flexDirection: 'column', gap: Math.max(1, Math.round(2 * scale)), maxWidth: '45%' }}>
-                {labels.map((lbl, i) => (
-                  <div key={`lg-${i}`} style={{ display: 'flex', alignItems: 'center', gap: Math.max(2, Math.round(4 * scale)) }}>
-                    <div style={{ width: Math.max(6, Math.round(8 * scale)), height: Math.max(6, Math.round(8 * scale)), backgroundColor: colors[i % colors.length], borderRadius: 2 }} />
-                    <div style={{ fontSize: Math.max(6, Math.round(8 * scale)), color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lbl}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )
-        }
-
-        // Fallback (unknown chart type)
-        return (
-          <div key={el.id} style={{ ...elementStyle, backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '2px' }} />
-        )
-      }
-      
-      case 'table': {
-        const rows = el.rows || 0
-        const cols = el.cols || 0
-        const cw = (el.w * scale) / (cols || 1)
-        const ch = (el.h * scale) / (rows || 1)
-        return (
-          <div key={el.id} style={{ ...elementStyle, backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}>
-            {Array.from({ length: rows }).map((_, r) => (
-              <div key={r} style={{ position: 'absolute', left: 0, top: r * ch, width: '100%', height: ch }}>
-                {Array.from({ length: cols }).map((__, c) => {
-                  const idx = r * cols + c
-                  const cell = el.cells?.[idx]
-                  return (
-                    <div key={c} style={{
-                      position: 'absolute',
-                      left: c * cw,
-                      top: 0,
-                      width: cw,
-                      height: ch,
-                      boxSizing: 'border-box',
-                      borderRight: '1px solid #e5e7eb',
-                      borderBottom: '1px solid #e5e7eb',
-                      padding: `${2 * scale}px`,
-                      overflow: 'hidden',
-                      fontSize: `${Math.max((cell?.styles?.fontSize || 12) * scale, 6)}px`,
-                      color: '#111827',
-                      display: 'flex',
-                      alignItems: cell?.styles?.valign === 'bottom' ? 'flex-end' : cell?.styles?.valign === 'middle' ? 'center' : 'flex-start',
-                      justifyContent: (cell?.styles?.align === 'right') ? 'flex-end' : (cell?.styles?.align === 'center') ? 'center' : 'flex-start'
-                    }}>
-                      <span className="truncate" style={{ fontSize: `${Math.max((cell?.styles?.fontSize || 12) * scale, 6)}px` }}>
-                        {cell?.text || ''}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        )
-      }
-
-      default:
-        return null
+    const onEnd = (e) => {
+      const d = e?.detail || {}
+      if (!d || d.slideId !== slide.id) return
+      setLiveOverrides(prev => { const n = { ...prev }; delete n[d.id]; return n })
     }
-  }
+    window.addEventListener('liveElementMove', onLive)
+    window.addEventListener('liveElementMoveEnd', onEnd)
+    return () => {
+      window.removeEventListener('liveElementMove', onLive)
+      window.removeEventListener('liveElementMoveEnd', onEnd)
+    }
+  }, [slide.id])
+
+  const liveSig = React.useMemo(() => {
+    try { return JSON.stringify(liveOverrides) } catch { return '' }
+  }, [liveOverrides])
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full relative"
-      style={
-        (slide && typeof slide.background === 'object' && slide.background.type === 'image' && slide.background.src)
-          ? {
-              backgroundImage: `url(${slide.background.src})`,
-              backgroundSize: (slide.background.mode === 'stretch') ? '100% 100%' : (slide.background.mode === 'custom' && typeof slide.background.scale === 'number') ? `${slide.background.scale}% auto` : (slide.background.mode || 'cover'),
-              backgroundPosition: (slide.background.position || 'center'),
-              backgroundRepeat: 'no-repeat',
-              transform: 'scale(1)',
-              transformOrigin: 'top left'
-            }
-          : {
-              background: (typeof slide?.background === 'string' ? slide.background : '#ffffff'),
-              transform: 'scale(1)',
-              transformOrigin: 'top left'
-            }
-      }
-    >
-      {/* Slide content */}
-      {slide.elements && slide.elements.length > 0 ? (
-        slide.elements.map(el => renderElement(el))
-      ) : (
-        // Empty slide placeholder
-        <div className="w-full h-full flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-gray-400 text-xs mb-1">Slide {slideNumber}</div>
-            <div className="text-gray-300 text-[10px]">Empty Slide</div>
-          </div>
-        </div>
-      )}
-      
+    <div ref={containerRef} className="w-full h-full relative overflow-hidden select-none" style={{ pointerEvents: 'none' }}>
+      {/* SlideView renders the same visuals as the main slide; we only scale it */}
+      <SlideView data={slide} scale={scale} isThumbnailView={true} mode="viewer" animateKey={animKey} liveOverrides={liveOverrides} />
       {/* Slide number overlay */}
-      <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[8px] px-1 py-0.5 rounded">
+      <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[8px] px-1 py-0.5 rounded" style={{ pointerEvents: 'none' }}>
         {slideNumber}
       </div>
     </div>
   )
 }
+
+// Old per-element thumbnail renderer has been replaced by SlideView to ensure exact fidelity with main slide.
+
+/*
+  Keeping previous implementation removed to follow the requirement: use one universal Slide component
+  for both main canvas and thumbnails (scaled). The SlideView component is a read-only renderer that
+  mirrors the main slide visuals and accepts a `scale` prop.
+*/

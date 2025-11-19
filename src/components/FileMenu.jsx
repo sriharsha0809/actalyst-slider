@@ -1,16 +1,27 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
+import { PRESENTATION_TEMPLATES } from '../data/templates.js'
 
 export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
   const { state, dispatch } = useSlides()
   const fileInputRef = useRef(null)
   const [showShareSubmenu, setShowShareSubmenu] = useState(false)
   const [showNewConfirm, setShowNewConfirm] = useState(false)
+  const [closing, setClosing] = useState(false)
+
+  useEffect(() => { setClosing(false) }, [isOpen])
 
   if (!isOpen) return null
 
   const handleNew = () => {
+    // Use React 18's synchronous state update for immediate rendering
     setShowNewConfirm(true)
+  }
+
+  const requestClose = () => {
+    try { setClosing(true) } catch {}
+    // Wait for animation to finish
+    setTimeout(() => { try { onClose?.() } catch {} }, 450)
   }
 
   const handleFileSelect = (event) => {
@@ -612,119 +623,274 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
     { label: 'Share as Image', icon: '🖼️', action: handleShareAsImage, description: 'Export as PNG image' },
   ]
 
+  // Design tab themes replicated here
+  const designThemes = [
+    { name: 'Sunset', background: 'linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)', preview: { header: '#ffe1e6', block1: '#ffc2cc', block2: '#ffd9e1' } },
+    { name: 'Ocean', background: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)', preview: { header: '#d6e9ff', block1: '#cfe0ff', block2: '#e0f3ff' } },
+    { name: 'Emerald', background: 'linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)', preview: { header: '#eafdd9', block1: '#dcf8c6', block2: '#c8efbb' } },
+    { name: 'Slate', background: 'linear-gradient(135deg, #bdc3c7 0%, #2c3e50 100%)', preview: { header: '#e5eaed', block1: '#d3dde3', block2: '#c1cdd4' } },
+    { name: 'Peach', background: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', preview: { header: '#fff0cc', block1: '#ffe0b3', block2: '#ffd1a6' } },
+    { name: 'Grape', background: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', preview: { header: '#efe6fb', block1: '#e2d3f6', block2: '#f7d8ee' } },
+    { name: 'Aurora', background: 'linear-gradient(135deg, #5ee7df 0%, #b490ca 100%)', preview: { header: '#d9fbf5', block1: '#cdeaf4', block2: '#e3d6f0' } },
+    { name: 'Mono', background: 'linear-gradient(135deg, #e0e0e0 0%, #9e9e9e 100%)', preview: { header: '#f2f2f2', block1: '#e0e0e0', block2: '#cccccc' } },
+    // Additional themes
+    { name: 'Citrus', background: 'linear-gradient(135deg, #fddb92 0%, #d1fdff 100%)', preview: { header: '#fff3bf', block1: '#ffe8a1', block2: '#e6fffb' } },
+    { name: 'Flamingo', background: 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)', preview: { header: '#fde7f6', block1: '#f3d0ec', block2: '#d9e2fb' } },
+    { name: 'Forest', background: 'linear-gradient(135deg, #38ef7d 0%, #11998e 100%)', preview: { header: '#d4ffe7', block1: '#b8f4d6', block2: '#a0ead0' } },
+    { name: 'Midnight', background: 'linear-gradient(135deg, #232526 0%, #414345 100%)', preview: { header: '#dce1e6', block1: '#cfd4da', block2: '#bfc5cc' } },
+    { name: 'Lavender', background: 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)', preview: { header: '#f0e6ff', block1: '#dfccfb', block2: '#cde3fe' } },
+    { name: 'Coral', background: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', preview: { header: '#fff4e3', block1: '#ffe0cf', block2: '#ffd6c9' } },
+    { name: 'Aqua', background: 'linear-gradient(135deg, #13547a 0%, #80d0c7 100%)', preview: { header: '#d6f4ef', block1: '#c3ebe5', block2: '#b0e2db' } },
+    { name: 'Sunrise', background: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', preview: { header: '#ffe1e6', block1: '#ffd3e6', block2: '#ffe8f6' } },
+    { name: 'Steel', background: 'linear-gradient(135deg, #cfd9df 0%, #e2ebf0 100%)', preview: { header: '#eef3f7', block1: '#e5edf2', block2: '#dde6ec' } },
+    { name: 'Sand', background: 'linear-gradient(135deg, #e6dada 0%, #274046 100%)', preview: { header: '#f0eaea', block1: '#e4dbdb', block2: '#d9d1d1' } },
+  ]
+
+  const applyThemeToFour = (theme) => {
+    const startIdx = state.slides.findIndex(s => s.id === state.currentSlideId)
+    if (startIdx < 0) return
+    const originalId = state.currentSlideId
+    // Ensure there are 4 slides from startIdx
+    const needed = Math.max(0, (startIdx + 4) - state.slides.length)
+    for (let i = 0; i < needed; i++) {
+      dispatch({ type: 'ADD_SLIDE' })
+    }
+    if (needed > 0) dispatch({ type: 'SET_CURRENT_SLIDE', id: originalId })
+    const ids = state.slides.slice(startIdx, startIdx + 4).map(s => s.id)
+    ids.forEach((id) => {
+      dispatch({ type: 'UPDATE_SLIDE_BACKGROUND', slideId: id, background: theme.background })
+    })
+  }
+
+  const applyTemplate = (template) => {
+    // Load template slides into the presentation
+    const templateSlides = template.slides.map((slide, index) => ({
+      ...slide,
+      id: `slide_${Date.now()}_${index}_${Math.random()}`,
+      elements: slide.elements.map((el, elIndex) => ({
+        ...el,
+        id: `element_${Date.now()}_${index}_${elIndex}_${Math.random()}`
+      }))
+    }))
+    
+    // Load the template as the new presentation
+    const newPresentationData = {
+      slides: templateSlides,
+      currentSlideId: templateSlides[0]?.id || null,
+      selectedElementId: null,
+      clipboard: null,
+      history: [],
+      historyIndex: -1
+    }
+    
+    dispatch({ type: 'LOAD_PRESENTATION', data: newPresentationData })
+    onFileOpen?.(template.name)
+    requestClose()
+  }
+
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/20 z-40" 
-        onClick={onClose}
-      />
-      
-      {/* Side Panel */}
-      <div className="fixed left-0 top-[49px] bottom-0 w-80 bg-white shadow-2xl z-50 border-r border-gray-200">
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200" style={{ backgroundColor: '#9B5DE0' }}>
-            <h2 className="text-xl font-semibold text-white">File</h2>
-          </div>
-
-          {/* Menu Items */}
-          <div className="flex-1 overflow-y-auto py-2">
+      <style>{`
+        @keyframes paperFoldIn { 
+          0% { transform: perspective(1200px) rotateX(-12deg) rotateY(6deg) translateY(-8px) scale(0.96); opacity: 0; }
+          60% { opacity: 1; }
+          100% { transform: perspective(1200px) rotateX(0) rotateY(0) translateY(0) scale(1); opacity: 1; }
+        }
+        .paper-fold-enter { 
+          transform-origin: top left; 
+          animation: paperFoldIn 480ms cubic-bezier(.2,.8,.2,1) both; 
+          will-change: transform, opacity; 
+          box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+        }
+        @keyframes paperUnfoldOut { 
+          0% { transform: perspective(1200px) rotateX(0) rotateY(0) translateY(0) scale(1); opacity: 1; }
+          100% { transform: perspective(1200px) rotateX(-12deg) rotateY(6deg) translateY(-8px) scale(0.96); opacity: 0; }
+        }
+        .paper-unfold-exit {
+          transform-origin: top left;
+          animation: paperUnfoldOut 420ms cubic-bezier(.2,.8,.2,1) both;
+          will-change: transform, opacity;
+          box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.15s ease-out forwards;
+        }
+        @keyframes scaleIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        .animate-scaleIn {
+          animation: scaleIn 0.2s ease-out forwards;
+        }
+      `}</style>
+      {/* Full-screen File View with frosted overlay */}
+      <div className="fixed inset-0 z-50 flex h-screen w-full bg-white/30 backdrop-blur-xl transition-all duration-500 ease-out" onClick={() => requestClose()}>
+        <div className={`flex flex-col md:flex-row w-full h-full ${closing ? 'paper-unfold-exit' : 'paper-fold-enter'}`} onClick={(e)=>e.stopPropagation()}>
+          {/* Left Pane - File Actions */}
+          <div className="w-full md:w-1/4 bg-white/50 backdrop-blur-2xl border-b md:border-b-0 md:border-r border-white/40 shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8 md:p-10 flex flex-col gap-6 text-gray-700 relative">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">File</h2>
             {menuItems.map((item, index) => (
-              <div key={index}>
+              <div key={index} className="flex flex-col">
                 <button
                   onClick={() => {
                     if (item.hasSubmenu) {
+                      item.action()
+                    } else if (item.label === 'New') {
+                      // Don't close menu when opening New dialog
                       item.action()
                     } else {
                       item.action()
                       onClose()
                     }
                   }}
-                  className="w-full px-6 py-4 flex items-center gap-4 hover:bg-gray-100 transition-colors text-left border-b border-gray-100"
+                  className="text-gray-700 transition-all duration-300 ease-in-out hover:translate-x-1 hover:text-black hover:font-medium text-left px-3 py-2 rounded-lg border border-white/50 hover:bg-white/60 hover:shadow-sm"
+                  title={item.description}
                 >
-                  <span className="text-2xl">{item.icon}</span>
-                  <div className="flex flex-col flex-1">
-                    <span className="text-base font-medium text-gray-700">{item.label}</span>
-                    <span className="text-xs text-gray-500">{item.description}</span>
-                  </div>
-                  {item.hasSubmenu && (
-                    <span className={`text-gray-400 transition-transform ${showShareSubmenu && item.label === 'Share' ? 'rotate-90' : ''}`}>
-                      ▶
-                    </span>
-                  )}
+                  {item.label}
                 </button>
-                
-                {/* Submenu for Share */}
                 {item.hasSubmenu && item.label === 'Share' && showShareSubmenu && (
-                  <div className="bg-gray-50 border-l-4 border-blue-500">
+                  <div className="mt-2 ml-4 flex flex-col gap-2">
                     {shareMenuItems.map((subItem, subIndex) => (
                       <button
                         key={subIndex}
                         onClick={() => {
-                          subItem.action()
+                        subItem.action()
                           setShowShareSubmenu(false)
-                          onClose()
+                          requestClose()
                         }}
-                        className="w-full px-10 py-3 flex items-center gap-3 hover:bg-blue-50 transition-colors text-left"
+                        className="text-sm text-gray-600 transition-all duration-300 ease-in-out hover:translate-x-1 hover:text-black hover:font-medium text-left px-3 py-2 rounded-md border border-white/40 hover:bg-white/60 hover:shadow-sm"
+                        title={subItem.description}
                       >
-                        <span className="text-lg">{subItem.icon}</span>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-700">{subItem.label}</span>
-                          <span className="text-xs text-gray-500">{subItem.description}</span>
-                        </div>
+                        {subItem.label}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
             ))}
+            {/* Fixed Close button at bottom of left pane */}
+            <div className="pointer-events-auto absolute left-0 right-0 bottom-4 px-8 md:px-10">
+              <button onClick={() => requestClose()} className="w-full px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-900 transition-colors shadow-md">Close</button>
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-            <button
-              onClick={onClose}
-              className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-medium transition-colors"
-            >
-              Close
-            </button>
+          {/* Right Pane - Templates & Themes */}
+          <div className="flex-1 bg-white/30 backdrop-blur-xl p-6 md:p-10 overflow-y-auto shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+            {/* Templates Section */}
+            <div className="mb-12">
+              <div className="sticky top-0 z-50 -mx-6 md:-mx-10 px-6 md:px-10 py-3 bg-transparent backdrop-blur-2xl border-b border-white/40 shadow-[0_1px_8px_rgba(0,0,0,0.08)] relative overflow-hidden mb-6">
+                <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/95 to-white/25" />
+                <h2 className="relative text-lg font-semibold text-gray-800">Templates</h2>
+              </div>
+              <div className="relative z-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {PRESENTATION_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    onClick={() => applyTemplate(template)}
+                    className="bg-white rounded-2xl shadow-sm p-4 transition-all duration-500 ease-out hover:scale-[1.02] hover:shadow-lg border border-white/60 text-left group"
+                    title={template.description}
+                  >
+                    {/* Template Thumbnail */}
+                    <div className="rounded-xl mb-3 w-full h-32 relative overflow-hidden" style={{ background: template.thumbnail.gradient }}>
+                      {/* Mini slide previews */}
+                      <div className="absolute inset-2 flex gap-1">
+                        <div className="flex-1 bg-white/20 backdrop-blur-sm rounded border border-white/30" />
+                        <div className="flex-1 bg-white/15 backdrop-blur-sm rounded border border-white/20" />
+                        <div className="flex-1 bg-white/10 backdrop-blur-sm rounded border border-white/10" />
+                      </div>
+                      {/* Slide count badge */}
+                      <div className="absolute bottom-2 right-2 bg-black/40 backdrop-blur-md text-white text-xs px-2 py-1 rounded-full">
+                        {template.slides.length} slides
+                      </div>
+                    </div>
+                    {/* Template Info */}
+                    <p className="text-sm font-semibold text-gray-800 mb-1">{template.name}</p>
+                    <p className="text-xs text-gray-600 line-clamp-2">{template.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Themes Section */}
+            <div>
+              <div className="sticky top-0 z-50 -mx-6 md:-mx-10 px-6 md:px-10 py-3 bg-transparent backdrop-blur-2xl border-b border-white/40 shadow-[0_1px_8px_rgba(0,0,0,0.08)] relative overflow-hidden mb-6">
+                <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/95 to-white/25" />
+                <h2 className="relative text-lg font-semibold text-gray-800">Themes</h2>
+              </div>
+              <div className="relative z-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {designThemes.map((th, idx) => (
+                  <button
+                    key={th.name}
+                    onClick={() => applyThemeToFour(th)}
+                    className="bg-white rounded-2xl shadow-sm p-3 transition-all duration-500 ease-out hover:scale-[1.02] hover:shadow-lg border border-white/60 text-left"
+                    title={`${th.name} – applies to 4 slides`}
+                  >
+                    <div className="rounded-xl mb-2 w-full h-28 relative overflow-hidden" style={{ background: th.background }}>
+                      <div className="absolute left-3 right-3 top-2 h-2 rounded" style={{ background: th.preview?.header || 'rgba(255,255,255,0.7)' }} />
+                      {idx % 3 === 0 && (
+                        <>
+                          <div className="absolute left-3 bottom-3 w-1/2 h-4 rounded" style={{ background: th.preview?.block1 || 'rgba(255,255,255,0.5)' }} />
+                          <div className="absolute right-3 bottom-3 w-1/3 h-4 rounded" style={{ background: th.preview?.block2 || 'rgba(255,255,255,0.4)' }} />
+                        </>
+                      )}
+                      {idx % 3 === 1 && (
+                        <>
+                          <div className="absolute left-3 right-3 top-6 h-4 rounded" style={{ background: th.preview?.block1 || 'rgba(255,255,255,0.45)' }} />
+                          <div className="absolute left-3 right-3 bottom-3 h-3 rounded" style={{ background: th.preview?.block2 || 'rgba(255,255,255,0.35)' }} />
+                        </>
+                      )}
+                      {idx % 3 === 2 && (
+                        <>
+                          <div className="absolute left-3 top-6 w-1/3 h-5 rounded" style={{ background: th.preview?.block1 || 'rgba(255,255,255,0.5)' }} />
+                          <div className="absolute left-1/2 top-6 w-1/3 h-5 rounded" style={{ background: th.preview?.block2 || 'rgba(255,255,255,0.4)' }} />
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-800 font-medium text-center">{th.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      
+
       {/* New confirmation dialog */}
       {showNewConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-2xl w-[420px] p-6">
-            <h3 className="text-lg font-semibold mb-2">Start New Presentation?</h3>
-            <p className="text-sm text-gray-600 mb-4">You have unsaved changes. Do you want to save your current presentation before creating a new one?</p>
-            <div className="flex justify-end gap-2">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-2xl w-[460px] p-8 border border-gray-200">
+            <h3 className="text-xl font-bold mb-3 text-gray-900">Start New Presentation?</h3>
+            <p className="text-sm text-gray-600 mb-6 leading-relaxed">You have unsaved changes. Do you want to save your current presentation before creating a new one?</p>
+            <div className="flex justify-end gap-3">
               <button
-                className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
+                className="px-5 py-2.5 rounded-lg bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 hover:shadow-md transition-all duration-200 border border-gray-300"
                 onClick={() => setShowNewConfirm(false)}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium hover:from-blue-600 hover:to-blue-700 hover:shadow-lg hover:scale-105 transition-all duration-200"
                 onClick={async () => {
                   try { await handleSave() } catch {}
                   dispatch({ type: 'NEW_PRESENTATION' })
                   onFileOpen?.('Untitled Presentation')
                   setShowNewConfirm(false)
-                  onClose()
+                  requestClose()
                 }}
               >
                 Save
               </button>
               <button
-                className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white font-medium hover:from-red-600 hover:to-red-700 hover:shadow-lg hover:scale-105 transition-all duration-200"
                 onClick={() => {
                   dispatch({ type: 'NEW_PRESENTATION' })
                   onFileOpen?.('Untitled Presentation')
                   setShowNewConfirm(false)
-                  onClose()
+                  requestClose()
                 }}
               >
                 Don't Save

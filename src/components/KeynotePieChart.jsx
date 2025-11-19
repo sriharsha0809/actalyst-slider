@@ -29,10 +29,16 @@ export default function KeynotePieChart({
   data,
   outerRadius = 84, // target size (recharts scales to container)
   showLegend = true,
+  showTooltip = true,
   sliceDelayMs = 120, // delay between slice reveals (sequential animation)
   durationMs = 800,   // per-slice animation duration
   animateKey = null,  // when this value changes (e.g., slideId), run animation; otherwise no re-anim
-  variant = '2d' /* '2d'|'3d'|'donut'|'exploded'|'percent'|'flat'|'flat-mono'|'gradient'|'minimal'|'labels'|'no-labels'|'leader-lines'|'no-shadow' */,
+  variant = '2d' /* '2d'|'3d'|'donut'|'exploded'|'percent'|'flat'|'flat-mono'|'gradient'|'minimal'|'labels'|'no-labels' */,
+  scale = 1,
+  overrideColor = null,
+  overridePalette = null,
+  colorMode = 'solid',
+  colorblindFriendly = false,
 }) {
   // Demo data (used if not provided)
   const demo = [
@@ -45,7 +51,10 @@ export default function KeynotePieChart({
   const fullData = Array.isArray(data) && data.length ? data : demo
 
   // Stronger palette for thick colors
-  const palette = ['#1E73F0', '#0BB04C', '#E07A00', '#D61F69', '#6A3FF0', '#0AA06E']
+  const paletteDefault = ['#1E73F0', '#0BB04C', '#E07A00', '#D61F69', '#6A3FF0', '#0AA06E']
+  const paletteHC = ['#2D7DD2','#F25F5C','#FFE066','#70C1B3','#50514F']
+  const basePalette = colorblindFriendly ? paletteHC : paletteDefault
+  const palette = Array.isArray(overridePalette) && overridePalette.length ? overridePalette : basePalette
   const distinctColor = (i) => {
     const hue = (i * 137.508) % 360
     const hslToHex = (h,s,l)=>{ s/=100; l/=100; const k=n=> (n + h/30)%12; const a=s*Math.min(l,1-l); const f=n=> l - a*Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n),1))); const toHex=x=> `#${Math.round(255*x).toString(16).padStart(2,'0')}`; return `${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}` }
@@ -120,7 +129,7 @@ export default function KeynotePieChart({
         y={y}
         textAnchor="middle"
         dominantBaseline="central"
-        style={{ fontSize: 12, fontWeight: 500, fill: '#1f2937' }} // Tailwind: text-gray-800 font-medium
+        style={{ fontSize: Math.max(8, Math.round(12 * (scale || 1))), fontWeight: 500, fill: '#1f2937' }}
       >
         {pct.toFixed(0)}%
       </text>
@@ -160,7 +169,7 @@ export default function KeynotePieChart({
           {/* Per-slice radial gradients for visible shading */}
           <defs>
             {fullData.map((_, i) => {
-              const base = colorAt(i)
+              const base = overrideColor || colorAt(i)
               const lighter = shade(base, 35)
               const darker = shade(base, -25)
               return (
@@ -172,16 +181,18 @@ export default function KeynotePieChart({
             })}
           </defs>
 
-          <Tooltip
-            contentStyle={{
-              borderRadius: 12,
-              border: '1px solid rgba(0,0,0,0.08)',
-              boxShadow: '0 8px 28px rgba(17,25,40,0.15)'
-            }}
-            wrapperStyle={{ outline: 'none' }}
-          />
+          {showTooltip && (
+            <Tooltip
+              contentStyle={{
+                borderRadius: 12,
+                border: '1px solid rgba(0,0,0,0.08)',
+                boxShadow: '0 8px 28px rgba(17,25,40,0.15)'
+              }}
+              wrapperStyle={{ outline: 'none' }}
+            />
+          )}
           {showLegend && (
-            <Legend verticalAlign="bottom" height={24} wrapperStyle={{ color: '#334155' }} />
+            <Legend verticalAlign="bottom" height={24} wrapperStyle={{ color: '#334155', fontSize: Math.max(8, Math.round(12 * (scale || 1))) }} />
           )}
 
           <Pie
@@ -202,7 +213,7 @@ export default function KeynotePieChart({
             {pieData.map((entry, i) => (
               <Cell
                 key={`cell-${i}`}
-                fill={variant === 'gradient' ? `url(#kp-grad-${gid}-${i})` : (isMono ? '#1E73F0' : colorAt(i))}
+                fill={(overrideColor && colorMode==='gradient') || variant === 'gradient' ? `url(#kp-grad-${gid}-${i})` : (overrideColor ? overrideColor : (isMono ? '#1E73F0' : colorAt(i)))}
                 stroke={isMinimal ? (isMono ? '#1E73F0' : palette[i % palette.length]) : 'rgba(255,255,255,0.85)'}
                 strokeWidth={isMinimal ? 3 : 1}
                 style={{ filter: dropShadow ? 'drop-shadow(0 2px 4px rgba(17,25,40,0.12))' : 'none' }}

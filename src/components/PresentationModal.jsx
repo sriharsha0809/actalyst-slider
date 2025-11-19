@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
+import SlideView from './SlideView.jsx'
 
 export default function PresentationModal({ mode = 'auto', onClose }) {
   const { state, dispatch } = useSlides()
@@ -280,27 +281,6 @@ function SlideStage() {
   const { state } = useSlides()
   const slide = state.slides.find(s => s.id === state.currentSlideId)
 
-  // Build background style supporting color strings and image objects
-  let bgStyle = {}
-  const bg = slide?.background
-  if (bg && typeof bg === 'object' && bg.type === 'image' && bg.src) {
-    const size = (bg.mode === 'stretch')
-      ? '100% 100%'
-      : (bg.mode === 'custom' && typeof bg.scale === 'number')
-        ? `${bg.scale}% auto`
-        : (bg.mode || 'cover')
-    bgStyle = {
-      backgroundImage: `url(${bg.src})`,
-      backgroundSize: size,
-      backgroundPosition: (bg.position || 'center'),
-      backgroundRepeat: 'no-repeat',
-    }
-  } else if (typeof bg === 'string') {
-    bgStyle = { background: bg }
-  } else {
-    bgStyle = { background: '#ffffff' }
-  }
-
   // Compute viewport size to scale 960x540 slide to fit the screen
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
   useEffect(() => {
@@ -349,89 +329,31 @@ function SlideStage() {
           height: REF_HEIGHT,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
-          ...bgStyle,
         }}
       >
         {/* Inner wrapper handles slide-in animation (does not affect scale) */}
         <div className={animClass} style={{ position: 'absolute', inset: 0 }}>
-          {slide?.elements.map(el => (
-            <div key={el.id} className="absolute" style={{ left: el.x, top: el.y, width: el.w, height: el.h, transform: `rotate(${el.rotation}deg)` }}>
-              {renderElement(el, true)}
-            </div>
-          ))}
+          {slide && (
+            <SlideView data={slide} scale={1} mode="presentation" animateKey={slide.id} />
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-function renderElement(el, readonly=false) {
-  const bgColor = el.bgColor || 'transparent'
-  
-  // Helper function to get vertical alignment styles
-  const getVerticalAlignStyle = () => {
-    const valign = el.styles?.valign || 'top'
-    switch (valign) {
-      case 'top':
-        return { alignItems: 'flex-start' }
-      case 'middle':
-        return { alignItems: 'center' }
-      case 'bottom':
-        return { alignItems: 'flex-end' }
-      default:
-        return { alignItems: 'flex-start' }
-    }
-  }
-
-  switch (el.type) {
-    case 'text':
-      return (
-        <div className="w-full h-full p-2" style={{ 
-          backgroundColor: bgColor, 
-          color: el.styles.color, 
-          fontSize: el.styles.fontSize, 
-          fontWeight: el.styles.bold ? 700 : 400, 
-          fontStyle: el.styles.italic ? 'italic' : 'normal', 
-          textDecoration: el.styles.underline ? 'underline' : 'none', 
-          textAlign: el.styles.align,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: el.styles?.valign === 'middle' ? 'center' : el.styles?.valign === 'bottom' ? 'flex-end' : 'flex-start',
-        }}>
-          {el.text}
-        </div>
-      )
-    case 'rect':
-      return <PresentationShapeWithText el={el} shapeClass="rounded-md" />
-    case 'square':
-      return <PresentationShapeWithText el={el} shapeClass="rounded-md" />
-    case 'circle':
-      return <PresentationShapeWithText el={el} shapeClass="rounded-full" />
-    case 'triangle':
-      return <PresentationShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 0% 100%, 100% 100%)" />
-    case 'diamond':
-      return <PresentationShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" />
-    case 'star':
-      return <PresentationShapeWithText el={el} shapeClass="" clipPath="polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" />
-    case 'message':
-      return <PresentationMessageShape el={el} />
-    case 'chart':
-      return <PresentationChartElement el={el} />
-    case 'table':
-      return <PresentationTableElement el={el} />
-    case 'image':
-      return <img src={el.src} alt="" className="w-full h-full object-contain" draggable={false} />
-    default:
-      return null
-  }
-}
-
 function PresentationShapeWithText({ el, shapeClass, clipPath }) {
   const shapeStyle = {
     background: el.fill,
     border: `2px solid ${el.stroke}`,
-    ...(clipPath && { clipPath })
+    ...(clipPath && { clipPath }),
+    opacity: el.opacity == null ? 1 : el.opacity,
   }
+
+  const textAlign = el.textAlign || 'center'
+  const textVAlign = el.textVAlign || 'middle'
+  const alignItems = textAlign === 'right' ? 'flex-end' : (textAlign === 'center' ? 'center' : 'flex-start')
+  const justifyContent = textVAlign === 'bottom' ? 'flex-end' : (textVAlign === 'middle' ? 'center' : 'flex-start')
 
   return (
     <div 
@@ -439,13 +361,18 @@ function PresentationShapeWithText({ el, shapeClass, clipPath }) {
       style={shapeStyle}
     >
       <div 
-        className="w-full h-full flex items-center justify-center p-2"
+        className="w-full h-full flex p-2"
         style={{
           color: el.textColor,
           fontSize: el.fontSize,
           fontFamily: 'Inter, system-ui, sans-serif',
-          wordWrap: 'break-word',
-          textAlign: 'center'
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflow: 'hidden',
+          textAlign,
+          alignItems,
+          justifyContent,
+          flexDirection: 'column',
         }}
       >
         {el.text || ''}
@@ -462,17 +389,23 @@ function PresentationMessageShape({ el }) {
         className="w-full h-full rounded-lg relative"
         style={{
           background: el.fill,
-          border: `2px solid ${el.stroke}`
+          border: `2px solid ${el.stroke}`,
+          opacity: el.opacity == null ? 1 : el.opacity,
         }}
       >
         <div 
-          className="w-full h-full flex items-center justify-center p-2"
+          className="w-full h-full flex p-2"
           style={{
             color: el.textColor,
             fontSize: el.fontSize,
             fontFamily: 'Inter, system-ui, sans-serif',
-            wordWrap: 'break-word',
-            textAlign: 'center'
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            overflow: 'hidden',
+            textAlign: el.textAlign || 'center',
+            alignItems: (el.textAlign || 'center') === 'right' ? 'flex-end' : ((el.textAlign || 'center') === 'center' ? 'center' : 'flex-start'),
+            justifyContent: (el.textVAlign || 'middle') === 'bottom' ? 'flex-end' : ((el.textVAlign || 'middle') === 'middle' ? 'center' : 'flex-start'),
+            flexDirection: 'column',
           }}
         >
           {el.text || 'Message'}
@@ -552,10 +485,33 @@ function PresentationTableElement({ el }) {
   )
 }
 
-function PresentationChartElement({ el }) {
+function PresentationChartElement({ el, slideId }) {
   const { chartType, data = [], labels = [], colors = [] } = el
+  const legendOpts = el.legendOptions || {}
+  const xAxisEnabled = !!legendOpts.xAxisEnabled
+  const xAxisLabel = xAxisEnabled ? (legendOpts.xAxisLabel || '') : null
+  const yAxisEnabled = !!legendOpts.yAxisEnabled
+  const yAxisLabel = yAxisEnabled ? (legendOpts.yAxisLabel || '') : null
+  const showXAxis = legendOpts.showXAxis !== false
+  const showYAxis = legendOpts.showYAxis !== false
+  const showMinorGridlines = !!legendOpts.showMinorGridlines
 
   if (chartType === 'bar') {
+    const structured = el.structuredData
+    const cats = structured?.categories || el.labels || []
+    const allSeries = structured?.series || [{ name: 'Series 1', data: el.data || [] }]
+    const seriesNames = allSeries.map((s, idx) => s?.name || `Series ${idx + 1}`)
+    // Build bar-friendly data rows
+    const dataBar = cats.map((name, i) => {
+      const row = { name }
+      allSeries.forEach((s, idx) => { row[idx === 0 ? 'value' : `v${idx+1}`] = Number(s.data[i])||0 })
+      return row
+    })
+    return (
+      <div className="w-full h-full" style={{ background: 'transparent' }}>
+        <KeynoteBarChart key={`${el.id}-${slideId}-${el.chartStyle||'2d'}`} data={dataBar} variant={el.chartStyle || '2d'} showLegend={legendOpts.show !== false} seriesNames={seriesNames} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} showXAxis={showXAxis} showYAxis={showYAxis} showMinorGridlines={showMinorGridlines} />
+      </div>
+    )
     const P = 8 // padding
     const chartH = 180
     const axisT = 1
@@ -625,6 +581,20 @@ function PresentationChartElement({ el }) {
   }
 
   if (chartType === 'line') {
+    const structured = el.structuredData
+    const cats = structured?.categories || el.labels || []
+    const allSeries = structured?.series || [{ name: 'Series 1', data: el.data || [] }]
+    const seriesNames = allSeries.map((s, idx) => s?.name || `Series ${idx + 1}`)
+    const dataLine = cats.map((name, i) => {
+      const row = { name }
+      allSeries.forEach((s, idx) => { row[idx === 0 ? 'value' : `v${idx+1}`] = Number(s.data[i])||0 })
+      return row
+    })
+    return (
+      <div className="w-full h-full" style={{ background: 'transparent' }}>
+        <KeynoteLineChart key={`${el.id}-${slideId}-${el.chartStyle||'simple'}`} data={dataLine} variant={el.chartStyle || 'simple'} showLegend={legendOpts.show !== false} seriesNames={seriesNames} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} showXAxis={showXAxis} showYAxis={showYAxis} showMinorGridlines={showMinorGridlines} />
+      </div>
+    )
     const P = 8
     const chartH = 180
     const yAxisW = 28
@@ -687,6 +657,15 @@ function PresentationChartElement({ el }) {
   }
 
   if (chartType === 'pie') {
+    const structured = el.structuredData
+    const cats = structured?.categories || el.labels || []
+    const s0 = structured?.series?.[0]?.data || el.data || []
+    const dataPie = cats.map((name, i) => ({ name, value: Number(s0[i])||0 }))
+    return (
+      <div className="w-full h-full" style={{ background: 'transparent' }}>
+        <KeynotePieChart key={`${el.id}-${slideId}-${el.chartStyle||'2d'}`} data={dataPie} variant={el.chartStyle || '2d'} showLegend={el.legendOptions?.show !== false} animateKey={slideId} />
+      </div>
+    )
     const total = Math.max(1, data.reduce((sum, val) => sum + val, 0))
     let currentAngle = 0
     return (

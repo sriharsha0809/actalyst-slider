@@ -1,9 +1,120 @@
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+// --- Keynote-style text box helpers --- //
+export function getRenderedTextHeight(editor) {
+  if (!editor) return 0
+  return editor.scrollHeight || 0
+}
+
+// Offscreen measurement helpers for Keynote-style height limiting
+let __measureCanvas = null
+let __measureDiv = null
+
+function getMeasureDiv() {
+  if (typeof document === 'undefined') return null
+  if (__measureDiv && document.body.contains(__measureDiv)) return __measureDiv
+  const div = document.createElement('div')
+  div.style.position = 'absolute'
+  div.style.left = '-100000px'
+  div.style.top = '-100000px'
+  div.style.visibility = 'hidden'
+  div.style.whiteSpace = 'pre-wrap'
+  div.style.wordBreak = 'break-word'
+  div.style.padding = '0'
+  div.style.margin = '0'
+  div.style.border = 'none'
+  div.style.boxSizing = 'border-box'
+  document.body.appendChild(div)
+  __measureDiv = div
+  return div
+}
+
+function measureTextHeightPx(text, editor) {
+  if (!editor || typeof document === 'undefined') return 0
+
+  const div = getMeasureDiv()
+  if (!div) return 0
+
+  const cs = window.getComputedStyle(editor)
+  const editorRect = editor.getBoundingClientRect()
+
+  div.style.fontFamily = cs.fontFamily
+  div.style.fontSize = cs.fontSize
+  div.style.fontWeight = cs.fontWeight
+  div.style.fontStyle = cs.fontStyle
+  div.style.textDecoration = cs.textDecoration
+  div.style.lineHeight = cs.lineHeight === 'normal' ? '1.2' : cs.lineHeight
+  div.style.whiteSpace = 'pre-wrap'
+  div.style.wordBreak = 'break-word'
+  div.style.width = `${editorRect.width}px`
+
+  div.textContent = text || ''
+  return div.scrollHeight || div.clientHeight || 0
+}
+
+// Exported API: does this candidate text still fit vertically inside the slide?
+export function canInsertCharacter(newText, editor = null) {
+  if (!editor || typeof document === 'undefined') return true
+
+  const slideContainer = editor.closest('[data-slide-container]')
+  if (!slideContainer) return true
+
+  const slideBox = slideContainer.getBoundingClientRect()
+  const editorBox = editor.getBoundingClientRect()
+  // Space from top of text box to bottom of slide in real pixels
+  const maxHeightPx = Math.max(0, slideBox.bottom - editorBox.top)
+
+  const neededHeightPx = measureTextHeightPx(newText, editor)
+  return neededHeightPx <= (maxHeightPx + 0.5)
+}
+
+export function blockExtraInput(event, editor, el, scale, restoreSnapshot, setCaretToEnd) {
+  if (!editor || !event || !el) return false
+  const t = event.inputType || ''
+  if (!t.startsWith('insert')) return false
+
+  const contentH = editor.scrollHeight || 0
+  const contentW = editor.scrollWidth || 0
+  const boxH = editor.clientHeight || 0
+  const boxW = editor.clientWidth || 0
+
+  // Base overflow: content larger than the visible editor box.
+  const baseOverflowH = contentH > (boxH + 0.5)
+  const baseOverflowW = contentW > (boxW + 0.5)
+
+  // Convert current element height to logical slide coordinates to know whether the
+  // text box has already reached the bottom edge of the slide.
+  const s = Number(scale || 1) || 1
+  const REF_HEIGHT = 540
+  let logicalH = Number(el.h || 0)
+  if (!logicalH && boxH) logicalH = boxH / s
+  const logicalBottom = (el.y || 0) + logicalH
+  const atSlideLimit = logicalBottom >= (REF_HEIGHT - 0.5)
+
+  // Vertical overflow only matters once the box is at the slide bottom; before that we
+  // auto-grow the element height instead of blocking typing.
+  const overflowH = baseOverflowH && atSlideLimit
+  // Horizontal overflow is never allowed (no sideways scrolling).
+  const overflowW = baseOverflowW
+
+  if (!overflowH && !overflowW) return false
+
+  // Block this insertion completely and restore previous visual state so content
+  // never scrolls or moves outside the visible text box.
+  event.preventDefault?.()
+  if (typeof restoreSnapshot === 'function') {
+    restoreSnapshot()
+  }
+  if (typeof setCaretToEnd === 'function') {
+    setCaretToEnd()
+  }
+  return true
+}
+
 const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => {
   const editorRef = useRef(null)
-  const [showToolbar, setShowToolbar] = useState(false)
+  const [showToolbar, setShowToolbar] = useState(false) // floating toolbar disabled; keep state for compatibility
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 })
   const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false })
   const desiredTypingRef = useRef({ bold: false, italic: false, underline: false })
@@ -122,6 +233,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
       html: editor.innerHTML,
       text: editor.textContent,
       selection: getSelectionOffsets(editor),
+      scrollTop: editor.scrollTop,
     }
   }
 
@@ -130,6 +242,9 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     const snapshot = previousSnapshotRef.current
     if (!editor || !snapshot) return
     editor.innerHTML = snapshot.html
+    if (typeof snapshot.scrollTop === 'number') {
+      editor.scrollTop = snapshot.scrollTop
+    }
     if (snapshot.selection) {
       setSelectionOffsets(editor, snapshot.selection.start, snapshot.selection.end)
     }
@@ -156,12 +271,36 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     const s = Number(scale || 1)
     const maxWidthPx = Math.max(0, (REF_WIDTH - (el.x || 0)) * s)
     const maxHeightPx = Math.max(0, (REF_HEIGHT - (el.y || 0)) * s)
-    // use scroll sizes to measure actual content footprint
-    const tooWide = editor.scrollWidth > (maxWidthPx + 0.5)
-    const tooTall = editor.scrollHeight > (maxHeightPx + 1)
+    const textH = getRenderedTextHeight(editor)
+    const textW = editor.scrollWidth || 0
+    const tooWide = textW > (maxWidthPx + 0.5)
+    const tooTall = textH > (maxHeightPx + 1)
     return tooWide || tooTall
   }
 
+  // Auto-resize the owning text element's height to fit content, but never past slide bottom
+  function autoResizeElementHeight() {
+    const editor = editorRef.current
+    if (!editor || !onChange) return
+    const REF_HEIGHT = 540
+    const s = Number(scale || 1) || 1
+    const maxLogicalHeight = Math.max(24, REF_HEIGHT - (el.y || 0))
+    const contentPx = getRenderedTextHeight(editor)
+    if (!contentPx) return
+    // Convert rendered pixel height back to logical slide coords
+    let desiredLogical = Math.ceil(contentPx / s)
+    // Only grow automatically; don't shrink below current element height
+    const currentH = Number(el.h || 0)
+    if (currentH > 0) {
+      desiredLogical = Math.max(desiredLogical, currentH)
+    }
+    const clampedLogical = Math.min(maxLogicalHeight, desiredLogical)
+    if (!Number.isFinite(clampedLogical) || clampedLogical <= 0) return
+    if (Math.abs(clampedLogical - currentH) < 1) return
+    try {
+      onChange({ h: clampedLogical })
+    } catch {}
+  }
 
   // Component-scope getCurrentFontFamily function
   const getCurrentFontFamily = () => {
@@ -366,14 +505,8 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
   }
 
   const handleSelectionChange = () => {
-    const ok = computeAndSetToolbarPosition()
-    if (ok) {
-      setShowToolbar(true)
-      refreshActiveFormats()
-    } else {
-      setShowToolbar(false)
-      setActiveFormats({ bold: false, italic: false, underline: false })
-    }
+    // Floating toolbar disabled: never show it on selection
+    setShowToolbar(false)
   }
 
   useEffect(() => {
@@ -408,13 +541,10 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     setActiveFormats({ bold: false, italic: false, underline: false })
   }, [el.id])
 
-  // Recompute position once toolbar renders (measure real size)
+  // Floating toolbar is disabled, so no need to recompute its position
   useEffect(() => {
     if (showToolbar) {
-      // Next frame after render to measure
-      requestAnimationFrame(() => {
-        computeAndSetToolbarPosition()
-      })
+      setShowToolbar(false)
     }
   }, [showToolbar])
 
@@ -697,12 +827,34 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
   }
 
   const handleBeforeInput = (event) => {
-    // Allow insert; block if it would exceed slide boundaries
+    const editor = editorRef.current
+
+    // Block insert operations *before* they apply if they would push text outside the
+    // slide-bounded text box (Keynote-style).
     try {
       const t = event?.inputType || ''
-      if (t.startsWith('insert') && exceedsSlideLimits()) {
-        event.preventDefault?.()
-        return
+      if (editor && t.startsWith('insert')) {
+        // Paste and drag/drop are handled explicitly in onPaste/onDrop.
+        if (t !== 'insertFromPaste' && t !== 'insertFromDrop') {
+          const offsets = getSelectionOffsets(editor)
+          const baseText = editor.textContent || ''
+          let insertText = ''
+
+          if (t === 'insertText' || t === 'insertCompositionText') {
+            insertText = event.data || ''
+          } else if (t === 'insertLineBreak' || t === 'insertParagraph') {
+            insertText = '\n'
+          }
+
+          if (offsets && typeof insertText === 'string') {
+            const { start, end } = offsets
+            const candidate = baseText.slice(0, start) + insertText + baseText.slice(end)
+            if (!canInsertCharacter(candidate, editor)) {
+              event.preventDefault?.()
+              return
+            }
+          }
+        }
       }
     } catch {}
 
@@ -727,17 +879,14 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
 
   const handleInput = (event) => {
     if (isComposingRef.current) return
-    if (exceedsSlideLimits()) {
-      const t = event?.inputType || ''
-      // Block only insertions; allow deletions/undos to reduce size
-      if (t.startsWith('insert')) {
-        event.preventDefault?.()
-        restoreSnapshot()
-        setCaretToEnd()
-        return
-      }
+    const editor = editorRef.current
+    if (blockExtraInput(event, editor, el, scale, restoreSnapshot, setCaretToEnd)) {
+      return
     }
+    // Persist text/html changes
     emitChange()
+    // Grow the owning text box height smoothly (downward only) up to slide bottom
+    autoResizeElementHeight()
     captureSnapshot()
     refreshActiveFormats()
   }
@@ -745,6 +894,70 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
   const handleCompositionStart = () => {
     isComposingRef.current = true
     captureSnapshot()
+  }
+
+  const handlePaste = (event) => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    try {
+      event.preventDefault()
+    } catch {}
+
+    const clip = (event.clipboardData || window.clipboardData)
+    const pasted = clip ? (clip.getData('text/plain') || '') : ''
+    if (!pasted) return
+
+    const baseText = editor.textContent || ''
+    const offsets = getSelectionOffsets(editor) || { start: baseText.length, end: baseText.length }
+    const { start, end } = offsets
+
+    // Binary search the longest prefix of the pasted text that still fits.
+    let lo = 0, hi = pasted.length, best = 0
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2)
+      const candidatePaste = pasted.slice(0, mid)
+      const candidateText = baseText.slice(0, start) + candidatePaste + baseText.slice(end)
+      if (canInsertCharacter(candidateText, editor)) {
+        best = mid
+        lo = mid + 1
+      } else {
+        hi = mid - 1
+      }
+    }
+
+    if (best <= 0) {
+      // Nothing fits; ignore paste.
+      return
+    }
+
+    const allowed = pasted.slice(0, best)
+
+    // Apply the trimmed paste manually at the current selection.
+    const sel = window.getSelection()
+    if (!sel) return
+    const range = sel.rangeCount > 0 ? sel.getRangeAt(0) : null
+    if (!range) return
+    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return
+
+    captureSnapshot()
+
+    range.deleteContents()
+    const node = document.createTextNode(allowed)
+    range.insertNode(node)
+
+    // Move caret to the end of the inserted text.
+    const newRange = document.createRange()
+    newRange.setStart(node, node.textContent.length)
+    newRange.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(newRange)
+
+    // Persist changes and auto-resize.
+    emitChange()
+    autoResizeElementHeight()
+    captureSnapshot()
+    refreshActiveFormats()
   }
 
   const handleCompositionEnd = () => {
@@ -1153,24 +1366,72 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
         contentEditable
         suppressContentEditableWarning
         onBlur={handleBlur}
-        className="w-full h-full p-2 outline-none"
+        className="w-full h-full p-2 outline-none transition-all duration-200 ease-in-out"
         style={{
           backgroundColor: el.bgColor || 'transparent',
           fontFamily: (el.styles?.fontFamily) || 'Inter, system-ui, sans-serif',
           fontSize: (el.styles?.fontSize || 16) * (scale || 1),
-          color: el.styles?.color || '#111827',
+          lineHeight: el.styles?.lineHeight ?? 1.2,
+          textShadow: (() => {
+            const s = el.styles || {}
+            if (!s.shadowEnabled) return 'none'
+            const base = s.color || '#111827'
+            const a = s.shadowOpacity == null ? 0.5 : s.shadowOpacity
+            const alpha = Math.max(0, Math.min(1, a))
+            const makeRgba = (color) => {
+              const str = String(color)
+              if (str.startsWith('rgba')) return str
+              if (str.startsWith('rgb(')) return str.replace('rgb(', 'rgba(').replace(/\)$/,'') + `, ${alpha})`
+              if (str[0] === '#') {
+                const hex = str.replace('#','')
+                const v = hex.length === 3 ? hex.split('').map(ch=>ch+ch).join('') : hex
+                const int = parseInt(v, 16)
+                const r = (int >> 16) & 255
+                const g = (int >> 8) & 255
+                const b = int & 255
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`
+              }
+              return `rgba(15,23,42,${alpha})`
+            }
+            const shadowColor = makeRgba(base)
+            return `0 2px 6px ${shadowColor}`
+          })(),
+          color: (() => {
+            const styles = el.styles || {}
+            const base = styles.color || '#111827'
+            const opacity = styles.opacity == null ? 1 : styles.opacity
+            if (opacity == null || opacity >= 1) return base
+            if (!base) return base
+            if (String(base).startsWith('rgba')) return base
+            if (String(base).startsWith('rgb(')) return String(base).replace('rgb(', 'rgba(').replace(/\)$/,'') + `, ${opacity})`
+            if (String(base)[0] === '#') {
+              const hex = String(base).replace('#','')
+              const v = hex.length === 3 ? hex.split('').map(ch=>ch+ch).join('') : hex
+              const int = parseInt(v, 16)
+              const r = (int >> 16) & 255
+              const g = (int >> 8) & 255
+              const b = int & 255
+              return `rgba(${r}, ${g}, ${b}, ${opacity})`
+            }
+            return base
+          })(),
           textAlign: el.styles?.align || 'left',
+          fontWeight: el.styles?.bold ? '700' : '400',
+          fontStyle: el.styles?.italic ? 'italic' : 'normal',
+          textDecoration: el.styles?.underline ? 'underline' : 'none',
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
-          overflow: 'visible',
+          // Hide internal overflow; we block new input once scrollHeight exceeds the box,
+          // so all visible text stays inside without scrollbars or clipping.
+          overflow: 'hidden',
           display: 'block'
         }}
         onBeforeInput={handleBeforeInput}
         onInput={handleInput}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
-        onPaste={handleBeforeInput}
-        onDrop={handleBeforeInput}
+        onPaste={handlePaste}
+        onDrop={(e) => { e.preventDefault() }}
         onMouseDown={(e) => {
           // Stop propagation to prevent parent ElementBox from starting drag operations
           // This allows proper text selection and editing
@@ -1181,8 +1442,44 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
           e.stopPropagation()
         }}
         onKeyDown={(e) => {
+          // Let the browser handle character input normally; we enforce overflow
+          // in handleInput/blockExtraInput so content never scrolls or leaves the box.
+
           if (e.key === 'Enter' && !e.shiftKey) {
-            // Let browser insert the new block/line, then ensure toolbar/list state is preserved
+            const editor = editorRef.current
+            if (editor) {
+              const sel = window.getSelection()
+              let inList = false
+              if (sel && sel.rangeCount > 0) {
+                let node = sel.getRangeAt(0).startContainer
+                if (node.nodeType === Node.TEXT_NODE) node = node.parentElement
+                while (node && node !== editor) {
+                  if (node.tagName === 'UL' || node.tagName === 'OL') {
+                    inList = true
+                    break
+                  }
+                  node = node.parentElement
+                }
+              }
+
+              if (!inList) {
+                // Normal text: treat Enter as a single line break instead of inserting
+                // an extra empty block, to avoid the "double line" effect.
+                e.preventDefault()
+                captureSnapshot()
+                try {
+                  document.execCommand('insertLineBreak')
+                } catch {}
+                emitChange()
+                autoResizeElementHeight()
+                captureSnapshot()
+                refreshActiveFormats()
+                return
+              }
+            }
+
+            // Inside lists, keep the browser's default behavior so Enter creates
+            // a new list item, but still keep list style and state in sync.
             captureSnapshot()
             requestAnimationFrame(() => {
               if (desiredListRef.current && desiredListRef.current !== 'none') {
@@ -1196,7 +1493,8 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
         }}
       />
 
-      {showToolbar && containerNodeRef.current && createPortal(
+      {/* Floating toolbar disabled per requirements */}
+      {false && showToolbar && containerNodeRef.current && createPortal(
         <div
           ref={toolbarRef}
           data-mini-toolbar

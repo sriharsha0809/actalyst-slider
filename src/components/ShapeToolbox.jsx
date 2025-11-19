@@ -29,8 +29,8 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'First slide',
       preview: (
         <div className="w-full h-full bg-white p-2 flex flex-col items-center justify-center">
-          <div className="w-3/4 h-2 bg-blue-400 mb-2"></div>
-          <div className="w-1/2 h-1.5 bg-blue-300"></div>
+          <div className="w-3/4 h-2 bg-gray-500 mb-2 rounded-full"></div>
+          <div className="w-1/2 h-1.5 bg-gray-300 rounded-full"></div>
         </div>
       )
     },
@@ -39,8 +39,8 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'Most common',
       preview: (
         <div className="w-full h-full bg-white p-2">
-          <div className="w-full h-1.5 bg-blue-400 mb-2"></div>
-          <div className="w-full h-8 bg-gray-200 rounded"></div>
+          <div className="w-full h-1.5 bg-gray-500 mb-2 rounded-full"></div>
+          <div className="w-full h-8 bg-gray-100 rounded"></div>
         </div>
       )
     },
@@ -48,9 +48,9 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       name: 'Section Header',
       description: 'New section',
       preview: (
-        <div className="w-full h-full bg-gradient-to-br from-purple-200 to-blue-200 p-2 flex flex-col justify-center">
-          <div className="w-3/4 h-2 bg-purple-500 mb-1"></div>
-          <div className="w-1/2 h-1 bg-purple-400"></div>
+        <div className="w-full h-full bg-white p-2 flex flex-col justify-center">
+          <div className="w-3/4 h-2 bg-gray-600 mb-1 rounded-full"></div>
+          <div className="w-1/2 h-1 bg-gray-400 rounded-full"></div>
         </div>
       )
     },
@@ -59,7 +59,7 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'Minimal layout',
       preview: (
         <div className="w-full h-full bg-white p-2">
-          <div className="w-full h-1.5 bg-blue-400"></div>
+          <div className="w-full h-1.5 bg-gray-500 rounded-full"></div>
         </div>
       )
     },
@@ -68,9 +68,9 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'Side by side',
       preview: (
         <div className="w-full h-full bg-white p-2">
-          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="w-full h-1.5 bg-gray-500 mb-1 rounded-full"></div>
           <div className="flex gap-1 h-8">
-            <div className="flex-1 bg-gray-200 rounded"></div>
+            <div className="flex-1 bg-gray-100 rounded"></div>
             <div className="flex-1 bg-gray-200 rounded"></div>
           </div>
         </div>
@@ -81,15 +81,15 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'Labeled boxes',
       preview: (
         <div className="w-full h-full bg-white p-2">
-          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="w-full h-1.5 bg-gray-500 mb-1 rounded-full"></div>
           <div className="flex gap-1 h-8">
             <div className="flex-1">
-              <div className="h-1 bg-green-400 mb-0.5"></div>
-              <div className="h-6 bg-gray-200 rounded"></div>
+              <div className="h-1 bg-gray-500 mb-0.5 rounded-full"></div>
+              <div className="h-6 bg-gray-100 rounded"></div>
             </div>
             <div className="flex-1">
-              <div className="h-1 bg-red-400 mb-0.5"></div>
-              <div className="h-6 bg-gray-200 rounded"></div>
+              <div className="h-1 bg-gray-400 mb-0.5 rounded-full"></div>
+              <div className="h-6 bg-gray-100 rounded"></div>
             </div>
           </div>
         </div>
@@ -107,10 +107,10 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'Text beside',
       preview: (
         <div className="w-full h-full bg-white p-2">
-          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="w-full h-1.5 bg-gray-500 mb-1 rounded-full"></div>
           <div className="flex gap-1 h-8">
-            <div className="w-2/3 bg-gray-200 rounded"></div>
-            <div className="w-1/3 bg-gray-100 rounded"></div>
+            <div className="w-2/3 bg-gray-100 rounded"></div>
+            <div className="w-1/3 bg-gray-200 rounded"></div>
           </div>
         </div>
       )
@@ -120,9 +120,9 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'Large image',
       preview: (
         <div className="w-full h-full bg-white p-2">
-          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="w-full h-1.5 bg-gray-500 mb-1 rounded-full"></div>
           <div className="flex gap-1 h-8">
-            <div className="w-3/4 bg-gradient-to-br from-blue-200 to-purple-200 rounded"></div>
+            <div className="w-3/4 bg-gray-200 rounded"></div>
             <div className="w-1/4 bg-gray-100 rounded"></div>
           </div>
         </div>
@@ -133,8 +133,8 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'Image focus',
       preview: (
         <div className="w-full h-full bg-white p-2">
-          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
-          <div className="w-full h-8 bg-gradient-to-br from-green-200 to-blue-200 rounded"></div>
+          <div className="w-full h-1.5 bg-gray-500 mb-1 rounded-full"></div>
+          <div className="w-full h-8 bg-gray-200 rounded"></div>
         </div>
       )
     },
@@ -142,10 +142,10 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       name: 'Quote Slide',
       description: 'Quotations',
       preview: (
-        <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-orange-100 p-2 flex items-center justify-center">
+        <div className="w-full h-full bg-white p-2 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-8 h-1 bg-orange-400 mx-auto mb-1"></div>
-            <div className="w-6 h-0.5 bg-orange-300 mx-auto"></div>
+            <div className="w-8 h-1 bg-gray-500 mx-auto mb-1 rounded-full"></div>
+            <div className="w-6 h-0.5 bg-gray-300 mx-auto rounded-full"></div>
           </div>
         </div>
       )
@@ -155,12 +155,12 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'Data visuals',
       preview: (
         <div className="w-full h-full bg-white p-2">
-          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="w-full h-1.5 bg-gray-500 mb-1 rounded-full"></div>
           <div className="w-full h-8 bg-gray-100 rounded flex items-end justify-around p-1">
-            <div className="w-1 bg-blue-400 h-4"></div>
-            <div className="w-1 bg-green-400 h-6"></div>
-            <div className="w-1 bg-red-400 h-3"></div>
-            <div className="w-1 bg-yellow-400 h-5"></div>
+            <div className="w-1 bg-gray-400 h-4 rounded"></div>
+            <div className="w-1 bg-gray-500 h-6 rounded"></div>
+            <div className="w-1 bg-gray-300 h-3 rounded"></div>
+            <div className="w-1 bg-gray-600 h-5 rounded"></div>
           </div>
         </div>
       )
@@ -170,13 +170,13 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       description: 'Workflows',
       preview: (
         <div className="w-full h-full bg-white p-2">
-          <div className="w-full h-1.5 bg-blue-400 mb-1"></div>
+          <div className="w-full h-1.5 bg-gray-500 mb-1 rounded-full"></div>
           <div className="flex items-center justify-around h-8">
-            <div className="w-3 h-3 bg-blue-300 rounded-full"></div>
-            <div className="w-2 h-0.5 bg-gray-400"></div>
-            <div className="w-3 h-3 bg-green-300 rounded-full"></div>
-            <div className="w-2 h-0.5 bg-gray-400"></div>
-            <div className="w-3 h-3 bg-purple-300 rounded-full"></div>
+            <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+            <div className="w-2 h-0.5 bg-gray-300 rounded-full"></div>
+            <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+            <div className="w-2 h-0.5 bg-gray-300 rounded-full"></div>
+            <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
           </div>
         </div>
       )
@@ -185,9 +185,9 @@ export default function ShapeToolbox({ applyToCurrent = false }) {
       name: 'Thank You',
       description: 'Closing slide',
       preview: (
-        <div className="w-full h-full bg-gradient-to-br from-pink-200 to-purple-200 p-2 flex flex-col items-center justify-center">
-          <div className="w-3/4 h-2 bg-purple-500 mb-1"></div>
-          <div className="w-1/2 h-1 bg-purple-400"></div>
+        <div className="w-full h-full bg-white p-2 flex flex-col items-center justify-center">
+          <div className="w-3/4 h-2 bg-gray-600 mb-1 rounded-full"></div>
+          <div className="w-1/2 h-1 bg-gray-400 rounded-full"></div>
         </div>
       )
     }
