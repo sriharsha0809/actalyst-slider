@@ -11,6 +11,8 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
   const [showThemeConfirm, setShowThemeConfirm] = useState(false)
   const [pendingTheme, setPendingTheme] = useState(null)
   const [applyThemeToAllSlides, setApplyThemeToAllSlides] = useState(false)
+  const [showTemplateConfirm, setShowTemplateConfirm] = useState(false)
+  const [pendingTemplate, setPendingTemplate] = useState(null)
 
   useEffect(() => { setClosing(false) }, [isOpen])
 
@@ -680,6 +682,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
   }
 
   const applyTemplate = (template) => {
+    if (!template) return
     // Load template slides into the presentation
     const templateSlides = template.slides.map((slide, index) => ({
       ...slide,
@@ -703,6 +706,33 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
     dispatch({ type: 'LOAD_PRESENTATION', data: newPresentationData })
     onFileOpen?.(template.name)
     requestClose()
+  }
+
+  const openTemplateConfirm = (template) => {
+    setPendingTemplate(template)
+    setShowTemplateConfirm(true)
+  }
+
+  const handleTemplateCancel = () => {
+    setShowTemplateConfirm(false)
+    setPendingTemplate(null)
+  }
+
+  const handleTemplateProceed = () => {
+    if (!pendingTemplate) return
+    applyTemplate(pendingTemplate)
+    setShowTemplateConfirm(false)
+    setPendingTemplate(null)
+  }
+
+  const handleTemplateSaveAndProceed = async () => {
+    if (!pendingTemplate) return
+    try {
+      await handleSave()
+    } catch {}
+    applyTemplate(pendingTemplate)
+    setShowTemplateConfirm(false)
+    setPendingTemplate(null)
   }
 
   return (
@@ -807,7 +837,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
                 {PRESENTATION_TEMPLATES.map((template) => (
                   <button
                     key={template.id}
-                    onClick={() => applyTemplate(template)}
+                    onClick={() => openTemplateConfirm(template)}
                     className="bg-white rounded-2xl shadow-sm p-4 transition-all duration-500 ease-out hover:scale-[1.02] hover:shadow-lg border border-white/60 text-left group"
                     title={template.description}
                   >
@@ -875,6 +905,45 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
           </div>
         </div>
       </div>
+
+      {/* Template apply dialog */}
+      {showTemplateConfirm && pendingTemplate && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl w-[500px] p-7 border border-white/80 relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.65),_transparent_70%)] pointer-events-none" />
+            <div className="relative">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Apply “{pendingTemplate.name}” Template?</h3>
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                Applying this template will replace your current slides. Any unsaved edits will be lost.
+                You can proceed directly, save and then apply, or cancel.
+              </p>
+              <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={handleTemplateCancel}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTemplateSaveAndProceed}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium shadow hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all text-sm"
+                >
+                  Save & Proceed
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTemplateProceed}
+                  className="px-4 py-2 rounded-lg bg-red-500 text-white font-medium shadow hover:bg-red-600 hover:shadow-lg transition-all text-sm"
+                >
+                  Proceed
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Theme apply dialog */}
       {showThemeConfirm && pendingTheme && (

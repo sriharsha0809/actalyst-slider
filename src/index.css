@@ -602,6 +602,38 @@ input[type="text"],
   animation: keynote-pop 500ms cubic-bezier(.2,.7,.2,1) both;
 }
 
+/* Slide dashboard zoom transitions */
+@keyframes slide-dashboard-zoom-in {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes slide-dashboard-zoom-out {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+.slide-dashboard-enter {
+  animation: slide-dashboard-zoom-in 220ms cubic-bezier(.2,.7,.2,1) both;
+}
+.slide-dashboard-exit {
+  animation: slide-dashboard-zoom-out 220ms cubic-bezier(.2,.7,.2,1) both;
+}
+
+/* Generic modal zoom transitions (shapes, image, watermark) */
+@keyframes modal-zoom-in {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes modal-zoom-out {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.92); opacity: 0; }
+}
+.modal-zoom-enter {
+  animation: modal-zoom-in 220ms cubic-bezier(.2,.7,.2,1) both;
+}
+.modal-zoom-exit {
+  animation: modal-zoom-out 220ms cubic-bezier(.2,.7,.2,1) both;
+}
+
 /* Sidebar thumbnail pop-in (Apple Keynote style) */
 @keyframes thumb-pop {
   from { opacity: 0.66; transform: translateY(-8px) scale(0.88); }
@@ -783,6 +815,10 @@ input[type="color"].color-circle::-webkit-color-swatch {
   .scrollbar-thin::-webkit-scrollbar { height: 8px; width: 8px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: theme('colors.gray.300'); border-radius: 9999px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+
+  .smooth-scroll {
+    scroll-behavior: smooth;
+  }
 }
 
 /***** React Spreadsheet Custom Styling - Keynote Inspired *****/

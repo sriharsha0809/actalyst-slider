@@ -299,8 +299,6 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   const onMouseDown = (e) => {
     // Only respond to primary/primary-like pointer across input types
     if (!isPrimaryPointer(e)) return
-    // If this is part of a double-click (detail >= 2), don't start a drag so editing handlers can run
-    try { if (e.detail && e.detail >= 2) return } catch {}
 
     // Do not start dragging when interacting with inline editors/inputs inside the box
     const target = e.target instanceof Element ? e.target : null
@@ -310,7 +308,58 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     // If shape text editing is active for this element, do not drag
     if (shapeEditingId === el.id) return
 
-    // Start dragging immediately on press (Keynote-style) for all elements
+    // For tables, we want Keynote-like behavior:
+    // - Single click selects the table.
+    // - Double click enters cell edit.
+    // - A real drag (mouse move beyond a small threshold) moves the table.
+    if (el.type === 'table') {
+      // If this is clearly part of a double-click, don't arm drag.
+      try { if (e.detail && e.detail >= 2) return } catch {}
+
+      // Record the initial down position and arm a small movement threshold.
+      const start = { x: e.clientX, y: e.clientY }
+      downPosRef.current = start
+
+      const moveHandler = (moveEvt) => {
+        if (!downPosRef.current) return
+        const dx = (moveEvt.clientX ?? start.x) - start.x
+        const dy = (moveEvt.clientY ?? start.y) - start.y
+        const distSq = dx * dx + dy * dy
+        const THRESHOLD_PX = 4
+        if (distSq < THRESHOLD_PX * THRESHOLD_PX) return
+
+        // Threshold exceeded: start a real drag
+        try { moveEvt.stopPropagation(); moveEvt.preventDefault() } catch {}
+        window.removeEventListener('mousemove', moveHandler)
+        window.removeEventListener('mouseup', upHandler)
+        thresholdMoveHandlerRef.current = null
+        thresholdUpHandlerRef.current = null
+        downPosRef.current = null
+
+        isPressedRef.current = true
+        onSelect()
+        startDragFromEvent(moveEvt)
+      }
+
+      const upHandler = () => {
+        window.removeEventListener('mousemove', moveHandler)
+        window.removeEventListener('mouseup', upHandler)
+        thresholdMoveHandlerRef.current = null
+        thresholdUpHandlerRef.current = null
+        downPosRef.current = null
+      }
+
+      thresholdMoveHandlerRef.current = moveHandler
+      thresholdUpHandlerRef.current = upHandler
+      window.addEventListener('mousemove', moveHandler)
+      window.addEventListener('mouseup', upHandler)
+      return
+    }
+
+    // Non-table elements keep the immediate drag behavior (Keynote-style)
+    // but still avoid interfering with double-clicks on text editors.
+    try { if (e.detail && e.detail >= 2) return } catch {}
+
     try { e.stopPropagation(); e.preventDefault(); } catch {}
     isPressedRef.current = true
     onSelect()
@@ -720,17 +769,23 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     // Cancel any pending drag timer so dblclick can enter edit
     if (dragStartTimerRef.current) { try { clearTimeout(dragStartTimerRef.current) } catch {}; dragStartTimerRef.current = null }
     try { onMouseUp() } catch {}
+
+    // Text boxes: hand off to RichTextEditor-based flow
     if (el.type === 'text') {
       e?.stopPropagation?.()
       e?.preventDefault?.()
       onSelect()
       setEditingTextId(el.id)
-    }
-    // For tables, double-click is handled by the TableElement component itself
-    if (el.type === 'table') {
-      // Let the event propagate to table cells
       return
     }
+     // Tables: when the user double‑clicks the table frame (but *not* an individual
+    // cell), we *let* the event bubble to the inner TableElement, which owns
+    // cell‑level editing logic. That component will either hit‑test the cell under
+    // the pointer or fall back to the active cell.
+    if (el.type === 'table') {
+      return
+    }
+
     // For non-text (shapes), allow event to bubble to the shape's own double-click handler
   }
   const stopEditing = () => {
@@ -836,6 +891,10 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       }}
       onMouseDown={onMouseDown}
       onPointerDown={(e)=>{
+        // Tables manage their own hit-testing and editing; let their inner
+        // component receive pointer events directly without capture/drag.
+        if (el.type === 'table') return
+
         // If interacting with an inline editor, don't capture or start drag
         const target = e.target instanceof Element ? e.target : null
         const interactive = target ? target.closest('[contenteditable="true"], textarea, input') : null
@@ -1697,16 +1756,14 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
   }
 
   const handleWrapperDblClick = (e) => {
+    // Double‑click anywhere on the table frame enters edit mode. We start with
+    // the first cell (0,0); cell‑specific double‑clicks are handled on each
+    // cell wrapper below.
+    console.log('[TableElement] wrapper double-click for table', el.id)
     e.stopPropagation()
     if (typeof onSelect === 'function') onSelect()
-    const rect = tableRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const rx = e.clientX - rect.left
-    const ry = e.clientY - rect.top
-    const col = Math.max(0, Math.min(el.cols - 1, Math.floor(rx / (rect.width / el.cols))))
-    const row = Math.max(0, Math.min(el.rows - 1, Math.floor(ry / (rect.height / el.rows))))
-    const idx = row * el.cols + col
-    setEditingCellIndex(idx)
+    if (!Array.isArray(el.cells) || el.cells.length === 0) return
+    setEditingCellIndex(0)
   }
 
   // Ensure textarea receives focus when entering edit mode
@@ -1806,6 +1863,7 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
               try { if (typeof window !== 'undefined') window.currentSelectedTableCell = { id: el.id, cellIndex: index } } catch {}
             }}
             onDoubleClick={(e) => {
+              console.log('[TableElement] cell double-click index', index, 'table', el.id)
               e.stopPropagation()
               setEditingCellIndex(index)
             }}

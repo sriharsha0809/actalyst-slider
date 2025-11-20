@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useSlides, factories } from '../context/SlidesContext.jsx'
 import ChartSelectionDialog from './ChartSelectionDialog.jsx'
+import { SlideThumbnail } from './Sidebar.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { VscListOrdered } from 'react-icons/vsc'
 import { RiPaintBrushLine, RiZoomInLine, RiZoomOutLine } from 'react-icons/ri'
@@ -40,6 +41,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
   const [chartType, setChartType] = useState('bar')
   const [showChartChild, setShowChartChild] = useState(false)
   const [showWatermarkDialog, setShowWatermarkDialog] = useState(false)
+  const [isWatermarkDialogClosing, setIsWatermarkDialogClosing] = useState(false)
   const [wmText, setWmText] = useState('CONFIDENTIAL')
   const [wmOpacity, setWmOpacity] = useState(0.15)
   const [wmRotation, setWmRotation] = useState(-30)
@@ -48,13 +50,24 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
   const [wmAllSlides, setWmAllSlides] = useState(true)
   const [inlineFormats, setInlineFormats] = useState({ bold: false, italic: false, underline: false })
   const [showMoreShapes, setShowMoreShapes] = useState(false)
+  const [isShapesDialogClosing, setIsShapesDialogClosing] = useState(false)
   const [isNarrowScreen, setIsNarrowScreen] = useState(false)
   const fileInputRef = useRef(null)
   const bgFileInputRef = useRef(null)
   const [showImageDialog, setShowImageDialog] = useState(false)
+  const [isImageDialogClosing, setIsImageDialogClosing] = useState(false)
   const [showSidebarMenu, setShowSidebarMenu] = useState(false)
   const sidebarBtnRef = useRef(null)
   const [sidebarMenuPos, setSidebarMenuPos] = useState({ top: 0, left: 0 })
+  const [showSlideDashboard, setShowSlideDashboard] = useState(false)
+  const [isSlideDashboardClosing, setIsSlideDashboardClosing] = useState(false)
+
+  // Slide dashboard drag-reorder state
+  const dashDragIndexRef = useRef(null)
+  const [dashDragOverIndex, setDashDragOverIndex] = useState(null)
+  const [isDashDragging, setIsDashDragging] = useState(false)
+  const dashScrollRef = useRef(null)
+  const dashAutoScrollRef = useRef({ rafId: null, speed: 0 })
   const [name, setName] = useState(fileName)
   useEffect(() => setName(fileName), [fileName])
 
@@ -649,6 +662,99 @@ const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-rom
     return () => document.removeEventListener('mousedown', onDocDown);
   }, [showSidebarMenu])
 
+  const ensureDashAutoScrollLoop = () => {
+    if (dashAutoScrollRef.current.rafId) return
+    const step = () => {
+      const { speed } = dashAutoScrollRef.current
+      const el = dashScrollRef.current
+      if (el && speed) {
+        el.scrollTop += speed
+      }
+      dashAutoScrollRef.current.rafId = isDashDragging ? requestAnimationFrame(step) : null
+    }
+    dashAutoScrollRef.current.rafId = requestAnimationFrame(step)
+  }
+
+  const stopDashAutoScroll = () => {
+    if (dashAutoScrollRef.current.rafId) cancelAnimationFrame(dashAutoScrollRef.current.rafId)
+    dashAutoScrollRef.current.rafId = null
+    dashAutoScrollRef.current.speed = 0
+  }
+
+  const handleDashContainerDragOver = (e) => {
+    // Autoscroll near top/bottom while dragging
+    e.preventDefault()
+    if (!dashScrollRef.current || !isDashDragging) return
+    const rect = dashScrollRef.current.getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const threshold = Math.min(80, rect.height / 4)
+    const maxSpeed = 16
+    let speed = 0
+    if (y < threshold) {
+      speed = -Math.round(((threshold - y) / threshold) * maxSpeed)
+    } else if (y > rect.height - threshold) {
+      speed = Math.round(((y - (rect.height - threshold)) / threshold) * maxSpeed)
+    }
+    dashAutoScrollRef.current.speed = speed
+    if (speed !== 0) ensureDashAutoScrollLoop()
+    else if (speed === 0 && dashAutoScrollRef.current.rafId) {
+      stopDashAutoScroll()
+    }
+  }
+
+  const handleDashDragStart = (e, index) => {
+    dashDragIndexRef.current = index
+    setIsDashDragging(true)
+    try { e.dataTransfer.setData('text/plain', String(index)) } catch {}
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDashDragOver = (e, index) => {
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    if (dashDragOverIndex !== index) setDashDragOverIndex(index)
+  }
+
+  const handleDashDragLeave = (e, index) => {
+    if (dashDragOverIndex === index) setDashDragOverIndex(null)
+  }
+
+  const handleDashDrop = (e, index) => {
+    e.preventDefault()
+    const fromIndexStr = (() => { try { return e.dataTransfer.getData('text/plain') } catch { return '' } })()
+    const fromIndex = Number.isInteger(Number(fromIndexStr)) ? parseInt(fromIndexStr, 10) : dashDragIndexRef.current
+    const toIndex = index
+    if (typeof fromIndex === 'number' && typeof toIndex === 'number' && fromIndex !== toIndex) {
+      dispatch({ type: 'REORDER_SLIDES', fromIndex, toIndex })
+    }
+    dashDragIndexRef.current = null
+    setDashDragOverIndex(null)
+    setIsDashDragging(false)
+    stopDashAutoScroll()
+  }
+
+  const handleDashDragEnd = () => {
+    dashDragIndexRef.current = null
+    setDashDragOverIndex(null)
+    setIsDashDragging(false)
+    stopDashAutoScroll()
+  }
+
+  const openSlideDashboard = () => {
+    setShowSidebarMenu(false)
+    setIsSlideDashboardClosing(false)
+    setShowSlideDashboard(true)
+  }
+
+  const closeSlideDashboard = () => {
+    setIsSlideDashboardClosing(true)
+    // Match CSS animation duration
+    setTimeout(() => {
+      setShowSlideDashboard(false)
+      setIsSlideDashboardClosing(false)
+    }, 220)
+  }
+
   // Close on ESC
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') setShowSidebarMenu(false) }
@@ -890,7 +996,7 @@ className={`${elementBtn('shapes')} w-16 responsive-toolbar-button responsive-to
           </div>
           {/* Image / Background combined */}
           <button 
-            onClick={() => setShowImageDialog(true)}
+            onClick={() => { setIsImageDialogClosing(false); setShowImageDialog(true) }}
 className={`${elementBtn('image')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
             title="Insert Image or Set Background Image"
           >
@@ -915,9 +1021,15 @@ className={`${elementBtn('image')} w-16 responsive-toolbar-button keep-default f
             className="hidden" 
             onChange={handleBgImageUpload}
           />
-          {showImageDialog && createPortal(
-            <div className="fixed inset-0 z-[1000] bg-black/40 flex items-end md:items-center justify-center" onClick={() => setShowImageDialog(false)}>
-              <div className="w-full md:w-[520px] bg-white/70 backdrop-blur-2xl border border-white/60 rounded-t-2xl md:rounded-2xl shadow-2xl p-5 transform transition-all duration-300 ease-out md:scale-100 md:translate-y-0 translate-y-0" onClick={(e)=>e.stopPropagation()}>
+          {(showImageDialog || isImageDialogClosing) && createPortal(
+            <div className="fixed inset-0 z-[1000] bg-black/40 flex items-end md:items-center justify-center" onClick={() => {
+              setIsImageDialogClosing(true)
+              setTimeout(() => { setShowImageDialog(false); setIsImageDialogClosing(false) }, 220)
+            }}>
+              <div
+                className={`w-full md:w-[520px] bg-white/70 backdrop-blur-2xl border border-white/60 rounded-t-2xl md:rounded-2xl shadow-2xl p-5 transform transition-all duration-300 ease-out md:translate-y-0 translate-y-0 ${isImageDialogClosing ? 'modal-zoom-exit' : 'modal-zoom-enter'}`}
+                onClick={(e)=>e.stopPropagation()}
+              >
                 <div className="text-base font-semibold mb-3">Choose Action</div>
                 <div className="grid grid-cols-2 gap-4">
                   <button
@@ -952,7 +1064,7 @@ className={`${elementBtn('image')} w-16 responsive-toolbar-button keep-default f
 
           {/* Watermark Button (Keynote-style lock icon) */}
           <button 
-            onClick={() => setShowWatermarkDialog(true)}
+            onClick={() => { setIsWatermarkDialogClosing(false); setShowWatermarkDialog(true) }}
 className={`${elementBtn('watermark')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
             title="Insert Watermark"
           >
@@ -979,10 +1091,18 @@ className={`${elementBtn('watermark')} w-16 responsive-toolbar-button keep-defau
           </button>
 
           {/* Watermark Dialog */}
-          {showWatermarkDialog && createPortal(
+          {(showWatermarkDialog || isWatermarkDialogClosing) && createPortal(
             <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="absolute inset-0" onClick={() => setShowWatermarkDialog(false)} />
-              <div className="relative w-[440px] max-w-full rounded-2xl bg-gradient-to-br from-white/95 via-gray-50/95 to-gray-100/95 backdrop-blur-2xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.35)] p-5">
+              <div
+                className="absolute inset-0"
+                onClick={() => {
+                  setIsWatermarkDialogClosing(true)
+                  setTimeout(() => { setShowWatermarkDialog(false); setIsWatermarkDialogClosing(false) }, 220)
+                }}
+              />
+              <div
+                className={`relative w-[440px] max-w-full rounded-2xl bg-gradient-to-br from-white/95 via-gray-50/95 to-gray-100/95 backdrop-blur-2xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.35)] p-5 ${isWatermarkDialogClosing ? 'modal-zoom-exit' : 'modal-zoom-enter'}`}
+              >
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <div className="text-sm font-semibold text-gray-900">Insert Watermark</div>
@@ -1065,7 +1185,10 @@ className={`${elementBtn('watermark')} w-16 responsive-toolbar-button keep-defau
 
                 <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-end gap-2">
                   <button
-                    onClick={() => setShowWatermarkDialog(false)}
+                    onClick={() => {
+                      setIsWatermarkDialogClosing(true)
+                      setTimeout(() => { setShowWatermarkDialog(false); setIsWatermarkDialogClosing(false) }, 220)
+                    }}
                     className="px-3.5 py-1.5 rounded-lg border border-gray-200 bg-white/90 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 hover:border-gray-300 hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all"
                   >
                     Cancel
@@ -1077,7 +1200,11 @@ className={`${elementBtn('watermark')} w-16 responsive-toolbar-button keep-defau
                     Remove
                   </button>
                   <button
-                    onClick={() => { handleApplyWatermark(); setShowWatermarkDialog(false) }}
+                    onClick={() => {
+                      handleApplyWatermark()
+                      setIsWatermarkDialogClosing(true)
+                      setTimeout(() => { setShowWatermarkDialog(false); setIsWatermarkDialogClosing(false) }, 220)
+                    }}
                     className="px-4 py-1.5 rounded-lg bg-gray-900 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all"
                   >
                     Apply
@@ -1226,13 +1353,74 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default f
 
       {showSidebarMenu && createPortal(
         <div id="sidebar-toggle-menu" className="fixed z-[1100] px-2 py-2 text-sm rounded-2xl shadow-2xl border border-white/60 bg-white/70 backdrop-blur-2xl" style={{ top: sidebarMenuPos.top, left: sidebarMenuPos.left }}>
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/70 shadow-sm text-gray-800" onClick={() => { setShowSidebarMenu(false); onToggleSidebar(); }}>
+          <div className="flex flex-col items-stretch gap-2">
+            <button className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/70 shadow-sm text-gray-800 text-left" onClick={() => { setShowSidebarMenu(false); onToggleSidebar(); }}>
               {isSidebarOpen ? 'Hide left sidebar' : 'Unhide left sidebar'}
             </button>
-            <button className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/70 shadow-sm text-gray-800" onClick={() => { setShowSidebarMenu(false); try{ window.openFileDashboard?.() }catch{} }}>
-              File dashboard
+            <button className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/70 shadow-sm text-gray-800 text-left" onClick={openSlideDashboard}>
+              Slide dashboard
             </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {(showSlideDashboard || isSlideDashboardClosing) && createPortal(
+        <div
+          className="fixed inset-0 z-[1150] flex items-center justify-center bg-black/50 backdrop-blur-md"
+          onClick={closeSlideDashboard}
+        >
+          <div
+            className={`relative w-full h-full max-w-6xl max-h-[90vh] mx-4 my-6 rounded-3xl bg-white/90 border border-white/80 shadow-[0_24px_80px_rgba(15,23,42,0.55)] overflow-hidden ${isSlideDashboardClosing ? 'slide-dashboard-exit' : 'slide-dashboard-enter'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white/90">
+              <div>
+                <div className="text-sm font-semibold text-gray-900">Slide Dashboard</div>
+                <div className="text-xs text-gray-500 mt-0.5">Click a slide to jump to it</div>
+              </div>
+              <button
+                type="button"
+                onClick={closeSlideDashboard}
+                className="px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-700 shadow-sm"
+              >
+                Close
+              </button>
+            </div>
+            <div
+              className="px-6 py-4 h-[calc(100%-56px)] overflow-auto scrollbar-thin smooth-scroll"
+              ref={dashScrollRef}
+              onDragOver={handleDashContainerDragOver}
+              onDragLeave={() => { dashAutoScrollRef.current.speed = 0 }}
+            >
+              <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {state.slides.map((s, idx) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`group text-left focus:outline-none ${dashDragOverIndex === idx && dashDragIndexRef.current !== idx ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white' : ''}`}
+                    draggable
+                    onDragStart={(e) => handleDashDragStart(e, idx)}
+                    onDragEnd={handleDashDragEnd}
+                    onDragOver={(e) => handleDashDragOver(e, idx)}
+                    onDragLeave={(e) => handleDashDragLeave(e, idx)}
+                    onDrop={(e) => handleDashDrop(e, idx)}
+                    onClick={() => {
+                      dispatch({ type: 'SET_CURRENT_SLIDE', id: s.id })
+                      closeSlideDashboard()
+                    }}
+                  >
+                    <div className="w-full aspect-video bg-white rounded-2xl shadow-md overflow-hidden flex items-center justify-center group-hover:shadow-xl group-hover:-translate-y-0.5 transition-all duration-200 p-2">
+                      <SlideThumbnail slide={s} slideNumber={idx + 1} isActive={s.id === state.currentSlideId} />
+                    </div>
+                    <div className="mt-2 text-xs text-gray-600 flex items-center justify-between">
+                      <span className="font-medium">Slide {idx + 1}</span>
+                      <span className="text-[10px] text-gray-400 truncate max-w-[140px]">{s.name || ''}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>,
         document.body
@@ -1374,19 +1562,25 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default f
 
 
       {/* Shapes Dashboard (modal, similar to chart picker style) */}
-      {showMoreShapes && createPortal(
+      {(showMoreShapes || isShapesDialogClosing) && createPortal(
         <div 
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40" 
-          onClick={() => setShowMoreShapes(false)}
+          onClick={() => {
+            setIsShapesDialogClosing(true)
+            setTimeout(() => { setShowMoreShapes(false); setIsShapesDialogClosing(false) }, 220)
+          }}
         >
           <div 
-            className="bg-white/60 backdrop-blur-xl border border-white/60 rounded-2xl shadow-2xl p-6 w-[720px] max-w-[90vw]" 
+            className={`bg-white/60 backdrop-blur-xl border border-white/60 rounded-2xl shadow-2xl p-6 w-[720px] max-w-[90vw] ${isShapesDialogClosing ? 'modal-zoom-exit' : 'modal-zoom-enter'}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-800">Insert Shape</h3>
               <button 
-                onClick={() => setShowMoreShapes(false)} 
+                onClick={() => {
+                  setIsShapesDialogClosing(true)
+                  setTimeout(() => { setShowMoreShapes(false); setIsShapesDialogClosing(false) }, 220)
+                }} 
                 className="text-gray-500 hover:text-gray-800 text-xl leading-none"
                 aria-label="Close shapes panel"
               >

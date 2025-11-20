@@ -240,7 +240,7 @@ export default function Sidebar() {
 }
 
 // SlideThumbnail component to render miniature version of slide content
-function SlideThumbnail({ slide, slideNumber, isActive }) {
+export function SlideThumbnail({ slide, slideNumber, isActive }) {
   const containerRef = React.useRef(null)
   const [scale, setScale] = React.useState(0.18)
   const [liveOverrides, setLiveOverrides] = React.useState({})
