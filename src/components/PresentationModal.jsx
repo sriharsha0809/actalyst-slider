@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSlides } from '../context/SlidesContext.jsx'
 import SlideView from './SlideView.jsx'
+import KeynoteBarChart from './KeynoteBarChart.jsx'
+import KeynoteLineChart from './KeynoteLineChart.jsx'
+import KeynotePieChart from './KeynotePieChart.jsx'
 
 export default function PresentationModal({ mode = 'auto', onClose }) {
   const { state, dispatch } = useSlides()
@@ -120,9 +123,9 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
     const tryFs = async () => {
       try {
         if (!document.fullscreenElement && el.requestFullscreen) {
-          await el.requestFullscreen({ navigationUI: 'hide' }).catch(()=>{})
+          await el.requestFullscreen({ navigationUI: 'hide' }).catch(() => { })
         }
-      } catch {}
+      } catch { }
     }
     // Attempt shortly after mount to still be within user gesture timing
     const t = setTimeout(tryFs, 0)
@@ -130,9 +133,9 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
       clearTimeout(t)
       try {
         if (document.fullscreenElement && document.exitFullscreen) {
-          document.exitFullscreen().catch(()=>{})
+          document.exitFullscreen().catch(() => { })
         }
-      } catch {}
+      } catch { }
     }
   }, [])
 
@@ -160,7 +163,7 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
       setIsFullscreen(fs)
       // If user exited fullscreen (Esc or OS minimize), close presentation
       if (!fs) {
-        try { onClose && onClose() } catch {}
+        try { onClose && onClose() } catch { }
       }
     }
     document.addEventListener('fullscreenchange', onFs)
@@ -174,14 +177,14 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
         await containerRef.current.requestFullscreen({ navigationUI: 'hide' })
         triedFsRef.current = true
       }
-    } catch {}
+    } catch { }
   }
   const exitFS = async () => {
     try {
       if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen()
-    } catch {}
+    } catch { }
     // After minimizing (exiting fullscreen), navigate back to main page
-    try { onClose && onClose() } catch {}
+    try { onClose && onClose() } catch { }
   }
 
   const onHoverZoneEnter = () => setShowControls(true)
@@ -193,7 +196,7 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
   return (
     <div ref={containerRef} className="fixed inset-0 z-50 bg-black" onPointerDownCapture={handleFirstInteract} onMouseMove={handleFirstInteract}>
       <div className="absolute inset-0">
-        <SlideStage/>
+        <SlideStage />
 
         {/* Bottom hover zone to reveal controls */}
         <div className="absolute left-0 right-0 bottom-0" style={{ height: 80 }} onMouseEnter={onHoverZoneEnter} onMouseLeave={onHoverZoneLeave} />
@@ -206,25 +209,25 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
 
             {/* Fullscreen toggle */}
             <button
-              onClick={(e)=>{ e.stopPropagation(); isFullscreen ? exitFS() : requestFS() }}
+              onClick={(e) => { e.stopPropagation(); isFullscreen ? exitFS() : requestFS() }}
               className="w-7 h-7 rounded-full bg-white/90 text-black flex items-center justify-center hover:bg-white"
               title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
             >
               {isFullscreen ? (
                 // Minimize icon
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 15H5v4"/>
-                  <path d="M15 9h4V5"/>
-                  <path d="M15 19l4-4"/>
-                  <path d="M9 5L5 9"/>
+                  <path d="M9 15H5v4" />
+                  <path d="M15 9h4V5" />
+                  <path d="M15 19l4-4" />
+                  <path d="M9 5L5 9" />
                 </svg>
               ) : (
                 // Maximize icon
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 5H5v4"/>
-                  <path d="M15 19h4v-4"/>
-                  <path d="M5 9l4-4"/>
-                  <path d="M19 15l-4 4"/>
+                  <path d="M9 5H5v4" />
+                  <path d="M15 19h4v-4" />
+                  <path d="M5 9l4-4" />
+                  <path d="M19 15l-4 4" />
                 </svg>
               )}
             </button>
@@ -232,7 +235,7 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
             {/* Play or Pause */}
             {localMode === 'auto' && !isPaused ? (
               <button
-                onClick={(e)=>{ e.stopPropagation(); setLocalMode('manual'); setIsPaused(true); if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } clearEndOverlay() }}
+                onClick={(e) => { e.stopPropagation(); setLocalMode('manual'); setIsPaused(true); if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } clearEndOverlay() }}
                 className="w-7 h-7 rounded-full bg-white/90 text-black flex items-center justify-center hover:bg-white"
                 title="Pause slideshow"
               >
@@ -243,7 +246,7 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
               </button>
             ) : (
               <button
-                onClick={(e)=>{ e.stopPropagation(); setLocalMode('auto'); setIsPaused(false); setTimeRemaining(5); clearEndOverlay() }}
+                onClick={(e) => { e.stopPropagation(); setLocalMode('auto'); setIsPaused(false); setTimeRemaining(5); clearEndOverlay() }}
                 className="w-7 h-7 rounded-full bg-white/90 text-black flex items-center justify-center hover:bg-white"
                 title="Play slideshow from current"
               >
@@ -261,12 +264,12 @@ export default function PresentationModal({ mode = 'auto', onClose }) {
             )}
           </div>
         )}
-        
+
         {/* Close with Esc — no visible close button per requirements */}
 
         {/* End-of-presentation overlay */}
         {showEndOverlay && (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.35)' }} onClick={(e)=>{ e.stopPropagation(); clearEndOverlay() }}>
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.35)' }} onClick={(e) => { e.stopPropagation(); clearEndOverlay() }}>
             <div className="text-white text-xl font-semibold px-6 py-4 rounded-lg keynote-pop" style={{ background: 'rgba(0,0,0,0.65)' }}>
               This is your last slide
             </div>
@@ -306,16 +309,9 @@ function SlideStage() {
   const offsetX = Math.max(0, (vw - contentW) / 2)
   const offsetY = Math.max(0, (vh - contentH) / 2)
 
-  // Slide transition animation direction
-  const currentIdx = state.slides.findIndex(s => s.id === state.currentSlideId)
-  const prevIdxRef = React.useRef(currentIdx)
-  const [animClass, setAnimClass] = useState('slide-anim-next')
-  useEffect(() => {
-    const prev = prevIdxRef.current
-    const dir = currentIdx > prev ? 'slide-anim-next' : currentIdx < prev ? 'slide-anim-prev' : 'slide-anim-next'
-    setAnimClass(dir)
-    prevIdxRef.current = currentIdx
-  }, [currentIdx])
+  // Simple fade transition for the slide container itself
+  // Content animations handle the rest
+  const animClass = 'slide-anim-fade'
 
   return (
     <div className="absolute inset-0" style={{ background: 'transparent' }}>
@@ -356,11 +352,11 @@ function PresentationShapeWithText({ el, shapeClass, clipPath }) {
   const justifyContent = textVAlign === 'bottom' ? 'flex-end' : (textVAlign === 'middle' ? 'center' : 'flex-start')
 
   return (
-    <div 
+    <div
       className={`w-full h-full ${shapeClass}`}
       style={shapeStyle}
     >
-      <div 
+      <div
         className="w-full h-full flex p-2"
         style={{
           color: el.textColor,
@@ -385,7 +381,7 @@ function PresentationMessageShape({ el }) {
   return (
     <div className="w-full h-full relative">
       {/* Message bubble shape */}
-      <div 
+      <div
         className="w-full h-full rounded-lg relative"
         style={{
           background: el.fill,
@@ -393,7 +389,7 @@ function PresentationMessageShape({ el }) {
           opacity: el.opacity == null ? 1 : el.opacity,
         }}
       >
-        <div 
+        <div
           className="w-full h-full flex p-2"
           style={{
             color: el.textColor,
@@ -412,7 +408,7 @@ function PresentationMessageShape({ el }) {
         </div>
       </div>
       {/* Message tail */}
-      <div 
+      <div
         className="absolute bottom-0 left-4 w-0 h-0"
         style={{
           borderLeft: '10px solid transparent',
@@ -420,7 +416,7 @@ function PresentationMessageShape({ el }) {
           borderTop: `15px solid ${el.stroke}`
         }}
       />
-      <div 
+      <div
         className="absolute bottom-1 left-5 w-0 h-0"
         style={{
           borderLeft: '8px solid transparent',
@@ -504,78 +500,12 @@ function PresentationChartElement({ el, slideId }) {
     // Build bar-friendly data rows
     const dataBar = cats.map((name, i) => {
       const row = { name }
-      allSeries.forEach((s, idx) => { row[idx === 0 ? 'value' : `v${idx+1}`] = Number(s.data[i])||0 })
+      allSeries.forEach((s, idx) => { row[idx === 0 ? 'value' : `v${idx + 1}`] = Number(s.data[i]) || 0 })
       return row
     })
     return (
       <div className="w-full h-full" style={{ background: 'transparent' }}>
-        <KeynoteBarChart key={`${el.id}-${slideId}-${el.chartStyle||'2d'}`} data={dataBar} variant={el.chartStyle || '2d'} showLegend={legendOpts.show !== false} seriesNames={seriesNames} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} showXAxis={showXAxis} showYAxis={showYAxis} showMinorGridlines={showMinorGridlines} />
-      </div>
-    )
-    const P = 8 // padding
-    const chartH = 180
-    const axisT = 1
-    const yAxisW = 28
-    const innerW = Math.max(0, el.w - P * 2)
-    const plotW = Math.max(0, innerW - yAxisW)
-
-    // Prefer numeric labels when present
-    const parsedFromLabels = labels.map((l) => {
-      const v = parseFloat(l)
-      return Number.isFinite(v) ? v : null
-    })
-    const preferLabelValues = parsedFromLabels.some(v => v !== null)
-    const series = (preferLabelValues ? parsedFromLabels : data).map((v, i) => {
-      if (v === null || !Number.isFinite(v)) return Number.isFinite(data[i]) ? data[i] : 0
-      return v
-    })
-
-    const hasData = series.length > 0
-    const maxValue = hasData ? Math.max(...series) : 1
-    const minValue = hasData ? Math.min(...series) : 0
-    const range = Math.max(1e-6, maxValue - minValue)
-
-    const barGap = 2
-    const barCount = series.length
-    const barW = barCount ? Math.max(1, Math.floor((plotW - (barCount - 1) * barGap) / barCount)) : 0
-
-    return (
-      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', padding: P }}>
-        {/* Axes */}
-        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, height: axisT, backgroundColor: '#9ca3af' }} />
-        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: axisT, height: chartH, backgroundColor: '#9ca3af' }} />
-
-        {/* Bars */}
-        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P + axisT, width: plotW, height: chartH, display: 'flex', alignItems: 'flex-end' }}>
-          {series.map((value, index) => (
-            <div key={index} style={{ width: barW, height: chartH, marginRight: index < barCount - 1 ? barGap : 0, display: 'flex', alignItems: 'flex-end' }}>
-              <div className="w-full rounded-t" style={{ height: Math.max(Math.round(((range > 0 ? ((value - minValue) / range) : 0.5) * chartH)), 2), backgroundColor: colors[index % colors.length] || '#60a5fa' }} />
-            </div>
-          ))}
-        </div>
-
-        {/* Y-axis tick labels */}
-        <div style={{ position: 'absolute', left: P, top: P, width: yAxisW - 4, height: chartH }}>
-          {Array.from({ length: 5 }).map((_, i) => {
-            const t = i / 4
-            const val = (minValue + (1 - t) * range)
-            const y = Math.round(t * chartH)
-            return (
-              <div key={i} style={{ position: 'absolute', left: 0, top: P + y - 6, width: '100%', textAlign: 'right', fontSize: 10, color: '#6b7280' }}>
-                {Number.isFinite(val) ? Math.round(val) : ''}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* X-axis labels */}
-        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, transform: 'translateY(100%)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 4 }}>
-          {(preferLabelValues ? labels : labels).map((label, index) => (
-            <span key={index} className="text-gray-600 truncate" style={{ fontSize: 10, maxWidth: barW }}>
-              {label}
-            </span>
-          ))}
-        </div>
+        <KeynoteBarChart key={`${el.id}-${slideId}-${el.chartStyle || '2d'}`} data={dataBar} variant={el.chartStyle || '2d'} showLegend={legendOpts.show !== false} seriesNames={seriesNames} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} showXAxis={showXAxis} showYAxis={showYAxis} showMinorGridlines={showMinorGridlines} />
       </div>
     )
   }
@@ -587,71 +517,12 @@ function PresentationChartElement({ el, slideId }) {
     const seriesNames = allSeries.map((s, idx) => s?.name || `Series ${idx + 1}`)
     const dataLine = cats.map((name, i) => {
       const row = { name }
-      allSeries.forEach((s, idx) => { row[idx === 0 ? 'value' : `v${idx+1}`] = Number(s.data[i])||0 })
+      allSeries.forEach((s, idx) => { row[idx === 0 ? 'value' : `v${idx + 1}`] = Number(s.data[i]) || 0 })
       return row
     })
     return (
       <div className="w-full h-full" style={{ background: 'transparent' }}>
-        <KeynoteLineChart key={`${el.id}-${slideId}-${el.chartStyle||'simple'}`} data={dataLine} variant={el.chartStyle || 'simple'} showLegend={legendOpts.show !== false} seriesNames={seriesNames} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} showXAxis={showXAxis} showYAxis={showYAxis} showMinorGridlines={showMinorGridlines} />
-      </div>
-    )
-    const P = 8
-    const chartH = 180
-    const yAxisW = 28
-    const innerW = Math.max(0, el.w - P * 2)
-    const plotW = Math.max(0, innerW - yAxisW)
-
-    const hasData = data.length > 0
-    const maxValue = hasData ? Math.max(...data) : 1
-    const minValue = hasData ? Math.min(...data) : 0
-    const range = Math.max(1e-6, maxValue - minValue)
-
-    const padX = 2
-    const effW = Math.max(0, plotW - 2 * padX)
-    const pxPoints = data.map((value, index) => {
-      const x = (index / Math.max(1, data.length - 1)) * effW + padX
-      const y = chartH - ((value - minValue) / range) * chartH
-      return `${x},${y}`
-    }).join(' ')
-
-    return (
-      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', padding: P }}>
-        {/* Axes */}
-        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, height: 1, backgroundColor: '#9ca3af' }} />
-        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: 1, height: chartH, backgroundColor: '#9ca3af' }} />
-
-        {/* Plot area */}
-        <div style={{ position: 'absolute', left: P + yAxisW, top: P, width: plotW, height: chartH }}>
-          <svg viewBox={`0 0 ${plotW} ${chartH}`} width="100%" height="100%" preserveAspectRatio="none">
-            <polyline points={pxPoints} fill="none" stroke={colors[0] || '#60a5fa'} strokeWidth="2" />
-            {data.map((value, index) => {
-              const x = (index / Math.max(1, data.length - 1)) * (plotW - 2 * padX) + padX
-              const y = chartH - ((value - minValue) / range) * chartH
-              return <circle key={index} cx={x} cy={y} r="2" fill={colors[0] || '#60a5fa'} />
-            })}
-          </svg>
-        </div>
-
-        {/* Y-axis tick labels */}
-        <div style={{ position: 'absolute', left: P, top: P, width: yAxisW - 4, height: chartH }}>
-          {Array.from({ length: 5 }).map((_, i) => {
-            const t = i / 4
-            const val = (minValue + (1 - t) * range)
-            const y = Math.round(t * chartH)
-            return (
-              <div key={i} style={{ position: 'absolute', left: 0, top: P + y - 6, width: '100%', textAlign: 'right', fontSize: 10, color: '#6b7280' }}>
-                {Number.isFinite(val) ? Math.round(val) : ''}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* X-axis labels */}
-        <div style={{ position: 'absolute', left: P + yAxisW, bottom: P, width: plotW, transform: 'translateY(100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {labels.map((label, index) => (
-            <span key={index} className="text-gray-600 truncate" style={{ fontSize: 10 }}>{label}</span>
-          ))}
-        </div>
+        <KeynoteLineChart key={`${el.id}-${slideId}-${el.chartStyle || 'simple'}`} data={dataLine} variant={el.chartStyle || 'simple'} showLegend={legendOpts.show !== false} seriesNames={seriesNames} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} showXAxis={showXAxis} showYAxis={showYAxis} showMinorGridlines={showMinorGridlines} />
       </div>
     )
   }
@@ -660,42 +531,10 @@ function PresentationChartElement({ el, slideId }) {
     const structured = el.structuredData
     const cats = structured?.categories || el.labels || []
     const s0 = structured?.series?.[0]?.data || el.data || []
-    const dataPie = cats.map((name, i) => ({ name, value: Number(s0[i])||0 }))
+    const dataPie = cats.map((name, i) => ({ name, value: Number(s0[i]) || 0 }))
     return (
       <div className="w-full h-full" style={{ background: 'transparent' }}>
-        <KeynotePieChart key={`${el.id}-${slideId}-${el.chartStyle||'2d'}`} data={dataPie} variant={el.chartStyle || '2d'} showLegend={el.legendOptions?.show !== false} animateKey={slideId} />
-      </div>
-    )
-    const total = Math.max(1, data.reduce((sum, val) => sum + val, 0))
-    let currentAngle = 0
-    return (
-      <div className="w-full h-full bg-white relative" style={{ boxSizing: 'border-box', padding: 8 }}>
-        <svg viewBox="0 0 100 100" className="w-1/2 h-full">
-          {data.map((value, index) => {
-            const percentage = value / total
-            const angle = percentage * 360
-            const startAngle = currentAngle
-            const endAngle = currentAngle + angle
-            currentAngle = endAngle
-            const x1 = 50 + 40 * Math.cos((startAngle - 90) * Math.PI / 180)
-            const y1 = 50 + 40 * Math.sin((startAngle - 90) * Math.PI / 180)
-            const x2 = 50 + 40 * Math.cos((endAngle - 90) * Math.PI / 180)
-            const y2 = 50 + 40 * Math.sin((endAngle - 90) * Math.PI / 180)
-            const largeArc = angle > 180 ? 1 : 0
-            return (
-              <path key={index} d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`} fill={colors[index % colors.length] || '#60a5fa'} />
-            )
-          })}
-        </svg>
-        {/* Legend */}
-        <div style={{ position: 'absolute', right: 8, top: 8, display: 'flex', flexDirection: 'column', gap: 6, maxWidth: '45%' }}>
-          {labels.map((lbl, i) => (
-            <div key={`pie-lg-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 10, height: 10, backgroundColor: colors[i % colors.length] || '#60a5fa', borderRadius: 2 }} />
-              <div style={{ fontSize: 10, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lbl}</div>
-            </div>
-          ))}
-        </div>
+        <KeynotePieChart key={`${el.id}-${slideId}-${el.chartStyle || '2d'}`} data={dataPie} variant={el.chartStyle || '2d'} showLegend={el.legendOptions?.show !== false} animateKey={slideId} />
       </div>
     )
   }

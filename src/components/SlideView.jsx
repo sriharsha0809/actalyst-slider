@@ -136,10 +136,10 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
       const resolveColor = (color, a) => {
         if (!color || a == null || a >= 1) return color
         if (color.startsWith('rgba')) return color
-        if (color.startsWith('rgb(')) return color.replace('rgb(', 'rgba(').replace(/\)$/,'') + `, ${a})`
+        if (color.startsWith('rgb(')) return color.replace('rgb(', 'rgba(').replace(/\)$/, '') + `, ${a})`
         if (color[0] === '#') {
-          const hex = color.replace('#','')
-          const v = hex.length === 3 ? hex.split('').map(ch=>ch+ch).join('') : hex
+          const hex = color.replace('#', '')
+          const v = hex.length === 3 ? hex.split('').map(ch => ch + ch).join('') : hex
           const int = parseInt(v, 16)
           const r = (int >> 16) & 255
           const g = (int >> 8) & 255
@@ -262,8 +262,8 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
                   yAxisLabel={yAxisLabel}
                   showXAxis={showXAxis}
                   showYAxis={showYAxis}
-                showMinorGridlines={showMinorGridlines}
-                minorGridlineOpacity={minorGridlineOpacity}
+                  showMinorGridlines={showMinorGridlines}
+                  minorGridlineOpacity={minorGridlineOpacity}
                 />
               </div>
             </div>
@@ -307,8 +307,8 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
                   yAxisLabel={yAxisLabel}
                   showXAxis={showXAxis}
                   showYAxis={showYAxis}
-                showMinorGridlines={showMinorGridlines}
-                minorGridlineOpacity={minorGridlineOpacity}
+                  showMinorGridlines={showMinorGridlines}
+                  minorGridlineOpacity={minorGridlineOpacity}
                 />
               </div>
             </div>
@@ -471,15 +471,15 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
       const cw = el.w / (cols || 1)
       const ch = el.h / (rows || 1)
       const hexToRgb = (hex) => {
-        try { const m = String(hex || '').replace('#',''); const v = m.length === 3 ? m.split('').map(ch=>ch+ch).join('') : m; const int = parseInt(v,16); return { r:(int>>16)&255,g:(int>>8)&255,b:int&255 } } catch { return { r:0,g:0,b:0 } }
+        try { const m = String(hex || '').replace('#', ''); const v = m.length === 3 ? m.split('').map(ch => ch + ch).join('') : m; const int = parseInt(v, 16); return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 } } catch { return { r: 0, g: 0, b: 0 } }
       }
-      const withAlpha = (hex, aPct=100) => { const a = Math.max(0, Math.min(100, aPct)); if (a>=100||!hex||/^rgba?/i.test(hex)) return hex||'#000'; const {r,g,b}=hexToRgb(hex); return `rgba(${r}, ${g}, ${b}, ${a/100})` }
+      const withAlpha = (hex, aPct = 100) => { const a = Math.max(0, Math.min(100, aPct)); if (a >= 100 || !hex || /^rgba?/i.test(hex)) return hex || '#000'; const { r, g, b } = hexToRgb(hex); return `rgba(${r}, ${g}, ${b}, ${a / 100})` }
       return (
         <div className="w-full h-full" style={{ background: '#fff', border: `1px solid ${el.borderColor || '#000'}`, position: 'relative', boxSizing: 'border-box', overflow: 'hidden' }}>
           {Array.from({ length: rows }).map((_, r) => (
-            <div key={r} style={{ position: 'absolute', left: 0, top: r*ch, width: '100%', height: ch }}>
+            <div key={r} style={{ position: 'absolute', left: 0, top: r * ch, width: '100%', height: ch }}>
               {Array.from({ length: cols }).map((__, c) => {
-                const idx = r*cols + c
+                const idx = r * cols + c
                 const cell = el.cells?.[idx]
                 const isHeader = !!el.headerRow && r === 0
                 const bgBase = (cell?.styles?.bgColor) ? cell.styles.bgColor : (isHeader ? (el.headerBg || '#f3f4f6') : (el.cellBg || '#ffffff'))
@@ -491,7 +491,7 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
                 const align = cell?.styles?.align || 'center'
                 const valign = cell?.styles?.valign || 'middle'
                 return (
-                  <div key={c} style={{ position: 'absolute', left: c*cw, top: 0, width: cw, height: ch, boxSizing: 'border-box', borderRight: `1px solid ${el.borderColor || '#000'}`, borderBottom: `1px solid ${el.borderColor || '#000'}`, background: bg, color: fg, display: 'flex', alignItems: valign==='middle'?'center':(valign==='bottom'?'flex-end':'flex-start'), justifyContent: align==='right'?'flex-end':(align==='center'?'center':'flex-start'), padding: 6, overflow: 'hidden' }}>
+                  <div key={c} style={{ position: 'absolute', left: c * cw, top: 0, width: cw, height: ch, boxSizing: 'border-box', borderRight: `1px solid ${el.borderColor || '#000'}`, borderBottom: `1px solid ${el.borderColor || '#000'}`, background: bg, color: fg, display: 'flex', alignItems: valign === 'middle' ? 'center' : (valign === 'bottom' ? 'flex-end' : 'flex-start'), justifyContent: align === 'right' ? 'flex-end' : (align === 'center' ? 'center' : 'flex-start'), padding: 6, overflow: 'hidden' }}>
                     <span className="truncate" style={{ fontSize: (cell?.styles?.fontSize || 12) }}>{cell?.text || ''}</span>
                   </div>
                 )
@@ -511,13 +511,32 @@ function SlideViewBase({ data, scale = 1, animateKey = null, mode = 'viewer', li
   return (
     <div className="relative" style={{ width: REF_WIDTH, height: REF_HEIGHT, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
       <SlideBackground background={data?.background || '#ffffff'} />
-      {Array.isArray(data?.elements) && data.elements.map(el => {
+      {Array.isArray(data?.elements) && data.elements.map((el, index) => {
         const ov = liveOverrides && el?.id ? liveOverrides[el.id] : null
         const ex = Number.isFinite(ov?.x) ? ov.x : el.x
         const ey = Number.isFinite(ov?.y) ? ov.y : el.y
         const er = Number.isFinite(ov?.rotation) ? ov.rotation : (el.rotation || 0)
+
+        // Animation props
+        const isPresentation = mode === 'presentation'
+        const animClass = isPresentation ? 'element-anim-enter' : ''
+        const animDelay = isPresentation ? `${index * 100}ms` : '0ms'
+        // Force remount on slide change to replay animation
+        const key = isPresentation ? `${el.id}-${animateKey}` : el.id
+
         return (
-          <div key={el.id} className="absolute" style={{ left: ex, top: ey, width: el.w, height: el.h, transform: `rotate(${er}deg)` }}>
+          <div
+            key={key}
+            className={`absolute ${animClass}`}
+            style={{
+              left: ex,
+              top: ey,
+              width: el.w,
+              height: el.h,
+              transform: `rotate(${er}deg)`,
+              animationDelay: animDelay
+            }}
+          >
             <RenderElement el={el} animateKey={animateKey} hidePlaceholders={hidePlaceholders} />
           </div>
         )

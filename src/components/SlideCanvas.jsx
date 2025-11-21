@@ -31,7 +31,7 @@ export default function SlideCanvas({ zoom = 100 }) {
   const [editingShapeId, setEditingShapeId] = useState(null)
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 })
   const [isInitialized, setIsInitialized] = useState(false)
-  
+
   // Store editor ref globally for toolbar access
   window.currentTextEditorRef = useRef(null)
 
@@ -40,14 +40,14 @@ export default function SlideCanvas({ zoom = 100 }) {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect()
       const newDimensions = { width: rect.width, height: rect.height }
-      
+
       setContainerDimensions(prev => {
         if (Math.abs(prev.width - newDimensions.width) > 1 || Math.abs(prev.height - newDimensions.height) > 1) {
           return newDimensions
         }
         return prev
       })
-      
+
       if (!isInitialized && rect.width > 0 && rect.height > 0) {
         setIsInitialized(true)
       }
@@ -59,14 +59,14 @@ export default function SlideCanvas({ zoom = 100 }) {
     const resizeObserver = new ResizeObserver(() => {
       updateContainerDimensions()
     })
-    
+
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current)
     }
-    
+
     // Initial measurement
     updateContainerDimensions()
-    
+
     return () => {
       resizeObserver.disconnect()
     }
@@ -90,7 +90,7 @@ export default function SlideCanvas({ zoom = 100 }) {
       // If id matches or unspecified, clear editing state
       if (!id || id === editingShapeId) setEditingShapeId(null)
     }
-    
+
     window.addEventListener('updateElement', handleUpdateElement)
     window.addEventListener('editShapeText', handleEditShapeText)
     window.addEventListener('stopShapeText', handleStopShapeText)
@@ -112,7 +112,7 @@ export default function SlideCanvas({ zoom = 100 }) {
 
   // Relaxed: do not interfere with selection/caret. This prevents editors from losing focus/caret.
   React.useEffect(() => {
-    const onSelectionChange = () => {}
+    const onSelectionChange = () => { }
     document.addEventListener('selectionchange', onSelectionChange)
     return () => document.removeEventListener('selectionchange', onSelectionChange)
   }, [])
@@ -160,7 +160,7 @@ export default function SlideCanvas({ zoom = 100 }) {
                 if (document && document.activeElement && typeof document.activeElement.blur === 'function') {
                   document.activeElement.blur()
                 }
-              } catch {}
+              } catch { }
               setEditingTextId(null)
               setEditingShapeId(null)
             }
@@ -250,7 +250,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     try {
       if (typeof evt.pointerType === 'string') return !!evt.isPrimary
       if (typeof evt.button === 'number') return evt.button === 0
-    } catch {}
+    } catch { }
     return false
   }
 
@@ -314,7 +314,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     // - A real drag (mouse move beyond a small threshold) moves the table.
     if (el.type === 'table') {
       // If this is clearly part of a double-click, don't arm drag.
-      try { if (e.detail && e.detail >= 2) return } catch {}
+      try { if (e.detail && e.detail >= 2) return } catch { }
 
       // Record the initial down position and arm a small movement threshold.
       const start = { x: e.clientX, y: e.clientY }
@@ -329,7 +329,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
         if (distSq < THRESHOLD_PX * THRESHOLD_PX) return
 
         // Threshold exceeded: start a real drag
-        try { moveEvt.stopPropagation(); moveEvt.preventDefault() } catch {}
+        try { moveEvt.stopPropagation(); moveEvt.preventDefault() } catch { }
         window.removeEventListener('mousemove', moveHandler)
         window.removeEventListener('mouseup', upHandler)
         thresholdMoveHandlerRef.current = null
@@ -358,9 +358,9 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
 
     // Non-table elements keep the immediate drag behavior (Keynote-style)
     // but still avoid interfering with double-clicks on text editors.
-    try { if (e.detail && e.detail >= 2) return } catch {}
+    try { if (e.detail && e.detail >= 2) return } catch { }
 
-    try { e.stopPropagation(); e.preventDefault(); } catch {}
+    try { e.stopPropagation(); e.preventDefault(); } catch { }
     isPressedRef.current = true
     onSelect()
     startDragFromEvent(e)
@@ -394,7 +394,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
         const tt = t.y, bb = t.y + t.h, mm = t.y + t.h / 2
         linesH.push(tt, mm, bb)
       }
-    } catch {}
+    } catch { }
     const elL = nx, elR = nx + el.w, elC = nx + el.w / 2
     const elT = ny, elB = ny + el.h, elM = ny + el.h / 2
     let snapX = nx, snapY = ny, gv = [], gh = []
@@ -414,11 +414,11 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   const liveRafRef = useRef(null)
   const animatingCountRef = useRef(0)
   const emitLive = (x, y) => {
-    try { window.dispatchEvent(new CustomEvent('liveElementMove', { detail: { slideId, id: el.id, x, y, rotation: Number.isFinite(el.rotation) ? el.rotation : 0 } })) } catch {}
+    try { window.dispatchEvent(new CustomEvent('liveElementMove', { detail: { slideId, id: el.id, x, y, rotation: Number.isFinite(el.rotation) ? el.rotation : 0 } })) } catch { }
   }
   const stopLive = () => {
-    if (liveRafRef.current) { try { cancelAnimationFrame(liveRafRef.current) } catch {}; liveRafRef.current = null }
-    try { window.dispatchEvent(new CustomEvent('liveElementMoveEnd', { detail: { slideId, id: el.id } })) } catch {}
+    if (liveRafRef.current) { try { cancelAnimationFrame(liveRafRef.current) } catch { }; liveRafRef.current = null }
+    try { window.dispatchEvent(new CustomEvent('liveElementMoveEnd', { detail: { slideId, id: el.id } })) } catch { }
   }
 
   const onMouseMove = (e) => {
@@ -476,7 +476,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     isPressedRef.current = false
     isDraggingRef.current = false
     if (dragStartTimerRef.current) {
-      try { clearTimeout(dragStartTimerRef.current) } catch {}
+      try { clearTimeout(dragStartTimerRef.current) } catch { }
       dragStartTimerRef.current = null
     }
     // Inertial glide toward final position with spring, then commit
@@ -640,19 +640,19 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     const r = resizeDataRef.current
     if (!r) return
     let { x, y, w, h } = r.start
-    
+
     // Calculate scale factor to convert screen pixels to logical coordinates
     const REF_WIDTH = 960
     const REF_HEIGHT = 540
     const scaleX = containerDimensions.width / REF_WIDTH
     const scaleY = containerDimensions.height / REF_HEIGHT
     const scale = Math.min(scaleX, scaleY)
-    const MARGIN=0 
-    
+    const MARGIN = 0
+
     // Convert pixel deltas to logical coordinates
     const logicalDx = (e.clientX - r.startX) / scale
     const logicalDy = (e.clientY - r.startY) / scale
-    
+
     const hasH = r.dir.includes('e') || r.dir.includes('w')
     const hasV = r.dir.includes('n') || r.dir.includes('s')
     const isCorner = hasH && hasV
@@ -679,35 +679,35 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       h = newH
     } else {
       if (r.dir.includes('e')) {
-      // Expanding eastward - stay within slide boundary
-      w = Math.max(40, Math.min(REF_WIDTH - x, r.start.w + logicalDx))
-    }
-    if (r.dir.includes('s')) {
-      // Expanding southward - stay within slide boundary
-      h = Math.max(40, Math.min(REF_HEIGHT - y, r.start.h + logicalDy))
-    }
-    if (r.dir.includes('w')) { 
-      // Expanding westward - allow slight negative position to reach edge
-      const newW = Math.max(40, r.start.w - logicalDx)
-      const newX = Math.max(-MARGIN, r.start.x + logicalDx) // Allow slight negative
-      // Apply with generous bounds
-      if (newX + newW <= REF_WIDTH + MARGIN * 2) {
-        w = newW
-        x = newX
+        // Expanding eastward - stay within slide boundary
+        w = Math.max(40, Math.min(REF_WIDTH - x, r.start.w + logicalDx))
+      }
+      if (r.dir.includes('s')) {
+        // Expanding southward - stay within slide boundary
+        h = Math.max(40, Math.min(REF_HEIGHT - y, r.start.h + logicalDy))
+      }
+      if (r.dir.includes('w')) {
+        // Expanding westward - allow slight negative position to reach edge
+        const newW = Math.max(40, r.start.w - logicalDx)
+        const newX = Math.max(-MARGIN, r.start.x + logicalDx) // Allow slight negative
+        // Apply with generous bounds
+        if (newX + newW <= REF_WIDTH + MARGIN * 2) {
+          w = newW
+          x = newX
+        }
+      }
+      if (r.dir.includes('n')) {
+        // Expanding northward - allow slight negative position to reach edge
+        const newH = Math.max(40, r.start.h - logicalDy)
+        const newY = Math.max(-MARGIN, r.start.y + logicalDy) // Allow slight negative
+        // Apply with generous bounds
+        if (newY + newH <= REF_HEIGHT + MARGIN * 2) {
+          h = newH
+          y = newY
+        }
       }
     }
-    if (r.dir.includes('n')) { 
-      // Expanding northward - allow slight negative position to reach edge
-      const newH = Math.max(40, r.start.h - logicalDy)
-      const newY = Math.max(-MARGIN, r.start.y + logicalDy) // Allow slight negative
-      // Apply with generous bounds
-      if (newY + newH <= REF_HEIGHT + MARGIN * 2) {
-        h = newH
-        y = newY
-      }
-    }
-    }
-    
+
     // Final safety check within slide boundaries
     // Ensure position is not negative; if it is, reduce size accordingly
     if (x < 0) { w += x; x = 0 }
@@ -717,7 +717,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     h = Math.max(40, Math.min(h, REF_HEIGHT - y))
     x = Math.max(0, Math.min(x, REF_WIDTH - w))
     y = Math.max(0, Math.min(y, REF_HEIGHT - h))
-    
+
     if (el.type === 'image') {
       // Live visual update via motion values
       xMv.set(x)
@@ -748,7 +748,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   const endResize = () => {
     // Stop RAF streaming and commit the last size for images
     if (resizeRafRef.current) {
-      try { cancelAnimationFrame(resizeRafRef.current) } catch {}
+      try { cancelAnimationFrame(resizeRafRef.current) } catch { }
       resizeRafRef.current = null
     }
     if (resizeLatestRef.current) {
@@ -767,8 +767,8 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
 
   const onDoubleClick = (e) => {
     // Cancel any pending drag timer so dblclick can enter edit
-    if (dragStartTimerRef.current) { try { clearTimeout(dragStartTimerRef.current) } catch {}; dragStartTimerRef.current = null }
-    try { onMouseUp() } catch {}
+    if (dragStartTimerRef.current) { try { clearTimeout(dragStartTimerRef.current) } catch { }; dragStartTimerRef.current = null }
+    try { onMouseUp() } catch { }
 
     // Text boxes: hand off to RichTextEditor-based flow
     if (el.type === 'text') {
@@ -778,7 +778,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       setEditingTextId(el.id)
       return
     }
-     // Tables: when the user double‑clicks the table frame (but *not* an individual
+    // Tables: when the user double‑clicks the table frame (but *not* an individual
     // cell), we *let* the event bubble to the inner TableElement, which owns
     // cell‑level editing logic. That component will either hit‑test the cell under
     // the pointer or fall back to the active cell.
@@ -795,14 +795,14 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       if (document && document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur()
       }
-    } catch {}
+    } catch { }
     setEditingTextId(null)
   }
 
   const responsiveCoords = getResponsiveStyle()
   const localScale = responsiveCoords.scale || 1
   const { scale: _omitScale, ...coords } = responsiveCoords
-  
+
   // Keep motion values in sync when props change (and not actively dragging)
   useEffect(() => { if (!isDraggingRef.current) xMv.set(el.x || 0) }, [el.x])
   useEffect(() => { if (!isDraggingRef.current) yMv.set(el.y || 0) }, [el.y])
@@ -831,10 +831,10 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
         if (!base || opacity <= 0) return 'none'
         if (String(base).startsWith('rgba')) return `${bw}px solid ${base}`
         const makeRgba = (color, a) => {
-          if (String(color).startsWith('rgb(')) return String(color).replace('rgb(', 'rgba(').replace(/\)$/,'') + `, ${a})`
+          if (String(color).startsWith('rgb(')) return String(color).replace('rgb(', 'rgba(').replace(/\)$/, '') + `, ${a})`
           if (String(color)[0] === '#') {
-            const hex = String(color).replace('#','')
-            const v = hex.length === 3 ? hex.split('').map(ch=>ch+ch).join('') : hex
+            const hex = String(color).replace('#', '')
+            const v = hex.length === 3 ? hex.split('').map(ch => ch + ch).join('') : hex
             const int = parseInt(v, 16)
             const r = (int >> 16) & 255
             const g = (int >> 8) & 255
@@ -852,8 +852,8 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     boxShadow: drag
       ? '0 4px 14px rgba(0,0,0,0.18)'
       : (el.type === 'image' && resize
-          ? '0 0 0 2px rgba(37,99,235,0.55)'
-          : 'none'),
+        ? '0 0 0 2px rgba(37,99,235,0.55)'
+        : 'none'),
     cursor: el.isWatermark ? 'default' : (drag ? 'grabbing' : (selected ? 'grab' : 'pointer')),
     // Smooth resizing: text boxes keep height animation; images animate both width and height
     transition: (() => {
@@ -890,7 +890,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
         height: el.type === 'image' ? hMv : el.h,
       }}
       onMouseDown={onMouseDown}
-      onPointerDown={(e)=>{
+      onPointerDown={(e) => {
         // Tables manage their own hit-testing and editing; let their inner
         // component receive pointer events directly without capture/drag.
         if (el.type === 'table') return
@@ -900,7 +900,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
         const interactive = target ? target.closest('[contenteditable="true"], textarea, input') : null
         if (interactive) return
         // Prefer pointer events for reliable capture across devices
-        try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+        try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch { }
         // Skip initiating drag if this is a double tap/click
         if ((e.detail && e.detail >= 2)) return
         // Emulate the same behavior as mouse down for dragging across devices
@@ -921,27 +921,27 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
 
       {selected && !el.isWatermark && (
         <>
-          {['n','e','s','w','ne','nw','se','sw'].map(dir => (
-              <div
-                key={dir}
-                onMouseDown={(e)=>startResize(e, dir)}
-                onPointerDown={(e)=>{ try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch {}; if (isPrimaryPointer(e)) startResize(e, dir) }}
-                className={`absolute bg-white rounded-full w-3 h-3 -translate-x-1/2 -translate-y-1/2`}
-                style={{
-                  ...handleStyle(dir, el.w, el.h, containerDimensions),
-                  border: '1px solid rgba(0,0,0,0.25)',
-                  cursor: resizeCursor(dir),
-                  pointerEvents: 'auto',
-                  zIndex: 25,
-                  touchAction: 'none',
-                }}
-              />
+          {['n', 'e', 's', 'w', 'ne', 'nw', 'se', 'sw'].map(dir => (
+            <div
+              key={dir}
+              onMouseDown={(e) => startResize(e, dir)}
+              onPointerDown={(e) => { try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch { }; if (isPrimaryPointer(e)) startResize(e, dir) }}
+              className={`absolute bg-white rounded-full w-3 h-3 -translate-x-1/2 -translate-y-1/2`}
+              style={{
+                ...handleStyle(dir, el.w, el.h, containerDimensions),
+                border: '1px solid rgba(0,0,0,0.25)',
+                cursor: resizeCursor(dir),
+                pointerEvents: 'auto',
+                zIndex: 25,
+                touchAction: 'none',
+              }}
+            />
           ))}
 
           {/* Rotation handle */}
           <div
             onMouseDown={startRotate}
-            onPointerDown={(e)=>{ try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch {}; if (isPrimaryPointer(e)) startRotate(e) }}
+            onPointerDown={(e) => { try { if (e.isPrimary) e.currentTarget.setPointerCapture(e.pointerId) } catch { }; if (isPrimaryPointer(e)) startRotate(e) }}
             title="Rotate"
             className="absolute -top-6 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full shadow"
             style={{ cursor: 'grab', pointerEvents: 'auto', zIndex: 25, touchAction: 'none', border: '1px solid rgba(0,0,0,0.25)' }}
@@ -950,25 +950,25 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
           {/* Delete button */}
           <button
             type="button"
-            onPointerDown={(e)=>{ 
-              e.stopPropagation(); 
-              e.preventDefault(); 
-            }}
-            onMouseDown={(e)=>{ 
-              e.stopPropagation(); 
-              e.preventDefault(); 
-            }}
-            onClick={(e)=>{ 
-              e.stopPropagation(); 
+            onPointerDown={(e) => {
+              e.stopPropagation();
               e.preventDefault();
-              onDelete(); 
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onDelete();
             }}
             onPointerUp={(e) => e.stopPropagation()}
             onMouseUp={(e) => e.stopPropagation()}
             className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-6 h-6 text-xs shadow flex items-center justify-center"
-            style={{ 
-              zIndex: 99, 
-              pointerEvents: 'auto', 
+            style={{
+              zIndex: 99,
+              pointerEvents: 'auto',
               touchAction: 'none',
               border: 'none',
               outline: 'none',
@@ -1074,7 +1074,7 @@ function handleStyle(dir, w, h, _containerDimensions) {
   return pos[dir]
 }
 
-function renderElement(el, opts={}) {
+function renderElement(el, opts = {}) {
   const scale = opts.scale || 1
   switch (el.type) {
     case 'text':
@@ -1118,7 +1118,7 @@ function renderElement(el, opts={}) {
     case 'image':
       return (
         el.src ? (
-            <div
+          <div
             className="w-full h-full relative flex items-center justify-center"
             style={{
               boxShadow: (() => {
@@ -1231,7 +1231,7 @@ function ShapeWithText({ el, shapeClass, clipPath, scale = 1, onChange, editing 
     const withinThis = (target instanceof Element) ? (inputRef.current && (target === inputRef.current || inputRef.current.contains(target))) : false
     if (!withinSlide || withinThis) {
       // Restore focus to keep editing when clicking outside slide (e.g., toolbar/nav)
-      requestAnimationFrame(() => { try { inputRef.current && inputRef.current.focus() } catch {} })
+      requestAnimationFrame(() => { try { inputRef.current && inputRef.current.focus() } catch { } })
       return
     }
     setIsEditing(false)
@@ -1241,10 +1241,10 @@ function ShapeWithText({ el, shapeClass, clipPath, scale = 1, onChange, editing 
       } else {
         try {
           window.dispatchEvent(new CustomEvent('updateElement', { detail: { id: el.id, patch: { text } } }))
-        } catch {}
+        } catch { }
       }
     }
-    try { window.dispatchEvent(new CustomEvent('stopShapeText', { detail: { id: el.id } })) } catch {}
+    try { window.dispatchEvent(new CustomEvent('stopShapeText', { detail: { id: el.id } })) } catch { }
   }
 
   const handleKeyDown = (e) => {
@@ -1276,36 +1276,36 @@ function ShapeWithText({ el, shapeClass, clipPath, scale = 1, onChange, editing 
   const justifyContent = textVAlign === 'bottom' ? 'flex-end' : (textVAlign === 'middle' ? 'center' : 'flex-start')
 
   return (
-    <div 
+    <div
       className={`w-full h-full ${shapeClass}`}
       style={shapeStyle}
       onDoubleClick={handleDoubleClick}
     >
-        {isEditing ? (
-          <div className="w-full h-full p-1" onMouseDown={(e)=>e.stopPropagation()}>
-            <textarea
-              ref={inputRef}
-              value={text}
-              onChange={(e)=> setText(e.target.value)}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              className="w-full h-full resize-none outline-none bg-transparent p-1"
-              style={{
-                color: el.textColor,
-                fontSize: `${el.fontSize * scale}px`,
-                fontFamily,
-                fontWeight,
-                fontStyle,
-                textDecoration: el.underline ? 'underline' : 'none',
-                textAlign: el.textAlign || 'center',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                overflow: 'hidden',
-              }}
-            />
-          </div>
-        ) : (
-        <div 
+      {isEditing ? (
+        <div className="w-full h-full p-1" onMouseDown={(e) => e.stopPropagation()}>
+          <textarea
+            ref={inputRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="w-full h-full resize-none outline-none bg-transparent p-1"
+            style={{
+              color: el.textColor,
+              fontSize: `${el.fontSize * scale}px`,
+              fontFamily,
+              fontWeight,
+              fontStyle,
+              textDecoration: el.underline ? 'underline' : 'none',
+              textAlign: el.textAlign || 'center',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              overflow: 'hidden',
+            }}
+          />
+        </div>
+      ) : (
+        <div
           className="w-full h-full p-2 cursor-pointer"
           style={{
             display: 'flex',
@@ -1368,7 +1368,7 @@ function MessageShape({ el, scale = 1, onChange, editing }) {
     const withinSlide = (target instanceof Element) ? !!target.closest('[data-slide-container]') : false
     const withinThis = (target instanceof Element) ? (inputRef.current && (target === inputRef.current || inputRef.current.contains(target))) : false
     if (!withinSlide || withinThis) {
-      requestAnimationFrame(() => { try { inputRef.current && inputRef.current.focus() } catch {} })
+      requestAnimationFrame(() => { try { inputRef.current && inputRef.current.focus() } catch { } })
       return
     }
     setIsEditing(false)
@@ -1378,10 +1378,10 @@ function MessageShape({ el, scale = 1, onChange, editing }) {
       } else {
         try {
           window.dispatchEvent(new CustomEvent('updateElement', { detail: { id: el.id, patch: { text } } }))
-        } catch {}
+        } catch { }
       }
     }
-    try { window.dispatchEvent(new CustomEvent('stopShapeText', { detail: { id: el.id } })) } catch {}
+    try { window.dispatchEvent(new CustomEvent('stopShapeText', { detail: { id: el.id } })) } catch { }
   }
 
   const handleKeyDown = (e) => {
@@ -1396,12 +1396,12 @@ function MessageShape({ el, scale = 1, onChange, editing }) {
   }
 
   return (
-    <div 
+    <div
       className="w-full h-full relative"
       onDoubleClick={handleDoubleClick}
     >
       {/* Message bubble shape */}
-      <div 
+      <div
         className="w-full h-full rounded-lg relative"
         style={{
           background: el.fill,
@@ -1410,11 +1410,11 @@ function MessageShape({ el, scale = 1, onChange, editing }) {
         }}
       >
         {isEditing ? (
-          <div className="w-full h-full p-1" onMouseDown={(e)=>e.stopPropagation()}>
+          <div className="w-full h-full p-1" onMouseDown={(e) => e.stopPropagation()}>
             <textarea
               ref={inputRef}
               value={text}
-              onChange={(e)=> setText(e.target.value)}
+              onChange={(e) => setText(e.target.value)}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               className="w-full h-full resize-none outline-none bg-transparent p-1"
@@ -1433,7 +1433,7 @@ function MessageShape({ el, scale = 1, onChange, editing }) {
             />
           </div>
         ) : (
-          <div 
+          <div
             className="w-full h-full p-2 cursor-pointer"
             style={{
               display: 'flex',
@@ -1457,7 +1457,7 @@ function MessageShape({ el, scale = 1, onChange, editing }) {
         )}
       </div>
       {/* Message tail */}
-      <div 
+      <div
         className="absolute bottom-0 left-4 w-0 h-0"
         style={{
           borderLeft: '10px solid transparent',
@@ -1465,7 +1465,7 @@ function MessageShape({ el, scale = 1, onChange, editing }) {
           borderTop: `15px solid ${el.stroke}`
         }}
       />
-      <div 
+      <div
         className="absolute bottom-1 left-5 w-0 h-0"
         style={{
           borderLeft: '8px solid transparent',
@@ -1548,7 +1548,7 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
     const cats = structured?.categories || xLabels
     const allSeries = structured?.series || [{ name: 'Series 1', data: dataArr }]
     const seriesNames = allSeries.map((s, idx) => s?.name || `Series ${idx + 1}`)
-    
+
     // Build data with all series dynamically
     const dataBar = cats.map((name, i) => {
       const point = { name }
@@ -1558,14 +1558,14 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
       })
       return point
     })
-    
+
     console.log('[ChartElement] Bar chart data with all series:', dataBar)
     const overrideColor = el.chartColor?.color || null
     const colorMode = el.chartColor?.mode || 'solid'
     const colorblindFriendly = !!el.chartColorblindFriendly
     const overridePalette = Array.isArray(el.chartPalette?.colors) ? el.chartPalette.colors : null
     return (
-      <div ref={contRef} className="w-full h-full relative" style={{ boxSizing: 'border-box', backgroundColor: 'transparent', border: 'none', borderRadius: 2, minHeight: '200px', minWidth: '200px' }} onDoubleClick={(e)=>{ console.log('[ChartElement] Double clicked'); openEditor() }}>
+      <div ref={contRef} className="w-full h-full relative" style={{ boxSizing: 'border-box', backgroundColor: 'transparent', border: 'none', borderRadius: 2, minHeight: '200px', minWidth: '200px' }} onDoubleClick={(e) => { console.log('[ChartElement] Double clicked'); openEditor() }}>
         <div className="w-full h-full" style={frameStyle}>
           {showTitle && titleText && (
             <div className="mb-1 text-xs font-semibold text-gray-800 text-center truncate">{titleText}</div>
@@ -1599,9 +1599,9 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
             type="button"
             className="absolute top-2 right-2 z-[100] px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium shadow-lg"
             style={{ pointerEvents: 'auto' }}
-            onMouseDown={(e)=>{ console.log('[ChartElement] Button mousedown'); e.stopPropagation(); e.preventDefault() }}
-            onClick={(e)=>{ console.log('[ChartElement] Button clicked!'); e.stopPropagation(); e.preventDefault(); openEditor() }}
-            onPointerDown={(e)=>{ console.log('[ChartElement] Button pointerdown'); e.stopPropagation() }}
+            onMouseDown={(e) => { console.log('[ChartElement] Button mousedown'); e.stopPropagation(); e.preventDefault() }}
+            onClick={(e) => { console.log('[ChartElement] Button clicked!'); e.stopPropagation(); e.preventDefault(); openEditor() }}
+            onPointerDown={(e) => { console.log('[ChartElement] Button pointerdown'); e.stopPropagation() }}
             title="Edit Data"
           >
             📊 Edit Data
@@ -1632,7 +1632,7 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
     const colorblindFriendly = !!el.chartColorblindFriendly
     const overridePalette = Array.isArray(el.chartPalette?.colors) ? el.chartPalette.colors : null
     return (
-      <div ref={contRef} className="w-full h-full relative" style={{ boxSizing: 'border-box', backgroundColor: 'transparent', border: 'none', borderRadius: 2, minHeight: '200px', minWidth: '200px' }} onDoubleClick={(e)=>{ console.log('[ChartElement] Double clicked'); openEditor() }}>
+      <div ref={contRef} className="w-full h-full relative" style={{ boxSizing: 'border-box', backgroundColor: 'transparent', border: 'none', borderRadius: 2, minHeight: '200px', minWidth: '200px' }} onDoubleClick={(e) => { console.log('[ChartElement] Double clicked'); openEditor() }}>
         <div className="w-full h-full" style={frameStyle}>
           {showTitle && titleText && (
             <div className="mb-1 text-xs font-semibold text-gray-800 text-center truncate">{titleText}</div>
@@ -1666,9 +1666,9 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
             type="button"
             className="absolute top-2 right-2 z-[100] px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium shadow-lg"
             style={{ pointerEvents: 'auto' }}
-            onMouseDown={(e)=>{ console.log('[ChartElement] Button mousedown'); e.stopPropagation(); e.preventDefault() }}
-            onClick={(e)=>{ console.log('[ChartElement] Button clicked!'); e.stopPropagation(); e.preventDefault(); openEditor() }}
-            onPointerDown={(e)=>{ console.log('[ChartElement] Button pointerdown'); e.stopPropagation() }}
+            onMouseDown={(e) => { console.log('[ChartElement] Button mousedown'); e.stopPropagation(); e.preventDefault() }}
+            onClick={(e) => { console.log('[ChartElement] Button clicked!'); e.stopPropagation(); e.preventDefault(); openEditor() }}
+            onPointerDown={(e) => { console.log('[ChartElement] Button pointerdown'); e.stopPropagation() }}
             title="Edit Data"
           >
             📊 Edit Data
@@ -1688,7 +1688,7 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
     const colorblindFriendly = !!el.chartColorblindFriendly
     const overridePalette = Array.isArray(el.chartPalette?.colors) ? el.chartPalette.colors : null
     return (
-      <div ref={contRef} className="w-full h-full relative" style={{ boxSizing: 'border-box', backgroundColor: 'transparent', border: 'none', borderRadius: 2, minHeight: '200px', minWidth: '200px' }} onDoubleClick={(e)=>{ console.log('[ChartElement] Double clicked'); openEditor() }}>
+      <div ref={contRef} className="w-full h-full relative" style={{ boxSizing: 'border-box', backgroundColor: 'transparent', border: 'none', borderRadius: 2, minHeight: '200px', minWidth: '200px' }} onDoubleClick={(e) => { console.log('[ChartElement] Double clicked'); openEditor() }}>
         <div className="w-full h-full" style={frameStyle}>
           {showTitle && titleText && (
             <div className="mb-1 text-xs font-semibold text-gray-800 text-center truncate">{titleText}</div>
@@ -1716,9 +1716,9 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
             type="button"
             className="absolute top-2 right-2 z-[100] px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium shadow-lg"
             style={{ pointerEvents: 'auto' }}
-            onMouseDown={(e)=>{ console.log('[ChartElement] Button mousedown'); e.stopPropagation(); e.preventDefault() }}
-            onClick={(e)=>{ console.log('[ChartElement] Button clicked!'); e.stopPropagation(); e.preventDefault(); openEditor() }}
-            onPointerDown={(e)=>{ console.log('[ChartElement] Button pointerdown'); e.stopPropagation() }}
+            onMouseDown={(e) => { console.log('[ChartElement] Button mousedown'); e.stopPropagation(); e.preventDefault() }}
+            onClick={(e) => { console.log('[ChartElement] Button clicked!'); e.stopPropagation(); e.preventDefault(); openEditor() }}
+            onPointerDown={(e) => { console.log('[ChartElement] Button pointerdown'); e.stopPropagation() }}
             title="Edit Data"
           >
             📊 Edit Data
@@ -1731,7 +1731,7 @@ function ChartElement({ el, scale = 1, slideId, selected }) {
   return null
 }
 
-function toStructuredFromFlat(el){
+function toStructuredFromFlat(el) {
   const labels = Array.isArray(el.labels) ? el.labels : []
   const data = Array.isArray(el.data) ? el.data : []
   return { categories: labels, series: [{ name: 'Series 1', data }] }
@@ -1747,8 +1747,8 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
   // Default table border color; header cells may override with el.headerBorderColor
   const hexToRgb = (hex) => {
     try {
-      const m = String(hex || '').replace('#','')
-      const v = m.length === 3 ? m.split('').map(ch=>ch+ch).join('') : m
+      const m = String(hex || '').replace('#', '')
+      const v = m.length === 3 ? m.split('').map(ch => ch + ch).join('') : m
       const int = parseInt(v, 16)
       return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 }
     } catch { return { r: 0, g: 0, b: 0 } }
@@ -1757,7 +1757,7 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
     const a = Number.isFinite(alphaPct) ? Math.max(0, Math.min(100, alphaPct)) : 100
     if (a >= 100 || !hex || /^rgba?\(/i.test(hex)) return hex || '#000000'
     const { r, g, b } = hexToRgb(hex)
-    return `rgba(${r}, ${g}, ${b}, ${a/100})`
+    return `rgba(${r}, ${g}, ${b}, ${a / 100})`
   }
 
   // Track the currently edited cell globally so sidebar tools can act on it
@@ -1794,10 +1794,10 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
     const id = `table-cell-${cell.id}`
     const focusLater = () => {
       const ta = document.getElementById(id)
-      if (ta) { try { ta.focus(); /* do not select to avoid caret jumps */ } catch {} }
+      if (ta) { try { ta.focus(); /* do not select to avoid caret jumps */ } catch { } }
     }
     const raf = requestAnimationFrame(focusLater)
-    return () => { try { cancelAnimationFrame(raf) } catch {} }
+    return () => { try { cancelAnimationFrame(raf) } catch { } }
   }, [editingCellIndex, el.cells])
 
   // Stop editing when the table is deselected
@@ -1810,7 +1810,7 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
       const node = id ? document.getElementById(id) : null
       const txt = node ? (node.textContent || '') : (cell?.text || '')
       commitCell(editingCellIndex, txt)
-    } catch {}
+    } catch { }
     setEditingCellIndex(null)
   }, [selected, editingCellIndex, el.cells])
 
@@ -1880,7 +1880,7 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
             }}
             onMouseDown={(e) => {
               // Track selected cell even when not editing so sidebar ops can use it
-              try { if (typeof window !== 'undefined') window.currentSelectedTableCell = { id: el.id, cellIndex: index } } catch {}
+              try { if (typeof window !== 'undefined') window.currentSelectedTableCell = { id: el.id, cellIndex: index } } catch { }
             }}
             onDoubleClick={(e) => {
               console.log('[TableElement] cell double-click index', index, 'table', el.id)
@@ -1894,7 +1894,7 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
                 contentEditable
                 suppressContentEditableWarning
                 aria-label={`Table cell ${index + 1}`}
-                onBlur={(e) => { 
+                onBlur={(e) => {
                   commitCell(index, e.currentTarget.textContent || '')
                   // Keep editing unless user clicks inside slide container but outside this table
                   const target = e?.relatedTarget || document.activeElement
@@ -1910,7 +1910,7 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
                     const id = `table-cell-${cell.id}`
                     requestAnimationFrame(() => {
                       const ta = document.getElementById(id)
-                      if (ta) { try { ta.focus() } catch {} }
+                      if (ta) { try { ta.focus() } catch { } }
                     })
                   } else {
                     setEditingCellIndex(null)
@@ -1932,7 +1932,7 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
                         e.currentTarget.textContent += sanitized
                       }
                     }
-                  } catch {}
+                  } catch { }
                 }}
                 className="w-full h-full p-2 outline-none"
                 style={{
@@ -2004,10 +2004,10 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
     if (!base || a == null || a >= 1) return base
     const s = String(base)
     if (s.startsWith('rgba')) return base
-    if (s.startsWith('rgb(')) return s.replace('rgb(', 'rgba(').replace(/\)$/,'') + `, ${a})`
+    if (s.startsWith('rgb(')) return s.replace('rgb(', 'rgba(').replace(/\)$/, '') + `, ${a})`
     if (s[0] === '#') {
-      const hex = s.replace('#','')
-      const v = hex.length === 3 ? hex.split('').map(ch=>ch+ch).join('') : hex
+      const hex = s.replace('#', '')
+      const v = hex.length === 3 ? hex.split('').map(ch => ch + ch).join('') : hex
       const int = parseInt(v, 16)
       const r = (int >> 16) & 255
       const g = (int >> 8) & 255
@@ -2033,11 +2033,11 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
 
   const formatTextWithList = (text) => {
     if (listStyle === 'none' || !text) return text
-    
+
     const lines = text.split('\n')
     return lines.map((line, index) => {
       if (!line.trim()) return line
-      
+
       let prefix = ''
       switch (listStyle) {
         case 'bullet':
@@ -2055,12 +2055,12 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
         default:
           prefix = ''
       }
-      
+
       // Don't add prefix if it already exists
       if (line.trim().startsWith('•') || /^\d+\./.test(line.trim()) || /^[A-Z]+\./.test(line.trim()) || /^[IVX]+\./.test(line.trim())) {
         return line
       }
-      
+
       return prefix + line
     }).join('\n')
   }
@@ -2102,28 +2102,28 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
           default: return 'flex-start'
         }
       }
-      
-    return (
-      <div 
-        className="w-full h-full select-none p-2" 
-        style={{ 
-          backgroundColor: bgColor, 
-          fontFamily: (stylesSafe.fontFamily || 'Inter, system-ui, sans-serif'), 
-          fontSize: `${(stylesSafe.fontSize || 16) * scale}px`, 
-          lineHeight: stylesSafe.lineHeight || 1.2,
-          color: textColor,
-          textShadow: shadowColor === 'none' ? 'none' : `0 2px 6px ${shadowColor}`,
-          fontWeight: stylesSafe.bold ? 700 : 400,
-          fontStyle: stylesSafe.italic ? 'italic' : 'normal',
-          textDecoration: stylesSafe.underline ? 'underline' : 'none',
-          overflow: 'hidden', // never let rendered text extend beyond the box
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: getHorizontalAlignment(),
-          ...getVerticalAlignStyle(),
-          pointerEvents: 'none', // let wrapper capture drag/resize when not editing
-        }}
-      >
+
+      return (
+        <div
+          className="w-full h-full select-none p-2"
+          style={{
+            backgroundColor: bgColor,
+            fontFamily: (stylesSafe.fontFamily || 'Inter, system-ui, sans-serif'),
+            fontSize: `${(stylesSafe.fontSize || 16) * scale}px`,
+            lineHeight: stylesSafe.lineHeight || 1.2,
+            color: textColor,
+            textShadow: shadowColor === 'none' ? 'none' : `0 2px 6px ${shadowColor}`,
+            fontWeight: stylesSafe.bold ? 700 : 400,
+            fontStyle: stylesSafe.italic ? 'italic' : 'normal',
+            textDecoration: stylesSafe.underline ? 'underline' : 'none',
+            overflow: 'hidden', // never let rendered text extend beyond the box
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: getHorizontalAlignment(),
+            ...getVerticalAlignStyle(),
+            pointerEvents: 'none', // let wrapper capture drag/resize when not editing
+          }}
+        >
           {isEmpty ? (
             <div style={{ width: '100%', textAlign: stylesSafe.align || 'left' }}>
               {el.placeholder ? (
@@ -2147,7 +2147,7 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
         </div>
       )
     }
-    
+
     // Otherwise render plain text with list formatting
     const stylesSafe2 = el.styles || {}
     const align = stylesSafe2.align || 'left'
@@ -2168,18 +2168,18 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
         default: return 'flex-start'
       }
     }
-    
+
     return (
-      <div className="w-full h-full select-none p-2" style={{ 
-        backgroundColor: bgColor, 
-        fontFamily: stylesSafe2.fontFamily || 'Inter, system-ui, sans-serif', 
-        color: textColor2, 
+      <div className="w-full h-full select-none p-2" style={{
+        backgroundColor: bgColor,
+        fontFamily: stylesSafe2.fontFamily || 'Inter, system-ui, sans-serif',
+        color: textColor2,
         textShadow: shadowColor2 === 'none' ? 'none' : `0 2px 6px ${shadowColor2}`,
-        fontSize: `${(stylesSafe2.fontSize || 16) * scale}px`, 
+        fontSize: `${(stylesSafe2.fontSize || 16) * scale}px`,
         lineHeight: stylesSafe2.lineHeight || 1.2,
-        fontWeight: stylesSafe2.bold ? 700 : 400, 
-        fontStyle: stylesSafe2.italic ? 'italic' : 'normal', 
-        textDecoration: stylesSafe2.underline ? 'underline' : 'none', 
+        fontWeight: stylesSafe2.bold ? 700 : 400,
+        fontStyle: stylesSafe2.italic ? 'italic' : 'normal',
+        textDecoration: stylesSafe2.underline ? 'underline' : 'none',
         overflow: 'hidden', // clamp visible text to the box bounds
         display: 'flex',
         flexDirection: 'column',
@@ -2197,10 +2197,10 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
           {(el.text && el.text.trim().length)
             ? formatTextWithList(el.text)
             : (el.placeholder ? (
-                <span style={{ color: '#9ca3af', fontWeight: el.placeholderBold ? 700 : 400 }}>
-                  {el.placeholder}
-                </span>
-              ) : 'Double-click to edit')}
+              <span style={{ color: '#9ca3af', fontWeight: el.placeholderBold ? 700 : 400 }}>
+                {el.placeholder}
+              </span>
+            ) : 'Double-click to edit')}
         </div>
       </div>
     )

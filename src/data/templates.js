@@ -6,7 +6,7 @@ export const PRESENTATION_TEMPLATES = [
     id: 'business-pitch',
     name: 'Business Pitch',
     description: 'Complete business pitch deck with charts, tables, and visuals (10+ slides)',
-    thumbnail: { 
+    thumbnail: {
       gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       layout: 'title-content'
     },
@@ -1731,7 +1731,7 @@ export const PRESENTATION_TEMPLATES = [
             x: 100,
             y: 330,
             w: 600,
-            h: 40,
+            h: 60,
             text: 'Success metric: 30% reduction in manual reporting time.',
             bgColor: 'transparent',
             styles: {

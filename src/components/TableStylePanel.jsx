@@ -49,15 +49,15 @@ export default function TableStylePanel() {
       }
       // fontSize applied via state rerender; optional live tweak if provided
       if (patch.fontSize) el.style.fontSize = `${patch.fontSize}px`
-    } catch {}
+    } catch { }
   }
 
   const genId = () => {
     try {
       const w = typeof window !== 'undefined' ? window : null
       if (w && w.crypto && typeof w.crypto.randomUUID === 'function') return w.crypto.randomUUID()
-    } catch {}
-    return `cell-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
+    } catch { }
+    return `cell-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   }
 
   const updateCellStyles = (cellIndex, stylesPatch) => {
@@ -69,7 +69,7 @@ export default function TableStylePanel() {
     try {
       const info = typeof window !== 'undefined' ? window.currentEditingTableCell : null
       if (info && info.id === table.id && info.cellIndex === cellIndex) liveApplyToDom(cell.id, stylesPatch)
-    } catch {}
+    } catch { }
   }
 
   const updateAllCellsStyles = (stylesPatch) => {
@@ -88,7 +88,7 @@ export default function TableStylePanel() {
         const cell = table.cells[info.cellIndex]
         liveApplyToDom(cell.id, stylesPatch)
       }
-    } catch {}
+    } catch { }
   }
 
   const updateBodyStyles = (stylesPatch) => {
@@ -102,7 +102,7 @@ export default function TableStylePanel() {
         const cell = table.cells[info.cellIndex]
         liveApplyToDom(cell.id, stylesPatch)
       }
-    } catch {}
+    } catch { }
   }
 
   const updateRowStyles = (rowIndex, stylesPatch) => {
@@ -118,7 +118,7 @@ export default function TableStylePanel() {
         const cell = table.cells[info.cellIndex]
         liveApplyToDom(cell.id, stylesPatch)
       }
-    } catch {}
+    } catch { }
   }
 
   const updateColStyles = (colIndex, stylesPatch) => {
@@ -135,11 +135,11 @@ export default function TableStylePanel() {
         const cell = table.cells[info.cellIndex]
         liveApplyToDom(cell.id, stylesPatch)
       }
-    } catch {}
+    } catch { }
   }
-  
+
   const dispatchEditCell = (index) => {
-    try { window.dispatchEvent(new CustomEvent('editTableCell', { detail: { tableId: table.id, cellIndex: index } })) } catch {}
+    try { window.dispatchEvent(new CustomEvent('editTableCell', { detail: { tableId: table.id, cellIndex: index } })) } catch { }
   }
 
   const minCellH = 24
@@ -158,7 +158,7 @@ export default function TableStylePanel() {
         const rowStart = r * cols
         newCells.push(...table.cells.slice(rowStart, rowStart + cols))
         if (r === insertAfter) {
-for (let c = 0; c < cols; c++) newCells.push({ id: genId(), text: '', styles: { ...(table.cells[0]?.styles || {}) } })
+          for (let c = 0; c < cols; c++) newCells.push({ id: genId(), text: '', styles: { ...(table.cells[0]?.styles || {}) } })
         }
       }
       update({ rows, cells: newCells })
@@ -183,7 +183,7 @@ for (let c = 0; c < cols; c++) newCells.push({ id: genId(), text: '', styles: { 
   const removeRow = () => {
     if (table.rows <= 1) {
       openWarn('Removing the last row will delete the table. Do you want to proceed?', () => {
-        try { dispatch({ type: 'DELETE_ELEMENT', id: table.id }) } catch {}
+        try { dispatch({ type: 'DELETE_ELEMENT', id: table.id }) } catch { }
       })
       return
     }
@@ -230,7 +230,7 @@ for (let c = 0; c < cols; c++) newCells.push({ id: genId(), text: '', styles: { 
         for (let c = 0; c < table.cols; c++) {
           const idx = rowStart + c
           newCells.push(table.cells[idx])
-if (c === insertAfter) newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles || table.cells[0]?.styles || {}) } })
+          if (c === insertAfter) newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles || table.cells[0]?.styles || {}) } })
         }
       }
       update({ cols, cells: newCells })
@@ -251,7 +251,7 @@ if (c === insertAfter) newCells.push({ id: genId(), text: '', styles: { ...(tabl
         const idx = rowStart + c
         newCells.push(table.cells[idx])
         if (c === insertAfter) {
-newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles || table.cells[0]?.styles || {}) } })
+          newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles || table.cells[0]?.styles || {}) } })
         }
       }
     }
@@ -261,7 +261,7 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
   const removeCol = () => {
     if (table.cols <= 1) {
       openWarn('Removing the last column will delete the table. Do you want to proceed?', () => {
-        try { dispatch({ type: 'DELETE_ELEMENT', id: table.id }) } catch {}
+        try { dispatch({ type: 'DELETE_ELEMENT', id: table.id }) } catch { }
       })
       return
     }
@@ -356,7 +356,7 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
     }
   }, [showOps])
   const closeWarn = () => setWarn({ open: false, text: '', confirm: null })
-  const openWarn = (text, confirm=null) => setWarn({ open: true, text, confirm })
+  const openWarn = (text, confirm = null) => setWarn({ open: true, text, confirm })
   // Close sub popover on outside click / escape / scroll resize
   React.useEffect(() => {
     const onDown = (e) => {
@@ -424,8 +424,8 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
     }
   }
 
-  const toTitleCase = (s='') => s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-  const transformText = (text='', mode='upper') => (mode==='upper'?text.toUpperCase():mode==='lower'?text.toLowerCase():toTitleCase(text))
+  const toTitleCase = (s = '') => s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  const transformText = (text = '', mode = 'upper') => (mode === 'upper' ? text.toUpperCase() : mode === 'lower' ? text.toLowerCase() : toTitleCase(text))
 
   const transformCaseByScope = (mode /* 'upper'|'lower'|'title' */) => {
     const cols = table.cols
@@ -433,12 +433,12 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
     const rowActive = (idxActive !== null) ? Math.floor(idxActive / cols) : null
     const colActive = (idxActive !== null) ? (idxActive % cols) : null
     const cells = table.cells.map((cell, idx) => {
-      const inScope = scope==='cell' ? (idx === idxActive)
-        : scope==='header' ? (idx < cols)
-        : scope==='body' ? (idx >= cols)
-        : scope==='row' ? (rowActive !== null && Math.floor(idx / cols) === rowActive)
-        : scope==='column' ? (colActive !== null && (idx % cols) === colActive)
-        : false
+      const inScope = scope === 'cell' ? (idx === idxActive)
+        : scope === 'header' ? (idx < cols)
+          : scope === 'body' ? (idx >= cols)
+            : scope === 'row' ? (rowActive !== null && Math.floor(idx / cols) === rowActive)
+              : scope === 'column' ? (colActive !== null && (idx % cols) === colActive)
+                : false
       if (!inScope) return cell
       return { ...cell, text: transformText(cell.text || '', mode) }
     })
@@ -451,20 +451,20 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
         const el = document.getElementById(`table-cell-${c.id}`)
         if (el) el.textContent = c.text || ''
       }
-    } catch {}
+    } catch { }
   }
 
   // Color helpers for palettes with opacity
-  const SWATCHES = ['#000000','#ffffff','#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#F97316','#22D3EE','#A3E635','#94A3B8']
+  const SWATCHES = ['#000000', '#ffffff', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#F97316', '#22D3EE', '#A3E635', '#94A3B8']
   const clamp01 = (v) => Math.max(0, Math.min(1, v))
   const hexToRgb = (hex) => {
-    let h = hex.replace('#','')
-    if (h.length === 3) h = h.split('').map(x=>x+x).join('')
+    let h = hex.replace('#', '')
+    if (h.length === 3) h = h.split('').map(x => x + x).join('')
     const num = parseInt(h, 16)
-    return { r: (num>>16)&255, g: (num>>8)&255, b: num&255 }
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 }
   }
-  const rgbaFromHex = (hex, a=1) => {
-    const {r,g,b} = hexToRgb(hex)
+  const rgbaFromHex = (hex, a = 1) => {
+    const { r, g, b } = hexToRgb(hex)
     return `rgba(${r}, ${g}, ${b}, ${clamp01(a)})`
   }
   const parseExistingColor = (c) => {
@@ -473,9 +473,9 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
     if (s.startsWith('rgba')) {
       const m = s.match(/rgba\s*\(([^)]+)\)/i)
       if (m) {
-        const [r,g,b,a] = m[1].split(',').map(x=>parseFloat(x))
-        const toHex = (n)=>('#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join(''))
-        return { base: toHex(), alpha: clamp01(isNaN(a)?1:a) }
+        const [r, g, b, a] = m[1].split(',').map(x => parseFloat(x))
+        const toHex = (n) => ('#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join(''))
+        return { base: toHex(), alpha: clamp01(isNaN(a) ? 1 : a) }
       }
     }
     if (s.startsWith('#')) return { base: s, alpha: 1 }
@@ -500,18 +500,18 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
   const [borderBase, setBorderBase] = React.useState(initBorder.base)
   const [borderAlpha, setBorderAlpha] = React.useState(initBorder.alpha)
 
-  const SwatchGrid = ({onPick}) => (
+  const SwatchGrid = ({ onPick }) => (
     <div className="grid grid-cols-8 gap-2">
-      {SWATCHES.map((c,i)=> (
-        <button key={i} type="button" onMouseDown={holdEditing} onClick={()=>onPick(c)} className="w-6 h-6 rounded border" style={{ background: c }} />
+      {SWATCHES.map((c, i) => (
+        <button key={i} type="button" onMouseDown={holdEditing} onClick={() => onPick(c)} className="w-6 h-6 rounded border" style={{ background: c }} />
       ))}
     </div>
   )
 
-  const OpacitySlider = ({value,onChange}) => (
+  const OpacitySlider = ({ value, onChange }) => (
     <div className="flex flex-col gap-1 items-start">
-      <input onMouseDown={holdEditing} type="range" min="0" max="100" value={Math.round(clamp01(value)*100)} onChange={(e)=>onChange((+e.target.value)/100)} className="w-full" />
-      <span className="text-xs text-gray-600">{Math.round(clamp01(value)*100)}%</span>
+      <input onMouseDown={holdEditing} type="range" min="0" max="100" value={Math.round(clamp01(value) * 100)} onChange={(e) => onChange((+e.target.value) / 100)} className="w-full" />
+      <span className="text-xs text-gray-600">{Math.round(clamp01(value) * 100)}%</span>
     </div>
   )
 
@@ -524,7 +524,7 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
   }
   const removeRowAt = (pos) => {
     if (table.rows <= 1) return removeRow()
-    const target = pos === 'top' ? 0 : pos === 'bottom' ? (table.rows - 1) : (()=>{
+    const target = pos === 'top' ? 0 : pos === 'bottom' ? (table.rows - 1) : (() => {
       const cols = table.cols
       const idx = activeCellIndex()
       return (idx !== null) ? Math.floor(idx / cols) : 0
@@ -551,7 +551,7 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
   const removeColAt = (pos) => {
     if (table.cols <= 1) return removeCol()
     const rows = table.rows
-    const tcol = pos === 'leftmost' ? 0 : pos === 'rightmost' ? (table.cols - 1) : (()=>{
+    const tcol = pos === 'leftmost' ? 0 : pos === 'rightmost' ? (table.cols - 1) : (() => {
       const idx = activeCellIndex()
       return (idx !== null) ? (idx % table.cols) : 0
     })()
@@ -632,7 +632,7 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
     finalizeFocus()
   }
 
-  const addColsN = (n, insertAfter=null) => {
+  const addColsN = (n, insertAfter = null) => {
     if (!Number.isFinite(n) || n <= 0) return
     const rows = table.rows
 
@@ -700,9 +700,9 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
         <div className="relative" onMouseDown={holdEditing}>
           <button
             ref={opsBtnRef}
-            onMouseDown={(e)=>{ 
-              holdEditing(); 
-              e.preventDefault(); 
+            onMouseDown={(e) => {
+              holdEditing();
+              e.preventDefault();
               setShowOps((prev) => {
                 const next = !prev
                 const r = opsBtnRef.current?.getBoundingClientRect()
@@ -714,7 +714,7 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
             className={`drop-btn px-3 py-2 rounded-lg border bg-white/70 backdrop-blur-sm shadow-sm text-sm flex items-center gap-2 w-full hover:shadow-md transition-all duration-200 ${showOps ? 'drop-btn-active' : ''}`}
           >
             Table styles
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
           </button>
           {showOps && (
             <div
@@ -724,30 +724,30 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
               <div className="text-[11px] uppercase tracking-wide text-gray-500 px-2">Quick actions</div>
               <div className="text-xs text-gray-600 px-2">Rows × Columns: {table.rows} × {table.cols}</div>
               <div className="ops-list space-y-2">
-                <button type="button" title="Insert a row relative to current cell" onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); holdEditing(); setActiveOp('addRow'); const r=e.currentTarget.getBoundingClientRect(); setSubPos({top:r.bottom+6,left:r.left}); }} onMouseDown={holdEditing} className="ops-item w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-3">
+                <button type="button" title="Insert a row relative to current cell" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); setActiveOp('addRow'); const r = e.currentTarget.getBoundingClientRect(); setSubPos({ top: r.bottom + 6, left: r.left }); }} onMouseDown={holdEditing} className="ops-item w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-3">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-emerald-100 text-emerald-700">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
                   </span>
                   <span className="flex-1">Add row</span>
                   <span className="text-[11px] text-gray-400">above / below</span>
                 </button>
-                <button type="button" title="Remove a row" onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); holdEditing(); setActiveOp('removeRow'); const r=e.currentTarget.getBoundingClientRect(); setSubPos({top:r.bottom+6,left:r.left}); }} onMouseDown={holdEditing} className="ops-item w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-3">
+                <button type="button" title="Remove a row" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); setActiveOp('removeRow'); const r = e.currentTarget.getBoundingClientRect(); setSubPos({ top: r.bottom + 6, left: r.left }); }} onMouseDown={holdEditing} className="ops-item w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-3">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-rose-100 text-rose-700">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 12h14"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 12h14" /></svg>
                   </span>
                   <span className="flex-1">Remove row</span>
                   <span className="text-[11px] text-gray-400">top / current / bottom</span>
                 </button>
-                <button type="button" title="Insert a column relative to current cell" onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); holdEditing(); setActiveOp('addCol'); const r=e.currentTarget.getBoundingClientRect(); setSubPos({top:r.bottom+6,left:r.left}); }} onMouseDown={holdEditing} className="ops-item w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-3">
+                <button type="button" title="Insert a column relative to current cell" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); setActiveOp('addCol'); const r = e.currentTarget.getBoundingClientRect(); setSubPos({ top: r.bottom + 6, left: r.left }); }} onMouseDown={holdEditing} className="ops-item w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-3">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-emerald-100 text-emerald-700">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
                   </span>
                   <span className="flex-1">Add column</span>
                   <span className="text-[11px] text-gray-400">left / right</span>
                 </button>
-                <button type="button" title="Remove a column" onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); holdEditing(); setActiveOp('removeCol'); const r=e.currentTarget.getBoundingClientRect(); setSubPos({top:r.bottom+6,left:r.left}); }} onMouseDown={holdEditing} className="ops-item w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-3">
+                <button type="button" title="Remove a column" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); setActiveOp('removeCol'); const r = e.currentTarget.getBoundingClientRect(); setSubPos({ top: r.bottom + 6, left: r.left }); }} onMouseDown={holdEditing} className="ops-item w-full text-left px-2 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-3">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-rose-100 text-rose-700">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 12h14"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 12h14" /></svg>
                   </span>
                   <span className="flex-1">Remove column</span>
                   <span className="text-[11px] text-gray-400">leftmost / current / rightmost</span>
@@ -756,84 +756,84 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
                 <div className="text-[11px] uppercase tracking-wide text-gray-500 px-2">Bulk insert</div>
                 <div className="ops-item flex items-center gap-2 px-2 py-1.5">
                   <label className="text-xs text-gray-600">Rows</label>
-                  <input onMouseDown={holdEditing} type="number" min="1" value={rowCount} onChange={(e)=>setRowCount(Math.max(1, parseInt(e.target.value||'1',10)))} className="w-20 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-                  <button type="button" title="Insert N rows after current row (or end)" onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); holdEditing(); addRowsN(rowCount) }} onMouseDown={holdEditing} className="px-2 py-1 rounded-md border hover:bg-gray-50 inline-flex items-center gap-1">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                  <input onMouseDown={holdEditing} type="number" min="1" value={rowCount} onChange={(e) => setRowCount(Math.max(1, parseInt(e.target.value || '1', 10)))} className="w-20 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+                  <button type="button" title="Insert N rows after current row (or end)" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); addRowsN(rowCount) }} onMouseDown={holdEditing} className="px-2 py-1 rounded-md border hover:bg-gray-50 inline-flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
                     <span>Add</span>
                   </button>
                 </div>
                 <div className="ops-item flex items-center gap-2 px-2 py-1.5">
                   <label className="text-xs text-gray-600">Columns</label>
-                  <input onMouseDown={holdEditing} type="number" min="1" value={colCount} onChange={(e)=>setColCount(Math.max(1, parseInt(e.target.value||'1',10)))} className="w-20 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-                  <button type="button" title="Insert N columns after current column (or end)" onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); holdEditing(); addColsN(colCount) }} onMouseDown={holdEditing} className="px-2 py-1 rounded-md border hover:bg-gray-50 inline-flex items-center gap-1">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                  <input onMouseDown={holdEditing} type="number" min="1" value={colCount} onChange={(e) => setColCount(Math.max(1, parseInt(e.target.value || '1', 10)))} className="w-20 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+                  <button type="button" title="Insert N columns after current column (or end)" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); addColsN(colCount) }} onMouseDown={holdEditing} className="px-2 py-1 rounded-md border hover:bg-gray-50 inline-flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
                     <span>Add</span>
                   </button>
                 </div>
               </div>
             </div>
-)}
-</div>
-{(activeOp && subPos) ? createPortal(
-  <div className="fixed z-[1000] bg-white border border-gray-200 rounded-md shadow-lg p-2 transform transition-all duration-150 ease-out opacity-100 scale-100" style={{ top: subPos.top, left: subPos.left, minWidth: '220px' }} onMouseDown={holdEditing}>
-    {activeOp === 'addRow' && (
-      <div className="grid grid-cols-2 gap-2">
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); addRowAt('above'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 4l-4 4M12 4l4 4M12 4v12"/></svg>
-          <span>Above current</span>
-        </button>
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); addRowAt('below'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 20l-4-4M12 20l4-4M12 8v12"/></svg>
-          <span>Below current</span>
-        </button>
-      </div>
-    )}
-    {activeOp === 'removeRow' && (
-      <div className="grid grid-cols-3 gap-2">
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); removeRowAt('top'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 12h12"/></svg>
-          <span>Top</span>
-        </button>
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); removeRowAt('current'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="2"/><path d="M6 12h12"/></svg>
-          <span>Current</span>
-        </button>
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); removeRowAt('bottom'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 12h12"/></svg>
-          <span>Bottom</span>
-        </button>
-      </div>
-    )}
-    {activeOp === 'addCol' && (
-      <div className="grid grid-cols-2 gap-2">
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); addColAt('left'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 12l4-4M4 12l4 4M4 12h12"/></svg>
-          <span>Left of current</span>
-        </button>
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); addColAt('right'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 12l-4-4M20 12l-4 4M20 12H8"/></svg>
-          <span>Right of current</span>
-        </button>
-      </div>
-    )}
-    {activeOp === 'removeCol' && (
-      <div className="grid grid-cols-3 gap-2">
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); removeColAt('leftmost'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 12h12"/></svg>
-          <span>Leftmost</span>
-        </button>
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); removeColAt('current'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="2"/><path d="M6 12h12"/></svg>
-          <span>Current</span>
-        </button>
-        <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();holdEditing(); removeColAt('rightmost'); setActiveOp(null); setSubPos(null)}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 12h12"/></svg>
-          <span>Rightmost</span>
-        </button>
-      </div>
-    )}
-  </div>, document.body)
-: null}
+          )}
+        </div>
+        {(activeOp && subPos) ? createPortal(
+          <div className="fixed z-[1000] bg-white border border-gray-200 rounded-md shadow-lg p-2 transform transition-all duration-150 ease-out opacity-100 scale-100" style={{ top: subPos.top, left: subPos.left, minWidth: '220px' }} onMouseDown={holdEditing}>
+            {activeOp === 'addRow' && (
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); addRowAt('above'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 4l-4 4M12 4l4 4M12 4v12" /></svg>
+                  <span>Above current</span>
+                </button>
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); addRowAt('below'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 20l-4-4M12 20l4-4M12 8v12" /></svg>
+                  <span>Below current</span>
+                </button>
+              </div>
+            )}
+            {activeOp === 'removeRow' && (
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); removeRowAt('top'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 12h12" /></svg>
+                  <span>Top</span>
+                </button>
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); removeRowAt('current'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="2" /><path d="M6 12h12" /></svg>
+                  <span>Current</span>
+                </button>
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); removeRowAt('bottom'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 12h12" /></svg>
+                  <span>Bottom</span>
+                </button>
+              </div>
+            )}
+            {activeOp === 'addCol' && (
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); addColAt('left'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 12l4-4M4 12l4 4M4 12h12" /></svg>
+                  <span>Left of current</span>
+                </button>
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); addColAt('right'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 12l-4-4M20 12l-4 4M20 12H8" /></svg>
+                  <span>Right of current</span>
+                </button>
+              </div>
+            )}
+            {activeOp === 'removeCol' && (
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); removeColAt('leftmost'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 12h12" /></svg>
+                  <span>Leftmost</span>
+                </button>
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); removeColAt('current'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="2" /><path d="M6 12h12" /></svg>
+                  <span>Current</span>
+                </button>
+                <button type="button" className="px-2 py-2 rounded-md border hover:bg-gray-50 text-xs flex items-center gap-2" onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); holdEditing(); removeColAt('rightmost'); setActiveOp(null); setSubPos(null) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 12h12" /></svg>
+                  <span>Rightmost</span>
+                </button>
+              </div>
+            )}
+          </div>, document.body)
+          : null}
       </div>
 
       {/* Formatting dropdown */}
@@ -841,26 +841,26 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
         <div className="relative" onMouseDown={holdEditing}>
           <button
             ref={fmtBtnRef}
-            onMouseDown={(e)=>{ e.preventDefault(); holdEditing(); setShowFormattingDrop(v=>!v); if (!showFormattingDrop) setShowAlignInline(false) }}
+            onMouseDown={(e) => { e.preventDefault(); holdEditing(); setShowFormattingDrop(v => !v); if (!showFormattingDrop) setShowAlignInline(false) }}
             className={`drop-btn px-3 py-2 rounded-lg border bg-white/70 backdrop-blur-sm shadow-sm text-sm flex items-center gap-2 w-full hover:shadow-md transition-all duration-200 ${showFormattingDrop ? 'drop-btn-active' : ''}`}
           >
             Formatting
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
           </button>
           {showFormattingDrop && (
             <div ref={fmtMenuRef} className={`w-full dropdown-panel rounded-xl p-3 ops-panel ${fmtAnim ? 'ops-open' : ''}`}>
               {/* Line 1: text styles & case */}
               <div className="ops-item flex items-center gap-1 flex-wrap">
-                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Bold" onClick={()=>applyByScope({ bold: true })}>B</button>
-                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Italic" onClick={()=>applyByScope({ italic: true })}><span style={{fontStyle:'italic'}}>I</span></button>
-                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Underline" onClick={()=>applyByScope({ underline: true })}><span style={{textDecoration:'underline'}}>U</span></button>
-                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="UPPERCASE" onClick={()=>transformCaseByScope('upper')}>Aa</button>
-                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="lowercase" onClick={()=>transformCaseByScope('lower')}>aa</button>
-                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Title Case" onClick={()=>transformCaseByScope('title')}>Ab</button>
+                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Bold" onClick={() => applyByScope({ bold: true })}>B</button>
+                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Italic" onClick={() => applyByScope({ italic: true })}><span style={{ fontStyle: 'italic' }}>I</span></button>
+                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Underline" onClick={() => applyByScope({ underline: true })}><span style={{ textDecoration: 'underline' }}>U</span></button>
+                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="UPPERCASE" onClick={() => transformCaseByScope('upper')}>Aa</button>
+                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="lowercase" onClick={() => transformCaseByScope('lower')}>aa</button>
+                <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Title Case" onClick={() => transformCaseByScope('title')}>Ab</button>
               </div>
               {/* Line 2: font family, font size */}
               <div className="ops-item mt-2 flex items-center gap-2 flex-wrap">
-                <select onMouseDown={holdEditing} className="mini-toolbar-dropdown border rounded px-2 py-1" defaultValue={table.cells[0]?.styles?.fontFamily || 'Inter, system-ui, sans-serif'} onChange={(e)=>applyByScope({ fontFamily: e.target.value })}>
+                <select onMouseDown={holdEditing} className="mini-toolbar-dropdown border rounded px-2 py-1" defaultValue={table.cells[0]?.styles?.fontFamily || 'Inter, system-ui, sans-serif'} onChange={(e) => applyByScope({ fontFamily: e.target.value })}>
                   <option value="Inter, system-ui, sans-serif">Inter</option>
                   <option value="Arial, sans-serif">Arial</option>
                   <option value="'Times New Roman', serif">Times New Roman</option>
@@ -868,20 +868,20 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
                   <option value="Georgia, serif">Georgia</option>
                   <option value="Verdana, sans-serif">Verdana</option>
                 </select>
-                <input onMouseDown={holdEditing} type="number" min="8" max="120" className="w-20 px-2 py-1 border rounded" defaultValue={table.cells[0]?.styles?.fontSize || 14} onChange={(e)=>applyByScope({ fontSize: Number(e.target.value)||14 })} />
+                <input onMouseDown={holdEditing} type="number" min="8" max="120" className="w-20 px-2 py-1 border rounded" defaultValue={table.cells[0]?.styles?.fontSize || 14} onChange={(e) => applyByScope({ fontSize: Number(e.target.value) || 14 })} />
               </div>
               {/* Line 3: alignment icons inline below font controls */}
               <div className="ops-item mt-2 flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-1">
-                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align left" onClick={()=>applyByScope({ align: 'left' })}>⟸</button>
-                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align center" onClick={()=>applyByScope({ align: 'center' })}>⟺</button>
-                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align right" onClick={()=>applyByScope({ align: 'right' })}>⟹</button>
+                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align left" onClick={() => applyByScope({ align: 'left' })}>⟸</button>
+                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align center" onClick={() => applyByScope({ align: 'center' })}>⟺</button>
+                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align right" onClick={() => applyByScope({ align: 'right' })}>⟹</button>
                 </div>
                 <div className="w-px h-5 bg-gray-300" />
                 <div className="flex items-center gap-1">
-                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align top" onClick={()=>applyByScope({ valign: 'top' })}>↑</button>
-                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align middle" onClick={()=>applyByScope({ valign: 'middle' })}>↕</button>
-                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align bottom" onClick={()=>applyByScope({ valign: 'bottom' })}>↓</button>
+                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align top" onClick={() => applyByScope({ valign: 'top' })}>↑</button>
+                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align middle" onClick={() => applyByScope({ valign: 'middle' })}>↕</button>
+                  <button onMouseDown={holdEditing} className="px-2 py-1 rounded border" title="Align bottom" onClick={() => applyByScope({ valign: 'bottom' })}>↓</button>
                 </div>
               </div>
             </div>
@@ -894,14 +894,14 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
         <div className="relative" onMouseDown={holdEditing}>
           <button
             ref={colorBtnRef}
-            onMouseDown={(e)=>{ e.preventDefault(); holdEditing(); setShowColoringDrop(v=>!v) }}
+            onMouseDown={(e) => { e.preventDefault(); holdEditing(); setShowColoringDrop(v => !v) }}
             className={`drop-btn px-3 py-2 rounded-lg border bg-white/70 backdrop-blur-sm shadow-sm text-sm flex items-center gap-2 w-full hover:shadow-md transition-all duration-200 ${showColoringDrop ? 'drop-btn-active' : ''}`}
           >
             <span className="inline-block w-4 h-4 rounded" style={{ background: table.headerBg || '#f3f4f6' }} />
             <span className="inline-block w-4 h-4 rounded" style={{ background: (activeCellIndex() !== null && table.cells[activeCellIndex()]?.styles?.bgColor) || table.cellBg || '#ffffff' }} />
             <span className="inline-block w-4 h-4 rounded" style={{ background: table.borderColor || '#000000' }} />
             Table coloring
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
           </button>
           {showColoringDrop && (
             <div ref={colorMenuRef} className={`w-full dropdown-panel rounded-xl p-3 ops-panel ops-stack ${colAnim ? 'ops-open' : ''}`}>
@@ -910,75 +910,75 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
                 {/* Header row toggle */}
                 <div className="ops-item block w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm">
                   <label className="flex items-center gap-2">
-                    <input onMouseDown={holdEditing} type="checkbox" checked={!!table.headerRow} onChange={(e)=>update({ headerRow: e.target.checked })} />
+                    <input onMouseDown={holdEditing} type="checkbox" checked={!!table.headerRow} onChange={(e) => update({ headerRow: e.target.checked })} />
                     <span className="text-sm">Enable header row</span>
                   </label>
                 </div>
                 {/* Header background */}
-<div className={`ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm ${!table.headerRow ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm ${!table.headerRow ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="text-xs text-gray-700 font-medium">Header background</div>
-                  <SwatchGrid onPick={(c)=>{ setHdrBgBase(c); update({ headerBg: rgbaFromHex(c, hdrBgAlpha) }) }} />
-                  <OpacitySlider value={hdrBgAlpha} onChange={(a)=>{ setHdrBgAlpha(a); update({ headerBg: rgbaFromHex(hdrBgBase, a) }) }} />
+                  <SwatchGrid onPick={(c) => { setHdrBgBase(c); update({ headerBg: rgbaFromHex(c, hdrBgAlpha) }) }} />
+                  <OpacitySlider value={hdrBgAlpha} onChange={(a) => { setHdrBgAlpha(a); update({ headerBg: rgbaFromHex(hdrBgBase, a) }) }} />
                 </div>
                 {/* Header text color */}
-<div className={`ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm ${!table.headerRow ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm ${!table.headerRow ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="text-xs text-gray-700 font-medium">Header text color</div>
-                  <SwatchGrid onPick={(c)=>{ setHdrTextBase(c); update({ headerTextColor: rgbaFromHex(c, hdrTextAlpha) }) }} />
-                  <OpacitySlider value={hdrTextAlpha} onChange={(a)=>{ setHdrTextAlpha(a); update({ headerTextColor: rgbaFromHex(hdrTextBase, a) }) }} />
+                  <SwatchGrid onPick={(c) => { setHdrTextBase(c); update({ headerTextColor: rgbaFromHex(c, hdrTextAlpha) }) }} />
+                  <OpacitySlider value={hdrTextAlpha} onChange={(a) => { setHdrTextAlpha(a); update({ headerTextColor: rgbaFromHex(hdrTextBase, a) }) }} />
                 </div>
                 {/* Cell background */}
-<div className="ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm">
+                <div className="ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm">
                   <div className="text-xs text-gray-700 font-medium">Cell background</div>
-                  <SwatchGrid onPick={(c)=>{
+                  <SwatchGrid onPick={(c) => {
                     setCellBgBase(c)
                     const idx = activeCellIndex()
                     const val = rgbaFromHex(c, cellBgAlpha)
-                    if (scope==='cell' && idx !== null) updateCellStyles(idx, { bgColor: val })
-                    else if (scope==='header') updateHeaderStyles({ bgColor: val })
-                    else if (scope==='body') updateBodyStyles({ bgColor: val })
-                    else if (scope==='row' && idx !== null) updateRowStyles(Math.floor(idx / table.cols), { bgColor: val })
-                    else if (scope==='column' && idx !== null) updateColStyles(idx % table.cols, { bgColor: val })
+                    if (scope === 'cell' && idx !== null) updateCellStyles(idx, { bgColor: val })
+                    else if (scope === 'header') updateHeaderStyles({ bgColor: val })
+                    else if (scope === 'body') updateBodyStyles({ bgColor: val })
+                    else if (scope === 'row' && idx !== null) updateRowStyles(Math.floor(idx / table.cols), { bgColor: val })
+                    else if (scope === 'column' && idx !== null) updateColStyles(idx % table.cols, { bgColor: val })
                   }} />
-                  <OpacitySlider value={cellBgAlpha} onChange={(a)=>{
+                  <OpacitySlider value={cellBgAlpha} onChange={(a) => {
                     setCellBgAlpha(a)
                     const idx = activeCellIndex()
                     const val = rgbaFromHex(cellBgBase, a)
-                    if (scope==='cell' && idx !== null) updateCellStyles(idx, { bgColor: val })
-                    else if (scope==='header') updateHeaderStyles({ bgColor: val })
-                    else if (scope==='body') updateBodyStyles({ bgColor: val })
-                    else if (scope==='row' && idx !== null) updateRowStyles(Math.floor(idx / table.cols), { bgColor: val })
-                    else if (scope==='column' && idx !== null) updateColStyles(idx % table.cols, { bgColor: val })
+                    if (scope === 'cell' && idx !== null) updateCellStyles(idx, { bgColor: val })
+                    else if (scope === 'header') updateHeaderStyles({ bgColor: val })
+                    else if (scope === 'body') updateBodyStyles({ bgColor: val })
+                    else if (scope === 'row' && idx !== null) updateRowStyles(Math.floor(idx / table.cols), { bgColor: val })
+                    else if (scope === 'column' && idx !== null) updateColStyles(idx % table.cols, { bgColor: val })
                   }} />
                 </div>
                 {/* Cell text color */}
-<div className="ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm">
+                <div className="ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm">
                   <div className="text-xs text-gray-700 font-medium">Cell text color</div>
-                  <SwatchGrid onPick={(c)=>{
+                  <SwatchGrid onPick={(c) => {
                     setCellTextBase(c)
                     const idx = activeCellIndex()
                     const val = rgbaFromHex(c, cellTextAlpha)
-                    if (scope==='cell' && idx !== null) updateCellStyles(idx, { color: val })
-                    else if (scope==='header') updateHeaderStyles({ color: val })
-                    else if (scope==='body') updateBodyStyles({ color: val })
-                    else if (scope==='row' && idx !== null) updateRowStyles(Math.floor(idx / table.cols), { color: val })
-                    else if (scope==='column' && idx !== null) updateColStyles(idx % table.cols, { color: val })
+                    if (scope === 'cell' && idx !== null) updateCellStyles(idx, { color: val })
+                    else if (scope === 'header') updateHeaderStyles({ color: val })
+                    else if (scope === 'body') updateBodyStyles({ color: val })
+                    else if (scope === 'row' && idx !== null) updateRowStyles(Math.floor(idx / table.cols), { color: val })
+                    else if (scope === 'column' && idx !== null) updateColStyles(idx % table.cols, { color: val })
                   }} />
-                  <OpacitySlider value={cellTextAlpha} onChange={(a)=>{
+                  <OpacitySlider value={cellTextAlpha} onChange={(a) => {
                     setCellTextAlpha(a)
                     const idx = activeCellIndex()
                     const val = rgbaFromHex(cellTextBase, a)
-                    if (scope==='cell' && idx !== null) updateCellStyles(idx, { color: val })
-                    else if (scope==='header') updateHeaderStyles({ color: val })
-                    else if (scope==='body') updateBodyStyles({ color: val })
-                    else if (scope==='row' && idx !== null) updateRowStyles(Math.floor(idx / table.cols), { color: val })
-                    else if (scope==='column' && idx !== null) updateColStyles(idx % table.cols, { color: val })
+                    if (scope === 'cell' && idx !== null) updateCellStyles(idx, { color: val })
+                    else if (scope === 'header') updateHeaderStyles({ color: val })
+                    else if (scope === 'body') updateBodyStyles({ color: val })
+                    else if (scope === 'row' && idx !== null) updateRowStyles(Math.floor(idx / table.cols), { color: val })
+                    else if (scope === 'column' && idx !== null) updateColStyles(idx % table.cols, { color: val })
                   }} />
                 </div>
                 {/* Border color */}
-<div className="ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm">
+                <div className="ops-item ops-flexcol w-full p-2 rounded-md border bg-white/40 backdrop-blur-sm">
                   <div className="text-xs text-gray-700 font-medium">Border color</div>
-                  <SwatchGrid onPick={(c)=>{ setBorderBase(c); update({ borderColor: rgbaFromHex(c, borderAlpha) }) }} />
-                  <OpacitySlider value={borderAlpha} onChange={(a)=>{ setBorderAlpha(a); update({ borderColor: rgbaFromHex(borderBase, a) }) }} />
+                  <SwatchGrid onPick={(c) => { setBorderBase(c); update({ borderColor: rgbaFromHex(c, borderAlpha) }) }} />
+                  <OpacitySlider value={borderAlpha} onChange={(a) => { setBorderAlpha(a); update({ borderColor: rgbaFromHex(borderBase, a) }) }} />
                 </div>
               </div>
             </div>
@@ -991,30 +991,29 @@ newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles ||
         <div className="border-t border-gray-200 pt-2">
           <div className="text-xs font-medium text-gray-600 mb-2">Apply styles to</div>
           <div className="flex items-center gap-3 text-xs flex-wrap">
-            <label className="flex items-center gap-1"><input type="radio" name="tbl-scope" checked={scope==='cell'} onChange={()=>setScope('cell')} /> cell</label>
-            <label className="flex items-center gap-1"><input type="radio" name="tbl-scope" checked={scope==='row'} onChange={()=>setScope('row')} /> row wise</label>
-            <label className="flex items-center gap-1"><input type="radio" name="tbl-scope" checked={scope==='column'} onChange={()=>setScope('column')} /> column wise</label>
-            <label className="flex items-center gap-1"><input type="radio" name="tbl-scope" checked={scope==='header'} onChange={()=>setScope('header')} /> header rows</label>
-            <label className="flex items-center gap-1"><input type="radio" name="tbl-scope" checked={scope==='body'} onChange={()=>setScope('body')} /> body rows</label>
+            <label className="flex items-center gap-1"><input type="radio" name="tbl-scope" checked={scope === 'cell'} onChange={() => setScope('cell')} /> cell</label>
+            <label className="flex items-center gap-1"><input type="radio" name="tbl-scope" checked={scope === 'row'} onChange={() => setScope('row')} /> row wise</label>
+            <label className="flex items-center gap-1"><input type="radio" name="tbl-scope" checked={scope === 'column'} onChange={() => setScope('column')} /> column wise</label>
+            <label className="flex items-center gap-1"><input type="radio" name="tbl-scope" checked={scope === 'body'} onChange={() => setScope('body')} /> body rows</label>
           </div>
           <div className="mt-2 text-[11px] text-gray-600">
             Tip: Choose the scope (cell/header/body). Header and body styles are independent and only apply when you select them explicitly
           </div>
         </div>
-      </div>
 
-      {/* Lightweight warn modal */}
-      {warn.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background:'rgba(0,0,0,0.35)'}} onMouseDown={(e)=>{ e.stopPropagation(); }}>
-          <div className="bg-white rounded-lg shadow-xl border p-4 w-80">
-            <div className="text-sm text-gray-800">{warn.text}</div>
-            <div className="mt-3 flex justify-end gap-2">
-              <button className="px-3 py-1.5 rounded border" onClick={()=>closeWarn()}>Cancel</button>
-              {warn.confirm && <button className="px-3 py-1.5 rounded bg-black text-white" onClick={()=>{ try { warn.confirm() } catch {}; closeWarn() }}>Proceed</button>}
+        {/* Lightweight warn modal */}
+        {warn.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.35)' }} onMouseDown={(e) => { e.stopPropagation(); }}>
+            <div className="bg-white rounded-lg shadow-xl border p-4 w-80">
+              <div className="text-sm text-gray-800">{warn.text}</div>
+              <div className="mt-3 flex justify-end gap-2">
+                <button className="px-3 py-1.5 rounded border" onClick={() => closeWarn()}>Cancel</button>
+                {warn.confirm && <button className="px-3 py-1.5 rounded bg-black text-white" onClick={() => { try { warn.confirm() } catch { }; closeWarn() }}>Proceed</button>}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

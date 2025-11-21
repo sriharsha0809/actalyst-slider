@@ -36,8 +36,12 @@ export default function LandingPage({ onEnterApp }) {
 
     sequence()
 
+    // Enforce body overflow hidden to ensure no scrollbar
+    document.body.style.overflow = 'hidden'
+
     return () => {
       window.removeEventListener('scroll', handleScroll)
+      document.body.style.overflow = ''
     }
   }, [])
 
@@ -68,7 +72,16 @@ export default function LandingPage({ onEnterApp }) {
   }
 
   return (
-    <div className="relative min-h-screen w-full bg-white text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden">
+    <div className="relative h-screen w-full bg-white text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900 overflow-y-auto overflow-x-hidden no-scrollbar">
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
 
       {/* Advanced Startup Animation Overlay */}
       <div

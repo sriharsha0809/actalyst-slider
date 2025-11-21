@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { SlidesProvider, useSlides } from './context/SlidesContext.jsx'
 import { ThemeProvider, useTheme } from './context/ThemeContext.jsx'
 import Sidebar from './components/Sidebar.jsx'
@@ -26,14 +27,14 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('Insert')
   const [showFileMenu, setShowFileMenu] = useState(false)
   const [fileName, setFileName] = useState('Untitled Presentation')
-  
+
   // Zoom state (Keynote-like transform scale)
   const [zoom, setZoom] = useState(1) // 1 = 100%
   const clampZoom = (v) => Math.max(0.1, Math.min(4, Math.round(v * 10) / 10))
   const zoomIn = () => setZoom((z) => clampZoom(z + 0.1))
   const zoomOut = () => setZoom((z) => clampZoom(z - 0.1))
   const resetZoom = () => setZoom(1)
-  
+
   // Keyboard shortcuts for zoom (Cmd/Ctrl + '+', '-', '0')
   React.useEffect(() => {
     const onKey = (e) => {
@@ -46,7 +47,7 @@ function AppContent() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  
+
   // Chart editor state at App level
   const [chartEditorState, setChartEditorState] = useState({
     isOpen: false,
@@ -54,10 +55,10 @@ function AppContent() {
     chartData: null,
     chartId: null
   })
-  
+
   const { getThemeColors, isDark } = useTheme()
   const colors = getThemeColors()
-  
+
   // Listen for chart editor open requests
   React.useEffect(() => {
     const handleOpenChartEditor = (e) => {
@@ -70,15 +71,15 @@ function AppContent() {
       })
     }
     window.addEventListener('openChartEditor', handleOpenChartEditor)
-    
+
     // Set up global function
     window.openChartEditor = (chartId, chartType, chartData) => {
       console.log('[App] window.openChartEditor called:', { chartId, chartType, chartData })
-      window.dispatchEvent(new CustomEvent('openChartEditor', { 
-        detail: { chartId, chartType, chartData } 
+      window.dispatchEvent(new CustomEvent('openChartEditor', {
+        detail: { chartId, chartType, chartData }
       }))
     }
-    
+
     return () => {
       window.removeEventListener('openChartEditor', handleOpenChartEditor)
       delete window.openChartEditor
@@ -89,7 +90,7 @@ function AppContent() {
   React.useEffect(() => {
     const openFile = () => { setShowFileMenu(true); setActiveTab('File') }
     window.openFileDashboard = openFile
-    return () => { try { delete window.openFileDashboard } catch {} }
+    return () => { try { delete window.openFileDashboard } catch { } }
   }, [])
 
   const handleFileOpen = (newFileName) => {
@@ -114,26 +115,26 @@ function AppContent() {
       <div className={`flex h-dvh w-dvw overflow-hidden flex-col transition-all duration-500 bg-[#F5F5F7]`}>
         {/* Toolbar (now includes app symbol and file name) */}
         <div>
-          <Toolbar 
+          <Toolbar
             activeTab={activeTab}
             isSidebarOpen={showSidebar}
-            onToggleSidebar={() => setShowSidebar(s => !s)} 
+            onToggleSidebar={() => setShowSidebar(s => !s)}
             onPresent={() => {
               setPresenting(true)
               setPresentationMode('manual')
             }}
             onSlideShow={() => {
-              setPresenting(true) 
+              setPresenting(true)
               setPresentationMode('auto')
             }}
             fileName={fileName}
-            onRenameFile={(name)=> setFileName(name)}
+            onRenameFile={(name) => setFileName(name)}
             zoom={zoom}
             onZoomIn={zoomIn}
             onZoomOut={zoomOut}
             onResetZoom={resetZoom}
-            onZoomChange={(v)=> setZoom(clampZoom(v))}
-             onNavigateHome={() => setShowLandingPage(true)}
+            onZoomChange={(v) => setZoom(clampZoom(v))}
+            onNavigateHome={() => setShowLandingPage(true)}
           />
         </div>
 
@@ -149,7 +150,7 @@ function AppContent() {
 
             {/* Canvas + Shape toolbox - Responsive grid */}
             <div className={`flex-1 min-h-0 grid grid-cols-[1fr_minmax(220px,280px)] gap-4 responsive-toolbar-gap pl-4 pr-0 pt-0 transition-all duration-500`} style={{ paddingBottom: '0px', backgroundColor: 'transparent' }}>
-              <div className={`rounded-lg overflow-hidden animate-slideInUp`} style={{animationDelay: '0.2s', backgroundColor: 'transparent'}}>
+              <div className={`rounded-lg overflow-hidden animate-slideInUp`} style={{ animationDelay: '0.2s', backgroundColor: 'transparent' }}>
                 <SlideCanvas zoom={zoom} />
               </div>
               <div style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)', borderLeft: '1px solid rgba(0,0,0,0.1)', borderRadius: '0px', height: '100%', overflow: 'hidden' }} className="flex flex-col min-h-0">
@@ -163,22 +164,22 @@ function AppContent() {
       </div>
 
       {presenting && (
-        <PresentationModal 
+        <PresentationModal
           mode={presentationMode}
           onClose={() => {
             setPresenting(false)
             setPresentationMode(null)
-          }} 
+          }}
         />
       )}
-      <FileMenu 
-        isOpen={showFileMenu} 
-        onClose={() => { setShowFileMenu(false); setActiveTab('Insert'); }} 
+      <FileMenu
+        isOpen={showFileMenu}
+        onClose={() => { setShowFileMenu(false); setActiveTab('Insert'); }}
         onFileOpen={handleFileOpen}
         onSave={handleSave}
       />
-      
-      
+
+
       {/* Global Chart Editor */}
       <SimpleChartEditor
         isOpen={chartEditorState.isOpen}
@@ -192,8 +193,8 @@ function AppContent() {
             const cats = newData?.categories || []
             const patch = { structuredData: newData, data: primary, labels: cats }
             console.log('[App] Dispatching updateElement with patch:', patch)
-            window.dispatchEvent(new CustomEvent('updateElement', { 
-              detail: { id: chartEditorState.chartId, patch } 
+            window.dispatchEvent(new CustomEvent('updateElement', {
+              detail: { id: chartEditorState.chartId, patch }
             }))
           }
         }}
@@ -215,8 +216,8 @@ function SidePanel({ activeTab }) {
   const isTextEditing = !!(typeof window !== 'undefined' && window.currentTextEditorRef && window.currentTextEditorRef.current && window.currentTextEditorRef.current.editorNode)
 
   const isSymbol = selected && [
-    'rect','square','circle','triangle','diamond','star','message',
-    'roundRect','parallelogram','trapezoid','pentagon','hexagon','octagon','chevron','arrowRight','cloud'
+    'rect', 'square', 'circle', 'triangle', 'diamond', 'star', 'message',
+    'roundRect', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon', 'chevron', 'arrowRight', 'cloud'
   ].includes(selected.type)
   const isTableLike = !!(selected && ((selected.type === 'table') || (Array.isArray(selected.cells) && typeof selected.rows === 'number' && typeof selected.cols === 'number')))
   const isImage = selected?.type === 'image'
@@ -258,39 +259,21 @@ function SidePanel({ activeTab }) {
   // Only animate when the actual tool component changes
   const panelKey = panelType
 
-  const [loading, setLoading] = React.useState(false)
-  const animCycle = React.useRef(['animate-slideInRight','animate-slideInUp'])
-  const [animIndex, setAnimIndex] = React.useState(0)
-
-  React.useEffect(() => {
-    // Only animate when the panelKey actually changes
-    setLoading(true)
-    // rotate animation for smooth variation
-    setAnimIndex((i) => (i + 1) % animCycle.current.length)
-    const t = setTimeout(() => setLoading(false), 220) // brief shimmer
-    return () => clearTimeout(t)
-  }, [panelKey])
-
-  const animClass = `${animCycle.current[animIndex]} animate-fadeIn`
-
   return (
     <div className={`${colors.cardBg} p-4 h-full flex flex-col min-h-0 responsive-sidebar-right`} style={{ boxShadow: '0 0 30px rgba(0, 0, 0, 0.15)', minWidth: '220px' }}>
-      <div key={panelKey} className="flex-1 min-h-0">
-        {loading ? (
-          <div className="space-y-3">
-            <div className="skeleton-line h-5 w-1/3" />
-            <div className="skeleton-rect h-16 w-full rounded" />
-            <div className="skeleton-line h-4 w-1/2" />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="skeleton-rect h-24 w-full rounded" />
-              <div className="skeleton-rect h-24 w-full rounded" />
-            </div>
-          </div>
-        ) : (
-          <div className={animClass} style={{ animationDuration: '2s' }}>
+      <div className="flex-1 min-h-0 relative">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={panelKey}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="h-full"
+          >
             {panel}
-          </div>
-        )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   )

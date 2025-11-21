@@ -9,15 +9,12 @@ export default function TextStylePanel() {
   const currentSlide = state.slides.find(s => s.id === state.currentSlideId)
   const selected = currentSlide?.elements.find(e => e.id === state.selectedElementId)
 
-  if (!selected || selected.type !== 'text') {
-    return <div className="text-sm text-gray-600">Select a text box to edit its style.</div>
-  }
-
-  const styles = selected.styles || {}
-  const bgFillEnabled = styles.enableBgColor ?? (!!selected.bgColor && selected.bgColor !== 'transparent')
+  // Moved early return to bottom to prevent hook count mismatch
+  const styles = selected?.styles || {}
+  const bgFillEnabled = styles.enableBgColor ?? (!!selected?.bgColor && selected?.bgColor !== 'transparent')
 
   const getBgColorFallback = () => {
-    if (selected.bgColor && selected.bgColor !== 'transparent') return selected.bgColor
+    if (selected?.bgColor && selected?.bgColor !== 'transparent') return selected.bgColor
     if (styles.highlightColor) return styles.highlightColor
     return '#fef08a'
   }
@@ -143,10 +140,10 @@ export default function TextStylePanel() {
     dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles: next } })
   }
 
-  const toTitleCase = (s='') => s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  const toTitleCase = (s = '') => s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
   const applyCaseTransform = (mode /* 'upper'|'lower'|'title' */) => {
     const editorHandle = getActiveEditorHandle()
-    const convert = (t='') => mode === 'upper' ? t.toUpperCase() : mode === 'lower' ? t.toLowerCase() : toTitleCase(t)
+    const convert = (t = '') => mode === 'upper' ? t.toUpperCase() : mode === 'lower' ? t.toLowerCase() : toTitleCase(t)
     if (editorHandle && editorHandle.editorNode) {
       const ed = editorHandle.editorNode
       const transformNodes = (node) => {
@@ -424,9 +421,13 @@ export default function TextStylePanel() {
       try {
         colorInputRef.current.focus()
         colorInputRef.current.click()
-      } catch {}
+      } catch { }
     }
   }, [showColorPalette, colorPaletteMode])
+
+  if (!selected || selected.type !== 'text') {
+    return <div className="text-sm text-gray-600">Select a text box to edit its style.</div>
+  }
 
   return (
     <div className="space-y-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/70 pl-2 pr-3 py-3 shadow-sm overflow-x-hidden">
@@ -578,10 +579,10 @@ export default function TextStylePanel() {
                 bgFillEnabled
                   ? { backgroundColor: selected.bgColor || styles.highlightColor || '#fef08a' }
                   : {
-                      backgroundColor: 'transparent',
-                      backgroundImage: 'linear-gradient(135deg, #e5e7eb 25%, transparent 25%, transparent 50%, #e5e7eb 50%, #e5e7eb 75%, transparent 75%, transparent)',
-                      backgroundSize: '6px 6px'
-                    }
+                    backgroundColor: 'transparent',
+                    backgroundImage: 'linear-gradient(135deg, #e5e7eb 25%, transparent 25%, transparent 50%, #e5e7eb 50%, #e5e7eb 75%, transparent 75%, transparent)',
+                    backgroundSize: '6px 6px'
+                  }
               }
             />
             {/* Border color chip (enabled when border is on) */}
@@ -612,7 +613,7 @@ export default function TextStylePanel() {
                 </button>
               </div>
               <div className="grid grid-cols-6 gap-1 mb-2">
-                {['#111827','#6b7280','#9ca3af','#f97316','#ef4444','#facc15','#22c55e','#0ea5e9','#6366f1','#ec4899','#ffffff','#000000'].map((c) => (
+                {['#111827', '#6b7280', '#9ca3af', '#f97316', '#ef4444', '#facc15', '#22c55e', '#0ea5e9', '#6366f1', '#ec4899', '#ffffff', '#000000'].map((c) => (
                   <button
                     key={c}
                     type="button"
