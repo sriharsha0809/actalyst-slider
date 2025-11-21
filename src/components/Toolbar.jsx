@@ -170,12 +170,21 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
         return
       }
 
-      if (e.key === 'Delete') {
-        e.preventDefault()
-        onSlideShow() // F5 triggers auto slideshow
-        return
-      }
-      if (e.key === 'F6') {
+     // In Toolbar.jsx, update the handleKeyDown function
+if (e.key === 'Delete' || e.key === 'Backspace') {
+  // Avoid deleting while typing inside an input/contenteditable
+  const active = document.activeElement
+  const inEditable = active && (
+    active.tagName === 'INPUT' || 
+    active.tagName === 'TEXTAREA' || 
+    active.isContentEditable
+  )
+  if (!inEditable && selected) {
+    e.preventDefault()
+    dispatch({ type: 'DELETE_ELEMENT', id: selected.id })
+    return // Add return to prevent other handlers
+  }
+} if (e.key === 'F6') {
         e.preventDefault() 
         onPresent() // F6 triggers manual present
         return

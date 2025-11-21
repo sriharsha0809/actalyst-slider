@@ -950,11 +950,31 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
           {/* Delete button */}
           <button
             type="button"
-            onPointerDown={(e)=>{ e.preventDefault(); e.stopPropagation(); }}
-            onMouseDown={(e)=>{ e.preventDefault(); e.stopPropagation(); }}
-            onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); onDelete() }}
-            className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-6 h-6 text-xs shadow"
-            style={{ zIndex: 99, pointerEvents: 'auto', touchAction: 'none' }}
+            onPointerDown={(e)=>{ 
+              e.stopPropagation(); 
+              e.preventDefault(); 
+            }}
+            onMouseDown={(e)=>{ 
+              e.stopPropagation(); 
+              e.preventDefault(); 
+            }}
+            onClick={(e)=>{ 
+              e.stopPropagation(); 
+              e.preventDefault();
+              onDelete(); 
+            }}
+            onPointerUp={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-6 h-6 text-xs shadow flex items-center justify-center"
+            style={{ 
+              zIndex: 99, 
+              pointerEvents: 'auto', 
+              touchAction: 'none',
+              border: 'none',
+              outline: 'none',
+              lineHeight: '1',
+              padding: 0
+            }}
             title="Delete"
             aria-label="Delete element"
           >
