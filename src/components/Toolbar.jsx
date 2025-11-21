@@ -8,23 +8,23 @@ import { VscListOrdered } from 'react-icons/vsc'
 import { RiPaintBrushLine, RiZoomInLine, RiZoomOutLine } from 'react-icons/ri'
 import { IoFolderOutline } from 'react-icons/io5'
 
-export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onPresent, onSlideShow, fileName = 'Untitled Presentation', onRenameFile, zoom = 1, onZoomIn, onZoomOut, onResetZoom, onZoomChange }) {
+export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onPresent, onSlideShow, fileName = 'Untitled Presentation', onRenameFile, zoom = 1, onZoomIn, onZoomOut, onResetZoom, onZoomChange, onNavigateHome }) {
   const { state, dispatch } = useSlides()
   const { getThemeColors, isDark } = useTheme()
   const colors = getThemeColors()
-  
+
   // Helper function for inline/text controls: transparent bg + hover zoom
   const btn = (active) => {
     return `px-2 py-1 rounded-md tool-btn anim-zoom ${colors.toolbarText} ${active ? 'is-active' : ''}`
   }
-  
+
   // Helper for Insert/Design tool buttons: transparent + hover zoom + unified hover/active bg
   const elementBtn = (elementType) => {
     const isSelected = selected && selected.type === elementType
     const glass = isDark ? `${colors.elementGlass} ${isSelected ? colors.elementActiveGlass : ''}` : ''
     return `flex flex-col items-center gap-[2px] px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} ${glass}`
   }
-  
+
   const currentSlide = state.slides.find(s => s.id === state.currentSlideId)
   const selected = currentSlide?.elements.find(e => e.id === state.selectedElementId)
   const [showListDropdown, setShowListDropdown] = useState(false)
@@ -117,10 +117,10 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
     const checkScreenSize = () => {
       setIsNarrowScreen(window.innerWidth < 1030)
     }
-    
+
     // Initial check
     checkScreenSize()
-    
+
     window.addEventListener('resize', checkScreenSize)
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
@@ -146,7 +146,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
           e.preventDefault()
           // Text element: ensure editor is active then select all
           if (selected.type === 'text') {
-            try { window.dispatchEvent(new CustomEvent('editTextBox', { detail: { id: selected.id } })) } catch {}
+            try { window.dispatchEvent(new CustomEvent('editTextBox', { detail: { id: selected.id } })) } catch { }
             setTimeout(() => {
               const editorHandle = getActiveEditorHandle()
               const node = editorHandle?.editorNode
@@ -155,9 +155,9 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
             return
           }
           // Shape element: ensure edit mode then select all in its textarea
-          const shapeTypes = ['rect','square','circle','triangle','diamond','star','message','roundRect','parallelogram','trapezoid','pentagon','hexagon','octagon','chevron','arrowRight','cloud']
+          const shapeTypes = ['rect', 'square', 'circle', 'triangle', 'diamond', 'star', 'message', 'roundRect', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'octagon', 'chevron', 'arrowRight', 'cloud']
           if (shapeTypes.includes(selected.type)) {
-            try { window.dispatchEvent(new CustomEvent('editShapeText', { detail: { id: selected.id } })) } catch {}
+            try { window.dispatchEvent(new CustomEvent('editShapeText', { detail: { id: selected.id } })) } catch { }
             setTimeout(() => {
               const ta = document.querySelector(`[data-el-box][data-el-id="${selected.id}"] textarea`)
               if (ta) { ta.focus(); ta.select() }
@@ -170,22 +170,22 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
         return
       }
 
-     // In Toolbar.jsx, update the handleKeyDown function
-if (e.key === 'Delete' || e.key === 'Backspace') {
-  // Avoid deleting while typing inside an input/contenteditable
-  const active = document.activeElement
-  const inEditable = active && (
-    active.tagName === 'INPUT' || 
-    active.tagName === 'TEXTAREA' || 
-    active.isContentEditable
-  )
-  if (!inEditable && selected) {
-    e.preventDefault()
-    dispatch({ type: 'DELETE_ELEMENT', id: selected.id })
-    return // Add return to prevent other handlers
-  }
-} if (e.key === 'F6') {
-        e.preventDefault() 
+      // In Toolbar.jsx, update the handleKeyDown function
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Avoid deleting while typing inside an input/contenteditable
+        const active = document.activeElement
+        const inEditable = active && (
+          active.tagName === 'INPUT' ||
+          active.tagName === 'TEXTAREA' ||
+          active.isContentEditable
+        )
+        if (!inEditable && selected) {
+          e.preventDefault()
+          dispatch({ type: 'DELETE_ELEMENT', id: selected.id })
+          return // Add return to prevent other handlers
+        }
+      } if (e.key === 'F6') {
+        e.preventDefault()
         onPresent() // F6 triggers manual present
         return
       }
@@ -318,7 +318,7 @@ if (e.key === 'Delete' || e.key === 'Backspace') {
         if (element.nodeType === Node.TEXT_NODE) {
           element = element.parentElement
         }
-        
+
         // Check if we're inside a list
         while (element && element !== editorNode) {
           if (element.tagName === 'UL') {
@@ -345,7 +345,7 @@ if (e.key === 'Delete' || e.key === 'Backspace') {
     const hasSelection = (() => {
       try {
         if (editorHandle && typeof editorHandle.hasSelection === 'function') return editorHandle.hasSelection()
-      } catch {}
+      } catch { }
       return false
     })()
 
@@ -380,7 +380,7 @@ if (e.key === 'Delete' || e.key === 'Backspace') {
 
   const toggleStyle = (key) => {
     if (!selected || selected.type !== 'text') return
-    
+
     // In Home tab, always apply to whole element
     const styles = { ...selected.styles, [key]: !selected.styles[key] }
     dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles } })
@@ -392,18 +392,18 @@ if (e.key === 'Delete' || e.key === 'Backspace') {
     // Update the element styles directly - this is the source of truth
     const styles = { ...selected.styles, align }
     dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles } })
-    
+
     // If there's an active rich text editor, apply the alignment to the editor immediately
     const editorHandle = getActiveEditorHandle()
     if (editorHandle && editorHandle.editorNode) {
       const editorNode = editorHandle.editorNode
-      
+
       // Apply the alignment style directly to the editor (no flex to avoid line-break quirks)
       editorNode.style.textAlign = align
-      
+
       // Focus the editor to ensure the change is visible
       editorNode.focus()
-      
+
       // Trigger a change event to save the content with the new alignment
       if (typeof editorHandle.emitChange === 'function') {
         setTimeout(() => {
@@ -413,16 +413,16 @@ if (e.key === 'Delete' || e.key === 'Backspace') {
     }
   }
   const setVAlign = (valign /* 'top' | 'middle' | 'bottom' */) => {
-  if (!selected || selected.type !== 'text') return;
-  const styles = { ...selected.styles, valign };
-  dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles } });
-};
+    if (!selected || selected.type !== 'text') return;
+    const styles = { ...selected.styles, valign };
+    dispatch({ type: 'UPDATE_ELEMENT', id: selected.id, patch: { styles } });
+  };
 
   // Case transform helpers for Home tab
-  const toTitleCase = (s='') => s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  const toTitleCase = (s = '') => s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
   const applyCaseTransform = (mode /* 'upper'|'lower'|'title' */) => {
     const editorHandle = getActiveEditorHandle()
-    const convert = (t='') => mode === 'upper' ? t.toUpperCase() : mode === 'lower' ? t.toLowerCase() : toTitleCase(t)
+    const convert = (t = '') => mode === 'upper' ? t.toUpperCase() : mode === 'lower' ? t.toLowerCase() : toTitleCase(t)
     if (editorHandle && editorHandle.editorNode) {
       const ed = editorHandle.editorNode
       const transformNodes = (node) => {
@@ -495,128 +495,128 @@ if (e.key === 'Delete' || e.key === 'Backspace') {
   }
 
   // Utilities to work on the contenteditable of the selected element
-const getEditableEl = () => {
-  const editorHandle = getActiveEditorHandle()
-  return editorHandle?.editorNode || null
-}
+  const getEditableEl = () => {
+    const editorHandle = getActiveEditorHandle()
+    return editorHandle?.editorNode || null
+  }
 
-const selectAllIn = (el) => {
-  const range = document.createRange();
-  range.selectNodeContents(el);
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
-};
+  const selectAllIn = (el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  };
 
-// Finds all UL/OL directly inside the editable
-const findTopLists = (root) => {
-  const lists = [];
-  root.childNodes.forEach((n) => {
-    if (n.nodeType === 1 && (n.tagName === 'UL' || n.tagName === 'OL')) lists.push(n);
-  });
-  return lists;
-};
-
-const unwrapListsToPlainText = (root) => {
-  const lists = root.querySelectorAll('ul, ol');
-  lists.forEach((list) => {
-    const frag = document.createDocumentFragment();
-    list.querySelectorAll(':scope > li').forEach((li, idx, arr) => {
-      // move li children as plain text + newline
-      while (li.firstChild) frag.appendChild(li.firstChild);
-      if (idx < arr.length - 1) frag.appendChild(document.createTextNode('\n'));
+  // Finds all UL/OL directly inside the editable
+  const findTopLists = (root) => {
+    const lists = [];
+    root.childNodes.forEach((n) => {
+      if (n.nodeType === 1 && (n.tagName === 'UL' || n.tagName === 'OL')) lists.push(n);
     });
-    list.replaceWith(frag);
-  });
-};
+    return lists;
+  };
 
-const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-roman', 'upper-alpha' */) => {
-  // style top-level lists in the box
-  findTopLists(root).forEach((list) => {
-    if (list.tagName === 'UL' && (cssType === 'disc' || cssType === 'circle' || cssType === 'square')) {
-      list.style.listStyleType = cssType;
-      list.style.listStylePosition = 'inside';
-      list.style.paddingInlineStart = '1.25em';
-      list.style.margin = '0';
-    } else if (list.tagName === 'OL') {
-      list.style.listStyleType = cssType;
-      list.style.listStylePosition = 'inside';
-      list.style.paddingInlineStart = '1.25em';
-      list.style.margin = '0';
-    }
-  });
-};
+  const unwrapListsToPlainText = (root) => {
+    const lists = root.querySelectorAll('ul, ol');
+    lists.forEach((list) => {
+      const frag = document.createDocumentFragment();
+      list.querySelectorAll(':scope > li').forEach((li, idx, arr) => {
+        // move li children as plain text + newline
+        while (li.firstChild) frag.appendChild(li.firstChild);
+        if (idx < arr.length - 1) frag.appendChild(document.createTextNode('\n'));
+      });
+      list.replaceWith(frag);
+    });
+  };
+
+  const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-roman', 'upper-alpha' */) => {
+    // style top-level lists in the box
+    findTopLists(root).forEach((list) => {
+      if (list.tagName === 'UL' && (cssType === 'disc' || cssType === 'circle' || cssType === 'square')) {
+        list.style.listStyleType = cssType;
+        list.style.listStylePosition = 'inside';
+        list.style.paddingInlineStart = '1.25em';
+        list.style.margin = '0';
+      } else if (list.tagName === 'OL') {
+        list.style.listStyleType = cssType;
+        list.style.listStylePosition = 'inside';
+        list.style.paddingInlineStart = '1.25em';
+        list.style.margin = '0';
+      }
+    });
+  };
 
   const setListStyle = (listType) => {
-  if (!selected || selected.type !== 'text') return
+    if (!selected || selected.type !== 'text') return
 
-  const editorHandle = getActiveEditorHandle()
-  
-  // If we have an active rich text editor, handle it through the editor
-  if (editorHandle && editorHandle.editorNode) {
-    const editorNode = editorHandle.editorNode
-    
-    // Focus the editor first
-    editorNode.focus()
+    const editorHandle = getActiveEditorHandle()
 
-    const selection = window.getSelection()
-    
-    setTimeout(() => {
-      try {
-        if (listType === 'none') {
-          // Remove any existing lists
-          document.execCommand('insertOrderedList', false, null)
-          document.execCommand('insertUnorderedList', false, null)
-          unwrapListsToPlainText(editorNode)
-        } else if (listType === 'bullet' || listType === 'bullet-circle' || listType === 'bullet-square') {
-          // Remove any existing ordered lists first
-          if (editorNode.querySelector('ol')) {
+    // If we have an active rich text editor, handle it through the editor
+    if (editorHandle && editorHandle.editorNode) {
+      const editorNode = editorHandle.editorNode
+
+      // Focus the editor first
+      editorNode.focus()
+
+      const selection = window.getSelection()
+
+      setTimeout(() => {
+        try {
+          if (listType === 'none') {
+            // Remove any existing lists
             document.execCommand('insertOrderedList', false, null)
-          }
-          document.execCommand('insertUnorderedList', false, null)
-          const cssType = listType === 'bullet-circle' ? 'circle' : listType === 'bullet-square' ? 'square' : 'disc'
-          applyListStyleType(editorNode, cssType)
-        } else if (listType === 'number') {
-          // Remove any existing unordered lists first
-          if (editorNode.querySelector('ul')) {
             document.execCommand('insertUnorderedList', false, null)
-          }
-          document.execCommand('insertOrderedList', false, null)
-          applyListStyleType(editorNode, 'decimal')
-        } else if (listType === 'roman') {
-          // Remove any existing unordered lists first
-          if (editorNode.querySelector('ul')) {
+            unwrapListsToPlainText(editorNode)
+          } else if (listType === 'bullet' || listType === 'bullet-circle' || listType === 'bullet-square') {
+            // Remove any existing ordered lists first
+            if (editorNode.querySelector('ol')) {
+              document.execCommand('insertOrderedList', false, null)
+            }
             document.execCommand('insertUnorderedList', false, null)
+            const cssType = listType === 'bullet-circle' ? 'circle' : listType === 'bullet-square' ? 'square' : 'disc'
+            applyListStyleType(editorNode, cssType)
+          } else if (listType === 'number') {
+            // Remove any existing unordered lists first
+            if (editorNode.querySelector('ul')) {
+              document.execCommand('insertUnorderedList', false, null)
+            }
+            document.execCommand('insertOrderedList', false, null)
+            applyListStyleType(editorNode, 'decimal')
+          } else if (listType === 'roman') {
+            // Remove any existing unordered lists first
+            if (editorNode.querySelector('ul')) {
+              document.execCommand('insertUnorderedList', false, null)
+            }
+            document.execCommand('insertOrderedList', false, null)
+            applyListStyleType(editorNode, 'upper-roman')
+          } else if (listType === 'alpha') {
+            // Remove any existing unordered lists first
+            if (editorNode.querySelector('ul')) {
+              document.execCommand('insertUnorderedList', false, null)
+            }
+            document.execCommand('insertOrderedList', false, null)
+            applyListStyleType(editorNode, 'upper-alpha')
           }
-          document.execCommand('insertOrderedList', false, null)
-          applyListStyleType(editorNode, 'upper-roman')
-        } else if (listType === 'alpha') {
-          // Remove any existing unordered lists first
-          if (editorNode.querySelector('ul')) {
-            document.execCommand('insertUnorderedList', false, null)
-          }
-          document.execCommand('insertOrderedList', false, null)
-          applyListStyleType(editorNode, 'upper-alpha')
+
+          // Trigger change event to save the content
+          const event = new Event('input', { bubbles: true })
+          editorNode.dispatchEvent(event)
+
+        } catch (error) {
+          console.warn('List formatting error:', error)
         }
-        
-        // Trigger change event to save the content
-        const event = new Event('input', { bubbles: true })
-        editorNode.dispatchEvent(event)
-        
-      } catch (error) {
-        console.warn('List formatting error:', error)
-      }
-    }, 10)
+      }, 10)
+    }
+
+    // Update the element styles for UI state tracking
+    const styles = { ...(selected.styles || {}), listStyle: listType }
+    dispatch({
+      type: 'UPDATE_ELEMENT',
+      id: selected.id,
+      patch: { styles },
+    })
   }
-  
-  // Update the element styles for UI state tracking
-  const styles = { ...(selected.styles || {}), listStyle: listType }
-  dispatch({
-    type: 'UPDATE_ELEMENT',
-    id: selected.id,
-    patch: { styles },
-  })
-}
 
   useEffect(() => {
     updateInlineFormats()
@@ -650,7 +650,7 @@ const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-rom
         setShowMoreShapes(false)
       }
     }
-    
+
     if (showMoreShapes) {
       document.addEventListener('keydown', handleEscKey)
       return () => document.removeEventListener('keydown', handleEscKey)
@@ -714,7 +714,7 @@ const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-rom
   const handleDashDragStart = (e, index) => {
     dashDragIndexRef.current = index
     setIsDashDragging(true)
-    try { e.dataTransfer.setData('text/plain', String(index)) } catch {}
+    try { e.dataTransfer.setData('text/plain', String(index)) } catch { }
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
   }
 
@@ -841,7 +841,7 @@ const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-rom
 
   // Called after child variation is chosen
   const handleSelectChartVariant = (type, variant) => {
-    try { console.log('[ChartPicker] Selected:', type, variant) } catch {}
+    try { console.log('[ChartPicker] Selected:', type, variant) } catch { }
     const chart = factories.chart(type || chartType, 150, 100, 600, 350, { chartStyle: variant })
     dispatch({ type: 'ADD_ELEMENT', element: chart })
     setShowChartChild(false)
@@ -895,11 +895,11 @@ const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-rom
       }}
     >
       {/* Nav: app icon + label + filename (inline) */}
-      <div className="relative flex items-center" style={{marginBottom: '-8px'}}>
-        <div className="flex items-center gap-0">
+      <div className="relative flex items-center" style={{ marginBottom: '-8px' }}>
+        <div className="flex items-center gap-0 cursor-pointer hover:opacity-70 transition-opacity relative z-10" onClick={onNavigateHome}>
           <div className="w-6 h-6 rounded flex items-center justify-center bg-white">
             <svg viewBox="0 0 24 24" fill="black" aria-hidden="true" className="w-4 h-4">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
             </svg>
           </div>
           <span className={`${colors.toolbarText} text-sm font-semibold`}>PPT-Slider</span>
@@ -907,9 +907,9 @@ const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-rom
         <div className="absolute left-1/2 -translate-x-1/2">
           <input
             value={name}
-            onChange={(e)=>setName(e.target.value)}
-            onKeyDown={(e)=>{ if (e.key === 'Enter') e.currentTarget.blur() }}
-            onBlur={()=>{ const v = (name || '').trim() || 'Untitled Presentation'; setName(v); onRenameFile?.(v) }}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+            onBlur={() => { const v = (name || '').trim() || 'Untitled Presentation'; setName(v); onRenameFile?.(v) }}
             className={`${colors.toolbarText} text-sm font-medium px-2 py-0.5 rounded-md bg-transparent outline-none border border-transparent focus:border-gray-400 text-center`}
             style={{ minWidth: 220, lineHeight: 1 }}
           />
@@ -918,522 +918,521 @@ const applyListStyleType = (root, cssType /* e.g., 'disc', 'decimal', 'upper-rom
 
       {/* Tools row container */}
       <div className="grid items-center w-full" style={{ paddingTop: '0px', marginTop: '0px', paddingBottom: '0px', gridTemplateColumns: '1fr auto 1fr', columnGap: '8px' }}>
-      <div className="flex items-center gap-2 justify-self-start">
-      <button ref={sidebarBtnRef} onClick={() => {
-        const rect = sidebarBtnRef.current?.getBoundingClientRect();
-        if (rect) setSidebarMenuPos({ top: rect.bottom + 8, left: rect.left });
-        setShowSidebarMenu(true);
-}} className={`px-2 py-1.5 rounded-lg ${colors.glassButton} ${colors.toolbarText} responsive-toolbar-button no-hover-outline no-hover-bg`} aria-label="Toggle sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-          <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
-        </svg>
-      </button>
+        <div className="flex items-center gap-2 justify-self-start">
+          <button ref={sidebarBtnRef} onClick={() => {
+            const rect = sidebarBtnRef.current?.getBoundingClientRect();
+            if (rect) setSidebarMenuPos({ top: rect.bottom + 8, left: rect.left });
+            setShowSidebarMenu(true);
+          }} className={`px-2 py-1.5 rounded-lg ${colors.glassButton} ${colors.toolbarText} responsive-toolbar-button no-hover-outline no-hover-bg`} aria-label="Toggle sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+              <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
+            </svg>
+          </button>
 
 
-      {/* Undo and Redo Buttons - Always Visible */}
-      <button 
-        onClick={() => dispatch({ type: 'UNDO' })}
-        disabled={state.historyIndex <= 0}
-className={`${state.historyIndex <= 0 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText} responsive-toolbar-button no-hover-outline no-hover-bg px-2 py-1.5 rounded-lg flex items-center justify-center anim-zoom`}
-        title="Undo (Ctrl+Z)"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-          <path d="M3 7v6h6"/>
-          <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
-        </svg>
-      </button>
-      <button 
-        onClick={() => dispatch({ type: 'REDO' })}
-        disabled={state.historyIndex >= state.history.length - 1}
-className={`${state.historyIndex >= state.history.length - 1 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText} responsive-toolbar-button no-hover-outline no-hover-bg px-2 py-1.5 rounded-lg flex items-center justify-center anim-zoom`}
-        title="Redo (Ctrl+Y)"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-          <path d="M21 7v6h-6"/>
-          <path d="M3 17 C 6 12, 9 8, 12 8 C 15 8, 18 9.7, 21 13"/>
-        </svg>
-      </button>
+          {/* Undo and Redo Buttons - Always Visible */}
+          <button
+            onClick={() => dispatch({ type: 'UNDO' })}
+            disabled={state.historyIndex <= 0}
+            className={`${state.historyIndex <= 0 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText} responsive-toolbar-button no-hover-outline no-hover-bg px-2 py-1.5 rounded-lg flex items-center justify-center anim-zoom`}
+            title="Undo (Ctrl+Z)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+              <path d="M3 7v6h6" />
+              <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
+            </svg>
+          </button>
+          <button
+            onClick={() => dispatch({ type: 'REDO' })}
+            disabled={state.historyIndex >= state.history.length - 1}
+            className={`${state.historyIndex >= state.history.length - 1 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText} responsive-toolbar-button no-hover-outline no-hover-bg px-2 py-1.5 rounded-lg flex items-center justify-center anim-zoom`}
+            title="Redo (Ctrl+Y)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+              <path d="M21 7v6h-6" />
+              <path d="M3 17 C 6 12, 9 8, 12 8 C 15 8, 18 9.7, 21 13" />
+            </svg>
+          </button>
 
 
-<button onClick={() => dispatch({ type: 'ADD_SLIDE' })} className={`px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text keep-default w-20 flex flex-col items-center gap-[2px]`}>
-  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-    <rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5"/>
-    <path d="M12 8 V16 M8 12 H16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-<span className="text-[10px] whitespace-nowrap">Add Slide</span>
-</button>
+          <button onClick={() => dispatch({ type: 'ADD_SLIDE' })} className={`px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text keep-default w-20 flex flex-col items-center gap-[2px]`}>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
+              <rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M12 8 V16 M8 12 H16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <span className="text-[10px] whitespace-nowrap">Add Slide</span>
+          </button>
 
-{/* File Button */}
-<button onClick={() => { try { window.openFileDashboard?.() } catch {} }} className={`px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text keep-default w-16 flex flex-col items-center gap-0`} title="File">
-  <IoFolderOutline className="w-5 h-5" />
-  <span className="text-[10px] responsive-toolbar-text keep-default show-label">File</span>
-</button>
+          {/* File Button */}
+          <button onClick={() => { try { window.openFileDashboard?.() } catch { } }} className={`px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text keep-default w-16 flex flex-col items-center gap-0`} title="File">
+            <IoFolderOutline className="w-5 h-5" />
+            <span className="text-[10px] responsive-toolbar-text keep-default show-label">File</span>
+          </button>
 
-      </div>
-          {/* Center tools */}
-          <div className="justify-self-center">
+        </div>
+        {/* Center tools */}
+        <div className="justify-self-center">
           <div className="flex items-center gap-2 whitespace-nowrap">
             {/* Text */}
-            <button 
-              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.text() })} 
-className={`px-3 py-1.5 rounded-lg tool-btn anim-zoom font-medium transition-all duration-300 ${colors.toolbarText} responsive-toolbar-button responsive-toolbar-text keep-default w-16 flex flex-col items-center gap-0`}
+            <button
+              onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.text() })}
+              className={`px-3 py-1.5 rounded-lg tool-btn anim-zoom font-medium transition-all duration-300 ${colors.toolbarText} responsive-toolbar-button responsive-toolbar-text keep-default w-16 flex flex-col items-center gap-0`}
             >
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-                <rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5"/>
+                <rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
                 <text x="12" y="14" textAnchor="middle" fontSize="10" fontFamily="Inter, system-ui, sans-serif" fill="currentColor">A</text>
               </svg>
               <span className="text-[10px] responsive-toolbar-text keep-default show-label">Text</span>
             </button>
-          
-          {/* Shapes dropdown (icon grid) */}
-          <div className="flex items-center gap-2 responsive-toolbar-gap">
-            <div className="relative">
-              <button
-                ref={shapesBtnRef}
-                onClick={() => setShowMoreShapes(true)}
-className={`${elementBtn('shapes')} w-16 responsive-toolbar-button responsive-toolbar-text keep-default group`}
-                title="Add shape"
-              >
-<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5 transition-transform duration-200 ease-in-out group-hover:scale-110">
-                  <circle cx="9" cy="9" r="2.2" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" fill="none"/>
-                  <path d="M13 16.5 L16.5 11 L20 16.5 Z" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" fill="none"/>
-                  <rect x="6.5" y="14.5" width="4" height="4" rx="0.6" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" fill="none"/>
-                </svg>
-<span className="text-[10px] responsive-toolbar-text keep-default show-label">Shapes</span>
-              </button>
-            </div>
-          </div>
-          {/* Image / Background combined */}
-          <button 
-            onClick={() => { setIsImageDialogClosing(false); setShowImageDialog(true) }}
-className={`${elementBtn('image')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
-            title="Insert Image or Set Background Image"
-          >
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-              <rect x="3.5" y="4" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5"/>
-              <circle cx="9" cy="8" r="1.6" fill="currentColor"/>
-              <path d="M6 16l4.2-4.2c.3-.3.8-.3 1.1 0L14 14.5l2.1-2.1c.3-.3.8-.3 1.1 0L21 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span className="text-[10px] responsive-toolbar-text keep-default show-label">Image</span>
-          </button>
-          <input 
-            ref={fileInputRef}
-            type="file" 
-            accept="image/*" 
-            className="hidden" 
-            onChange={handleImageUpload}
-          />
-          <input 
-            ref={bgFileInputRef}
-            type="file" 
-            accept="image/*" 
-            className="hidden" 
-            onChange={handleBgImageUpload}
-          />
-          {(showImageDialog || isImageDialogClosing) && createPortal(
-            <div className="fixed inset-0 z-[1000] bg-black/40 flex items-end md:items-center justify-center" onClick={() => {
-              setIsImageDialogClosing(true)
-              setTimeout(() => { setShowImageDialog(false); setIsImageDialogClosing(false) }, 220)
-            }}>
-              <div
-                className={`w-full md:w-[520px] bg-white/70 backdrop-blur-2xl border border-white/60 rounded-t-2xl md:rounded-2xl shadow-2xl p-5 transform transition-all duration-300 ease-out md:translate-y-0 translate-y-0 ${isImageDialogClosing ? 'modal-zoom-exit' : 'modal-zoom-enter'}`}
-                onClick={(e)=>e.stopPropagation()}
-              >
-                <div className="text-base font-semibold mb-3">Choose Action</div>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    onClick={() => { setShowImageDialog(false); setTimeout(()=>fileInputRef.current?.click(), 0) }}
-                    className="rounded-xl border border-white/60 bg-white/60 hover:bg-white/80 backdrop-blur-xl p-4 flex flex-col items-center gap-2 shadow-sm transition-all duration-200"
-                    title="Insert Image Element"
-                  >
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="1.5"/>
-                      <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
-                      <path d="M6 17 L11 12 L18 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span className="text-sm font-medium">Image</span>
-                  </button>
-                  <button
-                    onClick={() => { setShowImageDialog(false); setTimeout(()=>bgFileInputRef.current?.click(), 0) }}
-                    className="rounded-xl border border-white/60 bg-white/50 hover:bg-white/70 backdrop-blur-xl p-4 flex flex-col items-center gap-2 shadow-sm transition-all duration-200"
-                    title="Set Slide Background Image"
-                  >
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <rect x="3.5" y="4" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6"/>
-                      <circle cx="9" cy="8" r="1.6" fill="currentColor"/>
-                      <path d="M6 16l4.2-4.2c.3-.3.8-.3 1.1 0L14 14.5l2.1-2.1c.3-.3.8-.3 1.1 0L21 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span className="text-sm font-medium">Background</span>
-                  </button>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )}
 
-          {/* Watermark Button (Keynote-style lock icon) */}
-          <button 
-            onClick={() => { setIsWatermarkDialogClosing(false); setShowWatermarkDialog(true) }}
-className={`${elementBtn('watermark')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
-            title="Insert Watermark"
-          >
-            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" aria-hidden="true">
-              {/* Rounded lock, sized to visually match other toolbar icons */}
-              <rect
-                x="5.5"
-                y="10.25"
-                width="13"
-                height="7.5"
-                rx="2.5"
-                stroke="currentColor"
-                strokeWidth="1.4"
-              />
-              <path
-                d="M8.5 10.25V8.6C8.5 6.5 10 5 12 5s3.5 1.5 3.5 3.6v1.65"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-              <circle cx="12" cy="13.9" r="0.95" fill="currentColor" />
-            </svg>
-            <span className="text-[10px] responsive-toolbar-text keep-default show-label">Watermark</span>
-          </button>
-
-          {/* Watermark Dialog */}
-          {(showWatermarkDialog || isWatermarkDialogClosing) && createPortal(
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div
-                className="absolute inset-0"
-                onClick={() => {
-                  setIsWatermarkDialogClosing(true)
-                  setTimeout(() => { setShowWatermarkDialog(false); setIsWatermarkDialogClosing(false) }, 220)
-                }}
-              />
-              <div
-                className={`relative w-[440px] max-w-full rounded-2xl bg-gradient-to-br from-white/95 via-gray-50/95 to-gray-100/95 backdrop-blur-2xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.35)] p-5 ${isWatermarkDialogClosing ? 'modal-zoom-exit' : 'modal-zoom-enter'}`}
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">Insert Watermark</div>
-                    <div className="text-xs text-gray-500 mt-0.5">Add a subtle label across your slides</div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Text</label>
-                    <input
-                      type="text"
-                      value={wmText}
-                      onChange={(e)=>setWmText(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/30 focus:border-gray-500/60 transition-colors"
-                      placeholder="CONFIDENTIAL"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Font Size</label>
-                      <input
-                        type="number"
-                        min="12"
-                        max="200"
-                        value={wmSize}
-                        onChange={(e)=>setWmSize(Number(e.target.value)||64)}
-                        className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/30 focus:border-gray-500/60 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Opacity</label>
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="0.05"
-                        max="1"
-                        value={wmOpacity}
-                        onChange={(e)=>setWmOpacity(Math.max(0.05, Math.min(1, Number(e.target.value)||0.15)))}
-                        className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/30 focus:border-gray-500/60 transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Rotation (deg)</label>
-                      <input
-                        type="number"
-                        min="-90"
-                        max="90"
-                        value={wmRotation}
-                        onChange={(e)=>setWmRotation(Number(e.target.value)||-30)}
-                        className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/30 focus:border-gray-500/60 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Color</label>
-                      <input
-                        type="color"
-                        value={wmColor}
-                        onChange={(e)=>setWmColor(e.target.value)}
-                        className="w-full h-[34px] rounded-lg border border-gray-200 cursor-pointer hover:border-gray-500/60 transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="wmAll"
-                      type="checkbox"
-                      checked={wmAllSlides}
-                      onChange={(e)=>setWmAllSlides(e.target.checked)}
-                      className="rounded border-gray-300 text-gray-700 focus:ring-gray-500/60"
-                    />
-                    <label htmlFor="wmAll" className="text-xs text-gray-700">Apply to all slides</label>
-                  </div>
-                </div>
-
-                <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => {
-                      setIsWatermarkDialogClosing(true)
-                      setTimeout(() => { setShowWatermarkDialog(false); setIsWatermarkDialogClosing(false) }, 220)
-                    }}
-                    className="px-3.5 py-1.5 rounded-lg border border-gray-200 bg-white/90 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 hover:border-gray-300 hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => { dispatch({ type:'REMOVE_WATERMARK', scope: wmAllSlides ? 'all' : 'current' }) }}
-                    className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-red-50 text-xs font-medium text-red-600 shadow-sm hover:bg-red-100 hover:border-red-300 hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all"
-                  >
-                    Remove
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleApplyWatermark()
-                      setIsWatermarkDialogClosing(true)
-                      setTimeout(() => { setShowWatermarkDialog(false); setIsWatermarkDialogClosing(false) }, 220)
-                    }}
-                    className="px-4 py-1.5 rounded-lg bg-gray-900 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all"
-                  >
-                    Apply
-                  </button>
-                </div>
-              </div>
-            </div>, document.body)
-          }
-          
-          {/* Table Button */}
-          <div className="relative">
-            <button 
-              ref={tableBtnRef}
-              onClick={() => {
-                const rect = tableBtnRef.current?.getBoundingClientRect()
-                if (rect) {
-                  setTableGridPos({ top: rect.bottom + 8, left: rect.left })
-                }
-                setShowTableGrid((s) => !s)
-              }}
-className={`${elementBtn('table')} w-16 responsive-toolbar-button keep-default group flex flex-col items-center gap-0`}
-            >
-<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-                <rect x="3.75" y="4" width="16.5" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8"/>
-                <path d="M3.75 9.333 H20.25 M3.75 14.667 H20.25" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeOpacity="0.8"/>
-                <path d="M8.667 4 V20 M14.333 4 V20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeOpacity="0.8"/>
-              </svg>
-              <span className="text-[10px] responsive-toolbar-text keep-default show-label">Table</span>
-            </button>
-          </div>
-
-          {/* Import Table Data (visible when a table is selected) */}
-          
-          {/* Table Grid Selector (portal to avoid clipping by overflow) */}
-          {showTableGrid && createPortal(
-            <div 
-              ref={tableGridRef}
-              className="fixed bg-white border border-gray-300 rounded-lg shadow-xl p-4 z-[1000]"
-              style={{ top: tableGridPos.top, left: tableGridPos.left }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-sm font-semibold mb-3">Insert Table</div>
-              <div className="grid gap-0.5" style={{ gridTemplateColumns: 'repeat(10, 1fr)' }}>
-                {Array.from({ length: 80 }, (_, i) => {
-                  const row = Math.floor(i / 10) + 1
-                  const col = (i % 10) + 1
-                  const isHovered = row <= hoverRows && col <= hoverCols
-                  return (
-                    <div
-                      key={i}
-                      onMouseEnter={() => {
-                        setHoverRows(row)
-                        setHoverCols(col)
-                      }}
-                      onClick={() => { handleInsertTable(row, col); setShowTableGrid(false) }}
-                      className={`w-5 h-5 border border-gray-300 cursor-pointer ${
-                        isHovered ? 'bg-brand-400' : 'bg-white hover:bg-gray-100'
-                      }`}
-                    />
-                  )
-                })}
-              </div>
-              <div className="text-xs text-gray-600 mt-2 text-center">
-                {hoverRows} × {hoverCols} Table
-              </div>
-              <div className="mt-3 pt-3 border-t border-gray-200">
+            {/* Shapes dropdown (icon grid) */}
+            <div className="flex items-center gap-2 responsive-toolbar-gap">
+              <div className="relative">
                 <button
-                  onClick={() => { setShowTableDialog(true); setShowTableGrid(false) }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+                  ref={shapesBtnRef}
+                  onClick={() => setShowMoreShapes(true)}
+                  className={`${elementBtn('shapes')} w-16 responsive-toolbar-button responsive-toolbar-text keep-default group`}
+                  title="Add shape"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="3" y1="9" x2="21" y2="9"/>
-                    <line x1="3" y1="15" x2="21" y2="15"/>
-                    <line x1="9" y1="3" x2="9" y2="21"/>
-                    <line x1="15" y1="3" x2="15" y2="21"/>
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5 transition-transform duration-200 ease-in-out group-hover:scale-110">
+                    <circle cx="9" cy="9" r="2.2" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" fill="none" />
+                    <path d="M13 16.5 L16.5 11 L20 16.5 Z" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" fill="none" />
+                    <rect x="6.5" y="14.5" width="4" height="4" rx="0.6" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" fill="none" />
                   </svg>
-                  Insert Table...
+                  <span className="text-[10px] responsive-toolbar-text keep-default show-label">Shapes</span>
                 </button>
               </div>
-            </div>,
-            document.body
-          )}
-
-          {/* Chart Button */}
-          <button 
-            onClick={() => setShowChartChild(true)}
-className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
-          >
-<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-              <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.6"/>
-              <path d="M12 4.5 V12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-              <path d="M12 12 L18 14.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-            </svg>
-            <span className="text-[10px] responsive-toolbar-text keep-default show-label">Chart</span>
-          </button>
-
-          {/* Background Color Button (match size with Image/Table/Chart) */}
-<label className={`${elementBtn('background')} w-16 cursor-pointer responsive-toolbar-button keep-default flex flex-col items-center gap-0`}>
-<RiPaintBrushLine size={20} className="text-current" />
-            <span className="text-[10px] responsive-toolbar-text keep-default show-label">Background</span>
-            <input 
-              type="color" 
-              value={currentSlide?.background || '#ffffff'}
-              onChange={(e) => {
-                dispatch({ 
-                  type: 'UPDATE_SLIDE_BACKGROUND', 
-                  slideId: state.currentSlideId, 
-                  background: e.target.value 
-                })
-              }}
-              className="absolute opacity-0 w-0 h-0"
+            </div>
+            {/* Image / Background combined */}
+            <button
+              onClick={() => { setIsImageDialogClosing(false); setShowImageDialog(true) }}
+              className={`${elementBtn('image')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
+              title="Insert Image or Set Background Image"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
+                <rect x="3.5" y="4" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
+                <circle cx="9" cy="8" r="1.6" fill="currentColor" />
+                <path d="M6 16l4.2-4.2c.3-.3.8-.3 1.1 0L14 14.5l2.1-2.1c.3-.3.8-.3 1.1 0L21 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="text-[10px] responsive-toolbar-text keep-default show-label">Image</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
             />
-          </label>
-          </div>
-      </div>
+            <input
+              ref={bgFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleBgImageUpload}
+            />
+            {(showImageDialog || isImageDialogClosing) && createPortal(
+              <div className="fixed inset-0 z-[1000] bg-black/40 flex items-end md:items-center justify-center" onClick={() => {
+                setIsImageDialogClosing(true)
+                setTimeout(() => { setShowImageDialog(false); setIsImageDialogClosing(false) }, 220)
+              }}>
+                <div
+                  className={`w-full md:w-[520px] bg-white/70 backdrop-blur-2xl border border-white/60 rounded-t-2xl md:rounded-2xl shadow-2xl p-5 transform transition-all duration-300 ease-out md:translate-y-0 translate-y-0 ${isImageDialogClosing ? 'modal-zoom-exit' : 'modal-zoom-enter'}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="text-base font-semibold mb-3">Choose Action</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => { setShowImageDialog(false); setTimeout(() => fileInputRef.current?.click(), 0) }}
+                      className="rounded-xl border border-white/60 bg-white/60 hover:bg-white/80 backdrop-blur-xl p-4 flex flex-col items-center gap-2 shadow-sm transition-all duration-200"
+                      title="Insert Image Element"
+                    >
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="1.5" />
+                        <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+                        <path d="M6 17 L11 12 L18 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span className="text-sm font-medium">Image</span>
+                    </button>
+                    <button
+                      onClick={() => { setShowImageDialog(false); setTimeout(() => bgFileInputRef.current?.click(), 0) }}
+                      className="rounded-xl border border-white/60 bg-white/50 hover:bg-white/70 backdrop-blur-xl p-4 flex flex-col items-center gap-2 shadow-sm transition-all duration-200"
+                      title="Set Slide Background Image"
+                    >
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect x="3.5" y="4" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
+                        <circle cx="9" cy="8" r="1.6" fill="currentColor" />
+                        <path d="M6 16l4.2-4.2c.3-.3.8-.3 1.1 0L14 14.5l2.1-2.1c.3-.3.8-.3 1.1 0L21 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span className="text-sm font-medium">Background</span>
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
 
-      <div className="flex items-center gap-2 responsive-toolbar-gap justify-self-end mr-12">
-        {/* Zoom controls */}
-        <div className="flex items-center gap-2 px-2 py-1 rounded-full border border-[rgba(0,0,0,0.12)] bg-white/70 backdrop-blur">
-          <button onClick={onZoomOut} title="Zoom Out (Ctrl/Cmd -)" className="p-1 rounded-md responsive-toolbar-button no-hover-outline no-hover-bg" aria-label="Zoom out">
-            <RiZoomOutLine className="w-4 h-4" />
-          </button>
-          <button onClick={onResetZoom} title="Reset Zoom (Ctrl/Cmd 0)" className="px-1 text-xs font-medium text-[#1c1c1e] no-hover-outline no-hover-bg" aria-label="Reset zoom">
-            {Math.round((zoom || 1) * 100)}%
-          </button>
-          <button onClick={onZoomIn} title="Zoom In (Ctrl/Cmd +)" className="p-1 rounded-md responsive-toolbar-button no-hover-outline no-hover-bg" aria-label="Zoom in">
-            <RiZoomInLine className="w-4 h-4" />
-          </button>
-          <input type="range" min={0.1} max={4} step={0.1} value={zoom || 1} onChange={(e)=> onZoomChange?.(parseFloat(e.target.value)||1)} className="w-24 h-1 accent-[#007aff]"/>
-        </div>
-        
-        <button 
-          onClick={onPresent} 
-          className={`px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text keep-default w-16 flex flex-col items-center justify-center gap-0 text-center`}
-          title="Play (F6)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-            <path d="M8 5l10 7-10 7z"/>
-          </svg>
-          <span className="text-[10px] responsive-toolbar-text keep-default show-label">Play</span>
-        </button>
-      </div>
-
-      {activeTab === 'Home' && null}
-
-      {showSidebarMenu && createPortal(
-        <div id="sidebar-toggle-menu" className="fixed z-[1100] px-2 py-2 text-sm rounded-2xl shadow-2xl border border-white/60 bg-white/70 backdrop-blur-2xl" style={{ top: sidebarMenuPos.top, left: sidebarMenuPos.left }}>
-          <div className="flex flex-col items-stretch gap-2">
-            <button className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/70 shadow-sm text-gray-800 text-left" onClick={() => { setShowSidebarMenu(false); onToggleSidebar(); }}>
-              {isSidebarOpen ? 'Hide left sidebar' : 'Unhide left sidebar'}
+            {/* Watermark Button (Keynote-style lock icon) */}
+            <button
+              onClick={() => { setIsWatermarkDialogClosing(false); setShowWatermarkDialog(true) }}
+              className={`${elementBtn('watermark')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
+              title="Insert Watermark"
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" aria-hidden="true">
+                {/* Rounded lock, sized to visually match other toolbar icons */}
+                <rect
+                  x="5.5"
+                  y="10.25"
+                  width="13"
+                  height="7.5"
+                  rx="2.5"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                />
+                <path
+                  d="M8.5 10.25V8.6C8.5 6.5 10 5 12 5s3.5 1.5 3.5 3.6v1.65"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+                <circle cx="12" cy="13.9" r="0.95" fill="currentColor" />
+              </svg>
+              <span className="text-[10px] responsive-toolbar-text keep-default show-label">Watermark</span>
             </button>
-            <button className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/70 shadow-sm text-gray-800 text-left" onClick={openSlideDashboard}>
-              Slide dashboard
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
 
-      {(showSlideDashboard || isSlideDashboardClosing) && createPortal(
-        <div
-          className="fixed inset-0 z-[1150] flex items-center justify-center bg-black/50 backdrop-blur-md"
-          onClick={closeSlideDashboard}
-        >
-          <div
-            className={`relative w-full h-full max-w-6xl max-h-[90vh] mx-4 my-6 rounded-3xl bg-white/90 border border-white/80 shadow-[0_24px_80px_rgba(15,23,42,0.55)] overflow-hidden ${isSlideDashboardClosing ? 'slide-dashboard-exit' : 'slide-dashboard-enter'}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white/90">
-              <div>
-                <div className="text-sm font-semibold text-gray-900">Slide Dashboard</div>
-                <div className="text-xs text-gray-500 mt-0.5">Click a slide to jump to it</div>
-              </div>
+            {/* Watermark Dialog */}
+            {(showWatermarkDialog || isWatermarkDialogClosing) && createPortal(
+              <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div
+                  className="absolute inset-0"
+                  onClick={() => {
+                    setIsWatermarkDialogClosing(true)
+                    setTimeout(() => { setShowWatermarkDialog(false); setIsWatermarkDialogClosing(false) }, 220)
+                  }}
+                />
+                <div
+                  className={`relative w-[440px] max-w-full rounded-2xl bg-gradient-to-br from-white/95 via-gray-50/95 to-gray-100/95 backdrop-blur-2xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.35)] p-5 ${isWatermarkDialogClosing ? 'modal-zoom-exit' : 'modal-zoom-enter'}`}
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">Insert Watermark</div>
+                      <div className="text-xs text-gray-500 mt-0.5">Add a subtle label across your slides</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Text</label>
+                      <input
+                        type="text"
+                        value={wmText}
+                        onChange={(e) => setWmText(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/30 focus:border-gray-500/60 transition-colors"
+                        placeholder="CONFIDENTIAL"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Font Size</label>
+                        <input
+                          type="number"
+                          min="12"
+                          max="200"
+                          value={wmSize}
+                          onChange={(e) => setWmSize(Number(e.target.value) || 64)}
+                          className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/30 focus:border-gray-500/60 transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Opacity</label>
+                        <input
+                          type="number"
+                          step="0.05"
+                          min="0.05"
+                          max="1"
+                          value={wmOpacity}
+                          onChange={(e) => setWmOpacity(Math.max(0.05, Math.min(1, Number(e.target.value) || 0.15)))}
+                          className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/30 focus:border-gray-500/60 transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Rotation (deg)</label>
+                        <input
+                          type="number"
+                          min="-90"
+                          max="90"
+                          value={wmRotation}
+                          onChange={(e) => setWmRotation(Number(e.target.value) || -30)}
+                          className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/30 focus:border-gray-500/60 transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Color</label>
+                        <input
+                          type="color"
+                          value={wmColor}
+                          onChange={(e) => setWmColor(e.target.value)}
+                          className="w-full h-[34px] rounded-lg border border-gray-200 cursor-pointer hover:border-gray-500/60 transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="wmAll"
+                        type="checkbox"
+                        checked={wmAllSlides}
+                        onChange={(e) => setWmAllSlides(e.target.checked)}
+                        className="rounded border-gray-300 text-gray-700 focus:ring-gray-500/60"
+                      />
+                      <label htmlFor="wmAll" className="text-xs text-gray-700">Apply to all slides</label>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setIsWatermarkDialogClosing(true)
+                        setTimeout(() => { setShowWatermarkDialog(false); setIsWatermarkDialogClosing(false) }, 220)
+                      }}
+                      className="px-3.5 py-1.5 rounded-lg border border-gray-200 bg-white/90 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 hover:border-gray-300 hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => { dispatch({ type: 'REMOVE_WATERMARK', scope: wmAllSlides ? 'all' : 'current' }) }}
+                      className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-red-50 text-xs font-medium text-red-600 shadow-sm hover:bg-red-100 hover:border-red-300 hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all"
+                    >
+                      Remove
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleApplyWatermark()
+                        setIsWatermarkDialogClosing(true)
+                        setTimeout(() => { setShowWatermarkDialog(false); setIsWatermarkDialogClosing(false) }, 220)
+                      }}
+                      className="px-4 py-1.5 rounded-lg bg-gray-900 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              </div>, document.body)
+            }
+
+            {/* Table Button */}
+            <div className="relative">
               <button
-                type="button"
-                onClick={closeSlideDashboard}
-                className="px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-700 shadow-sm"
+                ref={tableBtnRef}
+                onClick={() => {
+                  const rect = tableBtnRef.current?.getBoundingClientRect()
+                  if (rect) {
+                    setTableGridPos({ top: rect.bottom + 8, left: rect.left })
+                  }
+                  setShowTableGrid((s) => !s)
+                }}
+                className={`${elementBtn('table')} w-16 responsive-toolbar-button keep-default group flex flex-col items-center gap-0`}
               >
-                Close
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
+                  <rect x="3.75" y="4" width="16.5" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" />
+                  <path d="M3.75 9.333 H20.25 M3.75 14.667 H20.25" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeOpacity="0.8" />
+                  <path d="M8.667 4 V20 M14.333 4 V20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeOpacity="0.8" />
+                </svg>
+                <span className="text-[10px] responsive-toolbar-text keep-default show-label">Table</span>
               </button>
             </div>
-            <div
-              className="px-6 py-4 h-[calc(100%-56px)] overflow-auto scrollbar-thin smooth-scroll"
-              ref={dashScrollRef}
-              onDragOver={handleDashContainerDragOver}
-              onDragLeave={() => { dashAutoScrollRef.current.speed = 0 }}
-            >
-              <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {state.slides.map((s, idx) => (
+
+            {/* Import Table Data (visible when a table is selected) */}
+
+            {/* Table Grid Selector (portal to avoid clipping by overflow) */}
+            {showTableGrid && createPortal(
+              <div
+                ref={tableGridRef}
+                className="fixed bg-white border border-gray-300 rounded-lg shadow-xl p-4 z-[1000]"
+                style={{ top: tableGridPos.top, left: tableGridPos.left }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="text-sm font-semibold mb-3">Insert Table</div>
+                <div className="grid gap-0.5" style={{ gridTemplateColumns: 'repeat(10, 1fr)' }}>
+                  {Array.from({ length: 80 }, (_, i) => {
+                    const row = Math.floor(i / 10) + 1
+                    const col = (i % 10) + 1
+                    const isHovered = row <= hoverRows && col <= hoverCols
+                    return (
+                      <div
+                        key={i}
+                        onMouseEnter={() => {
+                          setHoverRows(row)
+                          setHoverCols(col)
+                        }}
+                        onClick={() => { handleInsertTable(row, col); setShowTableGrid(false) }}
+                        className={`w-5 h-5 border border-gray-300 cursor-pointer ${isHovered ? 'bg-brand-400' : 'bg-white hover:bg-gray-100'
+                          }`}
+                      />
+                    )
+                  })}
+                </div>
+                <div className="text-xs text-gray-600 mt-2 text-center">
+                  {hoverRows} × {hoverCols} Table
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-200">
                   <button
-                    key={s.id}
-                    type="button"
-                    className={`group text-left focus:outline-none ${dashDragOverIndex === idx && dashDragIndexRef.current !== idx ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white' : ''}`}
-                    draggable
-                    onDragStart={(e) => handleDashDragStart(e, idx)}
-                    onDragEnd={handleDashDragEnd}
-                    onDragOver={(e) => handleDashDragOver(e, idx)}
-                    onDragLeave={(e) => handleDashDragLeave(e, idx)}
-                    onDrop={(e) => handleDashDrop(e, idx)}
-                    onClick={() => {
-                      dispatch({ type: 'SET_CURRENT_SLIDE', id: s.id })
-                      closeSlideDashboard()
-                    }}
+                    onClick={() => { setShowTableDialog(true); setShowTableGrid(false) }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
                   >
-                    <div className="w-full aspect-video bg-white rounded-2xl shadow-md overflow-hidden flex items-center justify-center group-hover:shadow-xl group-hover:-translate-y-0.5 transition-all duration-200 p-2">
-                      <SlideThumbnail slide={s} slideNumber={idx + 1} isActive={s.id === state.currentSlideId} />
-                    </div>
-                    <div className="mt-2 text-xs text-gray-600 flex items-center justify-between">
-                      <span className="font-medium">Slide {idx + 1}</span>
-                      <span className="text-[10px] text-gray-400 truncate max-w-[140px]">{s.name || ''}</span>
-                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <line x1="3" y1="9" x2="21" y2="9" />
+                      <line x1="3" y1="15" x2="21" y2="15" />
+                      <line x1="9" y1="3" x2="9" y2="21" />
+                      <line x1="15" y1="3" x2="15" y2="21" />
+                    </svg>
+                    Insert Table...
                   </button>
-                ))}
+                </div>
+              </div>,
+              document.body
+            )}
+
+            {/* Chart Button */}
+            <button
+              onClick={() => setShowChartChild(true)}
+              className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
+                <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M12 4.5 V12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <path d="M12 12 L18 14.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              <span className="text-[10px] responsive-toolbar-text keep-default show-label">Chart</span>
+            </button>
+
+            {/* Background Color Button (match size with Image/Table/Chart) */}
+            <label className={`${elementBtn('background')} w-16 cursor-pointer responsive-toolbar-button keep-default flex flex-col items-center gap-0`}>
+              <RiPaintBrushLine size={20} className="text-current" />
+              <span className="text-[10px] responsive-toolbar-text keep-default show-label">Background</span>
+              <input
+                type="color"
+                value={currentSlide?.background || '#ffffff'}
+                onChange={(e) => {
+                  dispatch({
+                    type: 'UPDATE_SLIDE_BACKGROUND',
+                    slideId: state.currentSlideId,
+                    background: e.target.value
+                  })
+                }}
+                className="absolute opacity-0 w-0 h-0"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 responsive-toolbar-gap justify-self-end mr-12">
+          {/* Zoom controls */}
+          <div className="flex items-center gap-2 px-2 py-1 rounded-full border border-[rgba(0,0,0,0.12)] bg-white/70 backdrop-blur">
+            <button onClick={onZoomOut} title="Zoom Out (Ctrl/Cmd -)" className="p-1 rounded-md responsive-toolbar-button no-hover-outline no-hover-bg" aria-label="Zoom out">
+              <RiZoomOutLine className="w-4 h-4" />
+            </button>
+            <button onClick={onResetZoom} title="Reset Zoom (Ctrl/Cmd 0)" className="px-1 text-xs font-medium text-[#1c1c1e] no-hover-outline no-hover-bg" aria-label="Reset zoom">
+              {Math.round((zoom || 1) * 100)}%
+            </button>
+            <button onClick={onZoomIn} title="Zoom In (Ctrl/Cmd +)" className="p-1 rounded-md responsive-toolbar-button no-hover-outline no-hover-bg" aria-label="Zoom in">
+              <RiZoomInLine className="w-4 h-4" />
+            </button>
+            <input type="range" min={0.1} max={4} step={0.1} value={zoom || 1} onChange={(e) => onZoomChange?.(parseFloat(e.target.value) || 1)} className="w-24 h-1 accent-[#007aff]" />
+          </div>
+
+          <button
+            onClick={onPresent}
+            className={`px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text keep-default w-16 flex flex-col items-center justify-center gap-0 text-center`}
+            title="Play (F6)"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+              <path d="M8 5l10 7-10 7z" />
+            </svg>
+            <span className="text-[10px] responsive-toolbar-text keep-default show-label">Play</span>
+          </button>
+        </div>
+
+        {activeTab === 'Home' && null}
+
+        {showSidebarMenu && createPortal(
+          <div id="sidebar-toggle-menu" className="fixed z-[1100] px-2 py-2 text-sm rounded-2xl shadow-2xl border border-white/60 bg-white/70 backdrop-blur-2xl" style={{ top: sidebarMenuPos.top, left: sidebarMenuPos.left }}>
+            <div className="flex flex-col items-stretch gap-2">
+              <button className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/70 shadow-sm text-gray-800 text-left" onClick={() => { setShowSidebarMenu(false); onToggleSidebar(); }}>
+                {isSidebarOpen ? 'Hide left sidebar' : 'Unhide left sidebar'}
+              </button>
+              <button className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white/80 border border-white/70 shadow-sm text-gray-800 text-left" onClick={openSlideDashboard}>
+                Slide dashboard
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {(showSlideDashboard || isSlideDashboardClosing) && createPortal(
+          <div
+            className="fixed inset-0 z-[1150] flex items-center justify-center bg-black/50 backdrop-blur-md"
+            onClick={closeSlideDashboard}
+          >
+            <div
+              className={`relative w-full h-full max-w-6xl max-h-[90vh] mx-4 my-6 rounded-3xl bg-white/90 border border-white/80 shadow-[0_24px_80px_rgba(15,23,42,0.55)] overflow-hidden ${isSlideDashboardClosing ? 'slide-dashboard-exit' : 'slide-dashboard-enter'}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white/90">
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">Slide Dashboard</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Click a slide to jump to it</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeSlideDashboard}
+                  className="px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-700 shadow-sm"
+                >
+                  Close
+                </button>
+              </div>
+              <div
+                className="px-6 py-4 h-[calc(100%-56px)] overflow-auto scrollbar-thin smooth-scroll"
+                ref={dashScrollRef}
+                onDragOver={handleDashContainerDragOver}
+                onDragLeave={() => { dashAutoScrollRef.current.speed = 0 }}
+              >
+                <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {state.slides.map((s, idx) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={`group text-left focus:outline-none ${dashDragOverIndex === idx && dashDragIndexRef.current !== idx ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleDashDragStart(e, idx)}
+                      onDragEnd={handleDashDragEnd}
+                      onDragOver={(e) => handleDashDragOver(e, idx)}
+                      onDragLeave={(e) => handleDashDragLeave(e, idx)}
+                      onDrop={(e) => handleDashDrop(e, idx)}
+                      onClick={() => {
+                        dispatch({ type: 'SET_CURRENT_SLIDE', id: s.id })
+                        closeSlideDashboard()
+                      }}
+                    >
+                      <div className="w-full aspect-video bg-white rounded-2xl shadow-md overflow-hidden flex items-center justify-center group-hover:shadow-xl group-hover:-translate-y-0.5 transition-all duration-200 p-2">
+                        <SlideThumbnail slide={s} slideNumber={idx + 1} isActive={s.id === state.currentSlideId} />
+                      </div>
+                      <div className="mt-2 text-xs text-gray-600 flex items-center justify-between">
+                        <span className="font-medium">Slide {idx + 1}</span>
+                        <span className="text-[10px] text-gray-400 truncate max-w-[140px]">{s.name || ''}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )}
 
       </div>
 
@@ -1442,7 +1441,7 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default f
         <div className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center" onClick={() => setShowChartDialog(false)}>
           <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative z-[1001]" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">Insert Chart</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Chart Type</label>
@@ -1452,45 +1451,45 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default f
                     className={`p-4 border-2 rounded-lg flex flex-col items-center gap-2 ${chartType === 'bar' ? 'border-brand-500 bg-brand-50' : 'border-gray-300 hover:border-brand-300'}`}
                   >
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M8 10v7"/>
-                      <path d="M12 7v10"/>
-                      <path d="M16 13v4"/>
+                      <path d="M8 10v7" />
+                      <path d="M12 7v10" />
+                      <path d="M16 13v4" />
                     </svg>
                     <span className="text-xs">Bar Chart</span>
                   </button>
-                  
+
                   <button
                     onClick={() => setChartType('line')}
                     className={`p-4 border-2 rounded-lg flex flex-col items-center gap-2 ${chartType === 'line' ? 'border-brand-500 bg-brand-50' : 'border-gray-300 hover:border-brand-300'}`}
                   >
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="4 17 8 13 12 15 16 9 20 13"/>
+                      <polyline points="4 17 8 13 12 15 16 9 20 13" />
                     </svg>
                     <span className="text-xs">Line Chart</span>
                   </button>
-                  
+
                   <button
                     onClick={() => setChartType('pie')}
                     className={`p-4 border-2 rounded-lg flex flex-col items-center gap-2 ${chartType === 'pie' ? 'border-brand-500 bg-brand-50' : 'border-gray-300 hover:border-brand-300'}`}
                   >
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10"/>
-                      <path d="M12 2v10l7 4"/>
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 2v10l7 4" />
                     </svg>
                     <span className="text-xs">Pie Chart</span>
                   </button>
                 </div>
               </div>
             </div>
-            
+
             <div className="flex gap-2 mt-6">
-              <button 
-                onClick={() => { setShowChartChild(true); try { console.log('[ChartPicker] Open child for type:', chartType) } catch {} }}
+              <button
+                onClick={() => { setShowChartChild(true); try { console.log('[ChartPicker] Open child for type:', chartType) } catch { } }}
                 className="flex-1 px-4 py-2 bg-black text-white rounded hover:bg-gray-900"
               >
                 Select
               </button>
-              <button 
+              <button
                 onClick={() => setShowChartDialog(false)}
                 className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
               >
@@ -1518,35 +1517,35 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default f
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setShowTableDialog(false)}>
           <div className="bg-white rounded-lg shadow-xl p-6 w-80" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">Insert Table</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Rows</label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="20" 
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
                   value={tableRows}
                   onChange={(e) => setTableRows(Math.max(1, parseInt(e.target.value) || 1))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Columns</label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="20" 
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
                   value={tableCols}
                   onChange={(e) => setTableCols(Math.max(1, parseInt(e.target.value) || 1))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
             </div>
-            
+
             <div className="flex gap-2 mt-6">
-              <button 
+              <button
                 onClick={() => {
                   handleInsertTable(tableRows, tableCols)
                   setShowTableGrid(false)
@@ -1555,7 +1554,7 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default f
               >
                 Insert
               </button>
-              <button 
+              <button
                 onClick={() => {
                   setShowTableDialog(false)
                   setShowTableGrid(false)
@@ -1572,24 +1571,24 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default f
 
       {/* Shapes Dashboard (modal, similar to chart picker style) */}
       {(showMoreShapes || isShapesDialogClosing) && createPortal(
-        <div 
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40" 
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40"
           onClick={() => {
             setIsShapesDialogClosing(true)
             setTimeout(() => { setShowMoreShapes(false); setIsShapesDialogClosing(false) }, 220)
           }}
         >
-          <div 
+          <div
             className={`bg-white/60 backdrop-blur-xl border border-white/60 rounded-2xl shadow-2xl p-6 w-[720px] max-w-[90vw] ${isShapesDialogClosing ? 'modal-zoom-exit' : 'modal-zoom-enter'}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-800">Insert Shape</h3>
-              <button 
+              <button
                 onClick={() => {
                   setIsShapesDialogClosing(true)
                   setTimeout(() => { setShowMoreShapes(false); setIsShapesDialogClosing(false) }, 220)
-                }} 
+                }}
                 className="text-gray-500 hover:text-gray-800 text-xl leading-none"
                 aria-label="Close shapes panel"
               >
@@ -1763,7 +1762,7 @@ className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default f
             </div>
 
             <div className="flex justify-end mt-6">
-              <button 
+              <button
                 onClick={() => setShowMoreShapes(false)}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
               >

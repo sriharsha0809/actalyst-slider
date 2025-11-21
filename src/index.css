@@ -480,6 +480,25 @@ input[type="text"],
   -ms-user-select: text !important;
   user-select: text !important;
 }
+/* In your global.css or App.css */
+[contenteditable="true"] {
+  cursor: text;
+  caret-color: #3b82f6; /* Blue-500 */
+}
+
+/* Style text selection */
+::selection {
+  background-color: #3b82f6; /* Blue-500 */
+  color: white;
+}
+
+/* For text inputs and textareas */
+input[type="text"],
+input[type="email"],
+textarea {
+  cursor: text;
+  caret-color: #3b82f6;
+}
 
 /***** Utilities *****/
 /* Toolbar uniform sizing */
@@ -514,6 +533,10 @@ input[type="text"],
   transition-duration: 2000ms !important;
   transition-timing-function: ease !important;
   will-change: transform, opacity;
+}
+/* In your global CSS */
+.toolbar button[title="Return to Home"] {
+  cursor: pointer;
 }
 .ops-panel.ops-open .ops-item {
   opacity: 1;

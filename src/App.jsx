@@ -133,6 +133,7 @@ function AppContent() {
             onZoomOut={zoomOut}
             onResetZoom={resetZoom}
             onZoomChange={(v)=> setZoom(clampZoom(v))}
+             onNavigateHome={() => setShowLandingPage(true)}
           />
         </div>
 
