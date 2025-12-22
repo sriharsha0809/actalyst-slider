@@ -7,6 +7,9 @@ export default function BgImagePanel() {
   const bg = (slide && typeof slide.background === 'object' && slide.background.type === 'image') ? slide.background : null
   const fileRef = useRef(null)
 
+  const [isFitOpen, setIsFitOpen] = useState(false)
+  const [fitClosing, setFitClosing] = useState(false)
+
   if (!bg) {
     return <div className="text-sm text-gray-600">No background image on this slide.</div>
   }
@@ -28,8 +31,6 @@ export default function BgImagePanel() {
   }
 
   const mode = bg.mode || 'cover'
-  const [isFitOpen, setIsFitOpen] = useState(false)
-  const [fitClosing, setFitClosing] = useState(false)
   const scale = typeof bg.scale === 'number' ? bg.scale : 100
   const rawPosition = bg.position || 'center'
   const opacity = typeof bg.opacity === 'number' ? bg.opacity : 1
@@ -101,11 +102,10 @@ export default function BgImagePanel() {
                       updateBg({ mode: opt.value })
                       closeFit()
                     }}
-                    className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                      mode === opt.value
-                        ? 'bg-gray-100 text-black'
-                        : 'bg-white text-gray-800 hover:bg-gray-100'
-                    }`}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors ${mode === opt.value
+                      ? 'bg-gray-100 text-black'
+                      : 'bg-white text-gray-800 hover:bg-gray-100'
+                      }`}
                   >
                     {opt.label}
                   </button>
@@ -119,17 +119,17 @@ export default function BgImagePanel() {
       {/* Custom scale */}
       {mode === 'custom' && (
         <div className="space-y-1">
-        <div className="flex justify-between text-xs text-black">
-          <span className="font-medium">Scale</span>
-          <span className="font-medium">{scale}%</span>
-        </div>
+          <div className="flex justify-between text-xs text-black">
+            <span className="font-medium">Scale</span>
+            <span className="font-medium">{scale}%</span>
+          </div>
           <input
             type="range"
             min="50"
             max="200"
             step="1"
             value={scale}
-            onChange={(e)=>updateBg({ scale: Number(e.target.value) })}
+            onChange={(e) => updateBg({ scale: Number(e.target.value) })}
             className="w-full accent-gray-700"
           />
         </div>
@@ -147,7 +147,7 @@ export default function BgImagePanel() {
           max="1"
           step="0.05"
           value={opacity}
-          onChange={(e)=>updateBg({ opacity: Number(e.target.value) })}
+          onChange={(e) => updateBg({ opacity: Number(e.target.value) })}
           className="w-full accent-gray-700"
         />
       </div>
@@ -168,7 +168,7 @@ export default function BgImagePanel() {
             max="100"
             step="1"
             value={posX}
-            onChange={(e)=>setPosX(Number(e.target.value))}
+            onChange={(e) => setPosX(Number(e.target.value))}
             className="w-full accent-gray-700"
           />
         </div>
@@ -185,7 +185,7 @@ export default function BgImagePanel() {
             max="100"
             step="1"
             value={posY}
-            onChange={(e)=>setPosY(Number(e.target.value))}
+            onChange={(e) => setPosY(Number(e.target.value))}
             className="w-full accent-gray-700"
           />
         </div>
@@ -203,7 +203,7 @@ export default function BgImagePanel() {
         </button>
         <button
           type="button"
-          onClick={() => dispatch({ type: 'UPDATE_SLIDE_BACKGROUND', slideId: slide.id, background: '#ffffff' })}
+          onClick={() => dispatch({ type: 'UPDATE_SLIDE_BACKGROUND', slideId: slide.id, background: null })}
           className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-sm text-red-600 shadow-sm hover:bg-red-100 transition"
         >
           Remove

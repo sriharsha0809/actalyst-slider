@@ -8,6 +8,9 @@ import { VscListOrdered } from 'react-icons/vsc'
 import { RiPaintBrushLine, RiZoomInLine, RiZoomOutLine } from 'react-icons/ri'
 import { IoFolderOutline } from 'react-icons/io5'
 
+import { ChartPie, Table, FileType, Shapes, Image as ImageIcon, Paintbrush, Stamp, MonitorPlay, FolderOpen, CirclePlus, Undo2, Redo2 } from 'lucide-react'
+
+
 export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onPresent, onSlideShow, fileName = 'Untitled Presentation', onRenameFile, zoom = 1, onZoomIn, onZoomOut, onResetZoom, onZoomChange, onNavigateHome }) {
   const { state, dispatch } = useSlides()
   const { getThemeColors, isDark } = useTheme()
@@ -937,10 +940,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
             className={`${state.historyIndex <= 0 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText} responsive-toolbar-button no-hover-outline no-hover-bg px-2 py-1.5 rounded-lg flex items-center justify-center anim-zoom`}
             title="Undo (Ctrl+Z)"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M3 7v6h6" />
-              <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
-            </svg>
+            <Undo2 size={20} className="text-current" />
           </button>
           <button
             onClick={() => dispatch({ type: 'REDO' })}
@@ -948,24 +948,18 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
             className={`${state.historyIndex >= state.history.length - 1 ? colors.glassButtonDisabled : colors.glassButton} ${colors.toolbarText} responsive-toolbar-button no-hover-outline no-hover-bg px-2 py-1.5 rounded-lg flex items-center justify-center anim-zoom`}
             title="Redo (Ctrl+Y)"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M21 7v6h-6" />
-              <path d="M3 17 C 6 12, 9 8, 12 8 C 15 8, 18 9.7, 21 13" />
-            </svg>
+            <Redo2 size={20} className="text-current" />
           </button>
 
 
           <button onClick={() => dispatch({ type: 'ADD_SLIDE' })} className={`px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text keep-default w-20 flex flex-col items-center gap-[2px]`}>
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-              <rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M12 8 V16 M8 12 H16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <CirclePlus size={20} className="text-current" />
             <span className="text-[10px] whitespace-nowrap">Add Slide</span>
           </button>
 
           {/* File Button */}
           <button onClick={() => { try { window.openFileDashboard?.() } catch { } }} className={`px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text keep-default w-16 flex flex-col items-center gap-0`} title="File">
-            <IoFolderOutline className="w-5 h-5" />
+            <FolderOpen size={20} className="text-current" />
             <span className="text-[10px] responsive-toolbar-text keep-default show-label">File</span>
           </button>
 
@@ -978,10 +972,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
               onClick={() => dispatch({ type: 'ADD_ELEMENT', element: factories.text() })}
               className={`px-3 py-1.5 rounded-lg tool-btn anim-zoom font-medium transition-all duration-300 ${colors.toolbarText} responsive-toolbar-button responsive-toolbar-text keep-default w-16 flex flex-col items-center gap-0`}
             >
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-                <rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
-                <text x="12" y="14" textAnchor="middle" fontSize="10" fontFamily="Inter, system-ui, sans-serif" fill="currentColor">A</text>
-              </svg>
+              <FileType size={20} className="text-current" />
               <span className="text-[10px] responsive-toolbar-text keep-default show-label">Text</span>
             </button>
 
@@ -994,11 +985,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
                   className={`${elementBtn('shapes')} w-16 responsive-toolbar-button responsive-toolbar-text keep-default group`}
                   title="Add shape"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5 transition-transform duration-200 ease-in-out group-hover:scale-110">
-                    <circle cx="9" cy="9" r="2.2" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" fill="none" />
-                    <path d="M13 16.5 L16.5 11 L20 16.5 Z" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" fill="none" />
-                    <rect x="6.5" y="14.5" width="4" height="4" rx="0.6" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" fill="none" />
-                  </svg>
+                  <Shapes size={20} className="text-current transition-transform duration-200 ease-in-out group-hover:scale-110" />
                   <span className="text-[10px] responsive-toolbar-text keep-default show-label">Shapes</span>
                 </button>
               </div>
@@ -1009,11 +996,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
               className={`${elementBtn('image')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
               title="Insert Image or Set Background Image"
             >
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-                <rect x="3.5" y="4" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
-                <circle cx="9" cy="8" r="1.6" fill="currentColor" />
-                <path d="M6 16l4.2-4.2c.3-.3.8-.3 1.1 0L14 14.5l2.1-2.1c.3-.3.8-.3 1.1 0L21 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ImageIcon size={20} className="text-current" />
               <span className="text-[10px] responsive-toolbar-text keep-default show-label">Image</span>
             </button>
             <input
@@ -1046,11 +1029,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
                       className="rounded-xl border border-white/60 bg-white/60 hover:bg-white/80 backdrop-blur-xl p-4 flex flex-col items-center gap-2 shadow-sm transition-all duration-200"
                       title="Insert Image Element"
                     >
-                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="1.5" />
-                        <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-                        <path d="M6 17 L11 12 L18 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
+                      <ImageIcon size={36} className="text-current" />
                       <span className="text-sm font-medium">Image</span>
                     </button>
                     <button
@@ -1058,11 +1037,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
                       className="rounded-xl border border-white/60 bg-white/50 hover:bg-white/70 backdrop-blur-xl p-4 flex flex-col items-center gap-2 shadow-sm transition-all duration-200"
                       title="Set Slide Background Image"
                     >
-                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <rect x="3.5" y="4" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
-                        <circle cx="9" cy="8" r="1.6" fill="currentColor" />
-                        <path d="M6 16l4.2-4.2c.3-.3.8-.3 1.1 0L14 14.5l2.1-2.1c.3-.3.8-.3 1.1 0L21 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
+                      <ImageIcon size={36} className="text-current" />
                       <span className="text-sm font-medium">Background</span>
                     </button>
                   </div>
@@ -1077,25 +1052,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
               className={`${elementBtn('watermark')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
               title="Insert Watermark"
             >
-              <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" aria-hidden="true">
-                {/* Rounded lock, sized to visually match other toolbar icons */}
-                <rect
-                  x="5.5"
-                  y="10.25"
-                  width="13"
-                  height="7.5"
-                  rx="2.5"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                />
-                <path
-                  d="M8.5 10.25V8.6C8.5 6.5 10 5 12 5s3.5 1.5 3.5 3.6v1.65"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                />
-                <circle cx="12" cy="13.9" r="0.95" fill="currentColor" />
-              </svg>
+              <Stamp size={20} className="text-current" />
               <span className="text-[10px] responsive-toolbar-text keep-default show-label">Watermark</span>
             </button>
 
@@ -1236,11 +1193,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
                 }}
                 className={`${elementBtn('table')} w-16 responsive-toolbar-button keep-default group flex flex-col items-center gap-0`}
               >
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-                  <rect x="3.75" y="4" width="16.5" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.8" />
-                  <path d="M3.75 9.333 H20.25 M3.75 14.667 H20.25" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeOpacity="0.8" />
-                  <path d="M8.667 4 V20 M14.333 4 V20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeOpacity="0.8" />
-                </svg>
+                <Table size={20} className="text-current" />
                 <span className="text-[10px] responsive-toolbar-text keep-default show-label">Table</span>
               </button>
             </div>
@@ -1302,17 +1255,13 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
               onClick={() => setShowChartChild(true)}
               className={`${elementBtn('chart')} w-16 responsive-toolbar-button keep-default flex flex-col items-center gap-0`}
             >
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="w-5 h-5">
-                <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M12 4.5 V12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                <path d="M12 12 L18 14.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
+              <ChartPie size={20} className="text-current" />
               <span className="text-[10px] responsive-toolbar-text keep-default show-label">Chart</span>
             </button>
 
             {/* Background Color Button (match size with Image/Table/Chart) */}
             <label className={`${elementBtn('background')} w-16 cursor-pointer responsive-toolbar-button keep-default flex flex-col items-center gap-0`}>
-              <RiPaintBrushLine size={20} className="text-current" />
+              <Paintbrush size={20} className="text-current" />
               <span className="text-[10px] responsive-toolbar-text keep-default show-label">Background</span>
               <input
                 type="color"
@@ -1350,9 +1299,7 @@ export default function Toolbar({ activeTab, isSidebarOpen, onToggleSidebar, onP
             className={`px-2 py-1.5 rounded-lg tool-btn anim-zoom ${colors.toolbarText} font-medium responsive-toolbar-button responsive-toolbar-text keep-default w-16 flex flex-col items-center justify-center gap-0 text-center`}
             title="Play (F6)"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-              <path d="M8 5l10 7-10 7z" />
-            </svg>
+            <MonitorPlay size={20} className="text-current" />
             <span className="text-[10px] responsive-toolbar-text keep-default show-label">Play</span>
           </button>
         </div>

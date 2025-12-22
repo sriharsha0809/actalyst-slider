@@ -10,38 +10,54 @@ export default function LandingPage({ onEnterApp }) {
   const heroRef = useRef(null)
   const featuresRef = useRef(null)
   const mockupRef = useRef(null)
+  const [featuresVisible, setFeaturesVisible] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY)
     window.addEventListener('scroll', handleScroll)
 
-    // Choreographed Startup Animation
+    // Choreographed Startup Animation with Extended Timing
     const sequence = async () => {
       // Stage 1: Icon appears
-      await new Promise(r => setTimeout(r, 100))
+      await new Promise(r => setTimeout(r, 200))
       setLoadingStage(1)
 
       // Stage 2: Title appears
-      await new Promise(r => setTimeout(r, 800))
+      await new Promise(r => setTimeout(r, 1000))
       setLoadingStage(2)
 
       // Stage 3: Powered By appears
-      await new Promise(r => setTimeout(r, 800))
+      await new Promise(r => setTimeout(r, 1000))
       setLoadingStage(3)
 
       // Stage 4: Finish (Fade out overlay)
-      await new Promise(r => setTimeout(r, 1500))
+      await new Promise(r => setTimeout(r, 1800))
       setLoadingStage(4)
     }
 
     sequence()
 
-    // Enforce body overflow hidden to ensure no scrollbar
-    document.body.style.overflow = 'hidden'
+    // Intersection Observer for Features Section
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setFeaturesVisible(true)
+          }
+        })
+      },
+      { threshold: 0.2 }
+    )
+
+    if (featuresRef.current) {
+      observer.observe(featuresRef.current)
+    }
 
     return () => {
       window.removeEventListener('scroll', handleScroll)
-      document.body.style.overflow = ''
+      if (featuresRef.current) {
+        observer.unobserve(featuresRef.current)
+      }
     }
   }, [])
 
@@ -88,23 +104,23 @@ export default function LandingPage({ onEnterApp }) {
         className={`fixed inset-0 z-[300] bg-white flex items-center justify-center transition-opacity duration-1000 ${loadingStage === 4 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       >
         <div className="flex flex-col items-center justify-center relative">
-          {/* Icon */}
+          {/* Icon with Bounce Animation */}
           <div
-            className={`w-24 h-24 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-600/30 transition-all duration-1000 cubic-bezier(0.34, 1.56, 0.64, 1) ${loadingStage >= 1 ? 'scale-100 opacity-100 rotate-0' : 'scale-50 opacity-0 rotate-45'}`}
+            className={`w-24 h-24 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-600/30 transition-all duration-1000 ${loadingStage >= 1 ? 'animate-bounceIn' : 'scale-50 opacity-0'}`}
           >
             <AppIcon className="w-12 h-12" />
           </div>
 
-          {/* Title */}
+          {/* Title with Slide In */}
           <div
-            className={`mt-6 text-3xl font-bold text-gray-900 tracking-tight transition-all duration-700 ${loadingStage >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+            className={`mt-6 text-3xl font-bold text-gray-900 tracking-tight transition-all duration-700 ${loadingStage >= 2 ? 'animate-fadeInUp' : 'opacity-0 translate-y-4'}`}
           >
             PPT-Slider
           </div>
 
-          {/* Powered By */}
+          {/* Powered By with Fade In */}
           <div
-            className={`mt-3 flex items-center gap-2 text-sm font-medium text-gray-500 transition-all duration-700 ${loadingStage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+            className={`mt-3 flex items-center gap-2 text-sm font-medium text-gray-500 transition-all duration-700 ${loadingStage >= 3 ? 'animate-fadeInScale' : 'opacity-0'}`}
           >
             <span>Powered by</span>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 font-bold">Actalyst</span>
@@ -135,21 +151,21 @@ export default function LandingPage({ onEnterApp }) {
       <section className="relative pt-32 pb-32 px-6 overflow-hidden min-h-screen flex flex-col items-center justify-center">
         {/* Floating Parallax Elements */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* Top Left Blob */}
+          {/* Top Left Blob with Float Animation */}
           <div
-            className="absolute -top-[10%] -left-[10%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-blue-50 to-purple-50 blur-3xl opacity-60 transition-transform duration-1000 ease-out"
+            className="absolute -top-[10%] -left-[10%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-blue-50 to-purple-50 blur-3xl opacity-60 animate-float-gentle"
             style={{ transform: `translateY(${scrollY * 0.2}px) rotate(${scrollY * 0.02}deg)` }}
           />
-          {/* Bottom Right Blob */}
+          {/* Bottom Right Blob with Reverse Float */}
           <div
-            className="absolute top-[40%] -right-[10%] w-[500px] h-[500px] rounded-full bg-gradient-to-bl from-pink-50 to-orange-50 blur-3xl opacity-60 transition-transform duration-1000 ease-out"
+            className="absolute top-[40%] -right-[10%] w-[500px] h-[500px] rounded-full bg-gradient-to-bl from-pink-50 to-orange-50 blur-3xl opacity-60 animate-float-reverse"
             style={{ transform: `translateY(${scrollY * 0.1}px) rotate(${scrollY * -0.02}deg)` }}
           />
 
-          {/* Floating Slide Cards */}
+          {/* Floating Slide Cards with Enhanced Parallax */}
           <div
-            className="absolute top-32 left-[10%] w-48 h-32 bg-white rounded-lg shadow-xl border border-gray-100 transform -rotate-6 opacity-80 hidden lg:block transition-transform duration-75"
-            style={{ transform: `translateY(${scrollY * -0.3}px) rotate(-6deg)` }}
+            className="absolute top-32 left-[10%] w-48 h-32 bg-white rounded-lg shadow-xl border border-gray-100 transform -rotate-6 opacity-80 hidden lg:block transition-transform duration-75 animate-float-slow"
+            style={{ transform: `translateY(${scrollY * -0.5}px) rotate(${-6 + scrollY * 0.01}deg) scale(${1 - scrollY * 0.0001})` }}
           >
             <div className="p-4 space-y-2">
               <div className="w-1/2 h-3 bg-gray-100 rounded" />
@@ -159,8 +175,8 @@ export default function LandingPage({ onEnterApp }) {
           </div>
 
           <div
-            className="absolute bottom-40 right-[10%] w-56 h-40 bg-white rounded-lg shadow-xl border border-gray-100 transform rotate-3 opacity-80 hidden lg:block transition-transform duration-75"
-            style={{ transform: `translateY(${scrollY * -0.4}px) rotate(3deg)` }}
+            className="absolute bottom-40 right-[10%] w-56 h-40 bg-white rounded-lg shadow-xl border border-gray-100 transform rotate-3 opacity-80 hidden lg:block transition-transform duration-75 animate-float-gentle"
+            style={{ transform: `translateY(${scrollY * -0.6}px) rotate(${3 - scrollY * 0.01}deg) scale(${1 - scrollY * 0.0001})` }}
           >
             <div className="p-4 flex gap-2 h-full">
               <div className="w-1/3 h-full bg-gray-50 rounded" />
@@ -171,36 +187,44 @@ export default function LandingPage({ onEnterApp }) {
               </div>
             </div>
           </div>
+
+          {/* Additional Floating Elements for Depth */}
+          <div
+            className="absolute top-[60%] left-[5%] w-32 h-32 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 opacity-40 blur-2xl hidden md:block animate-float-reverse"
+            style={{ transform: `translateY(${scrollY * -0.25}px) translateX(${scrollY * 0.1}px)` }}
+          />
+          <div
+            className="absolute top-[20%] right-[15%] w-40 h-40 rounded-full bg-gradient-to-br from-pink-100 to-orange-100 opacity-30 blur-3xl hidden md:block animate-float-gentle"
+            style={{ transform: `translateY(${scrollY * -0.35}px) translateX(${scrollY * -0.15}px)` }}
+          />
         </div>
 
         <div ref={heroRef} className="max-w-5xl mx-auto text-center relative z-10">
           <div
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-sm text-blue-700 font-medium mb-8 shadow-sm transition-all duration-1000"
+            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-sm text-blue-700 font-medium mb-8 shadow-sm transition-all duration-1000 ${loadingStage === 4 ? 'animate-fadeInDown delay-100' : 'opacity-0'}`}
             style={{
-              transform: `translateY(${scrollY * -0.1}px)`,
-              opacity: loadingStage === 4 ? 1 : 0
+              transform: `translateY(${scrollY * -0.1}px)`
             }}
           >
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse-soft" />
             Powered by Actalyst
           </div>
 
           <h1
-            className="text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-8 text-gray-900 transition-all duration-1000 delay-100"
+            className={`text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-8 text-gray-900 transition-all duration-1000 ${loadingStage === 4 ? 'animate-fadeInUp delay-200' : 'opacity-0'}`}
             style={{
-              transform: `translateY(${scrollY * -0.05}px)`,
-              opacity: loadingStage === 4 ? 1 : 0
+              transform: `translateY(${scrollY * -0.05}px)`
             }}
           >
             The Modern Way to
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 animate-gradient-shimmer">
               Build Slides.
             </span>
           </h1>
 
           <p
-            className="text-xl md:text-2xl text-gray-500 max-w-2xl mx-auto mb-12 leading-relaxed transition-all duration-1000 delay-200"
+            className={`text-xl md:text-2xl text-gray-500 max-w-2xl mx-auto mb-12 leading-relaxed transition-all duration-1000 ${loadingStage === 4 ? 'animate-fadeInUp delay-300' : 'opacity-0'}`}
             style={{
               transform: `translateY(${scrollY * 0.05}px)`,
               opacity: loadingStage === 4 ? Math.max(0, 1 - scrollY / 400) : 0
@@ -211,10 +235,9 @@ export default function LandingPage({ onEnterApp }) {
           </p>
 
           <div
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-24 transition-all duration-1000 delay-300"
+            className={`flex flex-col sm:flex-row items-center justify-center gap-4 mb-24 transition-all duration-1000 ${loadingStage === 4 ? 'animate-fadeInUp delay-400' : 'opacity-0'}`}
             style={{
-              transform: `translateY(${scrollY * 0.1}px)`,
-              opacity: loadingStage === 4 ? 1 : 0
+              transform: `translateY(${scrollY * 0.1}px)`
             }}
           >
             <button
@@ -234,7 +257,7 @@ export default function LandingPage({ onEnterApp }) {
           {/* App Mockup / Browser Window */}
           <div
             ref={mockupRef}
-            className="relative mx-auto max-w-6xl rounded-xl bg-white shadow-2xl border border-gray-200/60 overflow-hidden transform transition-all duration-1000 delay-500 hover:scale-[1.005]"
+            className={`relative mx-auto max-w-6xl rounded-xl bg-white shadow-2xl border border-gray-200/60 overflow-hidden transform transition-all duration-1000 hover:scale-[1.005] ${loadingStage === 4 ? 'animate-fadeInScale delay-500' : 'opacity-0'}`}
             style={{
               transform: `translateY(${scrollY * 0.15}px) perspective(1000px) rotateX(${Math.max(0, 2 - scrollY * 0.01)}deg)`,
               opacity: loadingStage === 4 ? Math.min(1, 0.8 + scrollY * 0.001) : 0
@@ -333,8 +356,8 @@ export default function LandingPage({ onEnterApp }) {
       <section ref={featuresRef} className="py-32 px-6 bg-white relative z-20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Everything you need.</h2>
-            <p className="text-xl text-gray-500">Powerful features wrapped in a simple interface.</p>
+            <h2 className={`text-3xl md:text-4xl font-bold text-gray-900 mb-4 ${featuresVisible ? 'animate-fadeInUp' : 'opacity-0'}`}>Everything you need.</h2>
+            <p className={`text-xl text-gray-500 ${featuresVisible ? 'animate-fadeInUp delay-100' : 'opacity-0'}`}>Powerful features wrapped in a simple interface.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -363,7 +386,7 @@ export default function LandingPage({ onEnterApp }) {
             ].map((feature, i) => (
               <div
                 key={i}
-                className="p-8 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-all duration-500 border border-transparent hover:border-gray-200 group hover:-translate-y-1 hover:shadow-lg"
+                className={`p-8 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-all duration-500 border border-transparent hover:border-gray-200 group hover-lift ${featuresVisible ? `animate-fadeInUp delay-${200 + i * 100}` : 'opacity-0'}`}
               >
                 <div className={`w-12 h-12 ${feature.bg} ${feature.text} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500`}>
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -127,7 +127,7 @@ export default function Sidebar() {
   const handleDragStart = (e, index) => {
     dragIndexRef.current = index
     setIsDragging(true)
-    try { e.dataTransfer.setData('text/plain', String(index)) } catch {}
+    try { e.dataTransfer.setData('text/plain', String(index)) } catch { }
     e.dataTransfer.effectAllowed = 'move'
   }
 
@@ -165,7 +165,7 @@ export default function Sidebar() {
 
   return (
     <div className="h-full flex flex-col">
-      <div 
+      <div
         ref={scrollRef}
         className="flex-1 overflow-auto p-2 space-y-1"
         onDragOver={handleContainerDragOver}
@@ -180,60 +180,61 @@ export default function Sidebar() {
           const isGlowing = !!glowIds[s.id]
           const thumbnailStyle = isActive
             ? {
-                background: '#ffffff',
-                border: '1px solid rgba(0,0,0,0.1)',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
-              }
+              background: '#ffffff',
+              border: '1px solid rgba(0,0,0,0.1)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
+            }
             : {
-                background: '#ffffff',
-                border: '1px solid rgba(0,0,0,0.14)',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-              }
+              background: '#ffffff',
+              border: '1px solid rgba(0,0,0,0.14)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+            }
 
           return (
-          <motion.div 
-            key={s.id} 
-            className={`w-full group rounded-lg p-1 border transition-all duration-200 ease-in-out ${isDeleting ? 'opacity-0 translate-x-3 scale-[0.96] ring-1 ring-black/5 pointer-events-none' : ''} ${isDupPopping ? 'thumb-dup-in' : isPopping ? 'thumb-pop-in' : ''} ${isGlowing ? 'thumb-source-glow ring-1 ring-black/5' : ''}`}
-            style={{ overflow: 'hidden', willChange: 'opacity, transform' }}
-            initial={{ backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : 'transparent', borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent' }}
-            animate={{ backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : 'transparent', borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent' }}
-            whileHover={!isActive ? { backgroundColor: 'rgba(0,0,0,0.06)', borderColor: 'rgba(0,0,0,0.15)', scale: 1 } : undefined}
-            whileTap={!isActive ? { backgroundColor: 'rgba(0,0,0,0.10)' } : undefined}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-            onDragOver={(e)=>handleDragOver(e, i)}
-            onDragLeave={(e)=>handleDragLeave(e, i)}
-            onDrop={(e)=>handleDrop(e, i)}
-          >
-            <button
-              draggable
-              onDragStart={(e)=>handleDragStart(e, i)}
-              onDragEnd={handleDragEnd}
-              onClick={() => dispatch({ type: 'SET_CURRENT_SLIDE', id: s.id })}
-              className="w-full text-left"
-              disabled={isDeleting}
+            <motion.div
+              key={s.id}
+              className={`w-full group rounded-lg p-1 border transition-all duration-200 ease-in-out ${isDeleting ? 'opacity-0 translate-x-3 scale-[0.96] ring-1 ring-black/5 pointer-events-none' : ''} ${isDupPopping ? 'thumb-dup-in' : isPopping ? 'thumb-pop-in' : ''} ${isGlowing ? 'thumb-source-glow ring-1 ring-black/5' : ''}`}
+              style={{ overflow: 'hidden', willChange: 'opacity, transform' }}
+              initial={{ backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : 'transparent', borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent' }}
+              animate={{ backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : 'transparent', borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent' }}
+              whileHover={!isActive ? { backgroundColor: 'rgba(0,0,0,0.06)', borderColor: 'rgba(0,0,0,0.15)', scale: 1 } : undefined}
+              whileTap={!isActive ? { backgroundColor: 'rgba(0,0,0,0.10)' } : undefined}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              onDragOver={(e) => handleDragOver(e, i)}
+              onDragLeave={(e) => handleDragLeave(e, i)}
+              onDrop={(e) => handleDrop(e, i)}
             >
-              <div className="thumb-3d-wrap">
-                <motion.div
-                  className={`thumb-3d overflow-hidden rounded-xl shadow-sm ${isActive ? 'is-selected border-2' : 'border'} `}
-                  style={{ borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent', backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : '#ffffff' }}
-                  initial={{ scale: 1, opacity: 1 }}
-                  animate={{ scale: 1, opacity: 1, borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent', backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : '#ffffff' }}
-                  whileHover={!isActive ? { scale: 1.015, backgroundColor: 'rgba(0,0,0,0.06)', borderColor: 'rgba(0,0,0,0.15)' } : undefined}
-                  whileTap={!isActive ? { scale: 0.985, backgroundColor: 'rgba(0,0,0,0.10)' } : undefined}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
-                >
-                  <div className="aspect-video relative overflow-hidden p-2">
-                    <SlideThumbnail slide={s} slideNumber={i + 1} isActive={isActive} />
-                  </div>
-                </motion.div>
+              <button
+                draggable
+                onDragStart={(e) => handleDragStart(e, i)}
+                onDragEnd={handleDragEnd}
+                onClick={() => dispatch({ type: 'SET_CURRENT_SLIDE', id: s.id })}
+                className="w-full text-left"
+                disabled={isDeleting}
+              >
+                <div className="thumb-3d-wrap">
+                  <motion.div
+                    className={`thumb-3d overflow-hidden rounded-xl shadow-sm ${isActive ? 'is-selected border-2' : 'border'} `}
+                    style={{ borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent', backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : '#ffffff' }}
+                    initial={{ scale: 1, opacity: 1 }}
+                    animate={{ scale: 1, opacity: 1, borderColor: isActive ? 'rgba(0,0,0,0.25)' : 'transparent', backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : '#ffffff' }}
+                    whileHover={!isActive ? { scale: 1.015, backgroundColor: 'rgba(0,0,0,0.06)', borderColor: 'rgba(0,0,0,0.15)' } : undefined}
+                    whileTap={!isActive ? { scale: 0.985, backgroundColor: 'rgba(0,0,0,0.10)' } : undefined}
+                    transition={{ duration: 0.16, ease: 'easeOut' }}
+                  >
+                    <div className="aspect-video relative overflow-hidden p-2">
+                      <SlideThumbnail slide={s} slideNumber={i + 1} isActive={isActive} />
+                    </div>
+                  </motion.div>
+                </div>
+              </button>
+              <div className={`mt-1 flex items-center gap-1 transition ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                <button className={`text-xs px-2 py-1 rounded border-0 text-black ${isActive ? 'bg-transparent' : 'hover:bg-black/5'}`} disabled={isDeleting} onClick={(e) => { e.stopPropagation(); requestDuplicateSlide(s.id) }}>Duplicate</button>
+                <button className={`text-xs px-2 py-1 rounded border-0 text-black ${isActive ? 'bg-transparent' : 'hover:bg-black/5'}`} disabled={isDeleting} onClick={(e) => { e.stopPropagation(); requestDeleteSlide(s.id) }}>Delete</button>
               </div>
-            </button>
-            <div className={`mt-1 flex items-center gap-1 transition ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-              <button className={`text-xs px-2 py-1 rounded border-0 text-black ${isActive ? 'bg-transparent' : 'hover:bg-black/5'}`} disabled={isDeleting} onClick={(e)=>{e.stopPropagation(); requestDuplicateSlide(s.id)}}>Duplicate</button>
-              <button className={`text-xs px-2 py-1 rounded border-0 text-black ${isActive ? 'bg-transparent' : 'hover:bg-black/5'}`} disabled={isDeleting} onClick={(e)=>{e.stopPropagation(); requestDeleteSlide(s.id)}}>Delete</button>
-            </div>
-          </motion.div>
-        )})}
+            </motion.div>
+          )
+        })}
       </div>
     </div>
   )
@@ -271,7 +272,7 @@ export function SlideThumbnail({ slide, slideNumber, isActive }) {
           parts.push(`t:${e.id}:${e.x},${e.y},${e.w},${e.h},${e.rotation}|${e.text}|${e.html}|${e.styles?.fontSize}|${e.styles?.align}`)
         } else if (e.type === 'chart') {
           const sd = e.structuredData || {}
-          parts.push(`c:${e.id}:${e.chartType}:${e.chartStyle}:${e.x},${e.y},${e.w},${e.h},${e.rotation}|${(sd.categories||[]).length}|${(sd.series||[]).length}|${(e.data||[]).length}`)
+          parts.push(`c:${e.id}:${e.chartType}:${e.chartStyle}:${e.x},${e.y},${e.w},${e.h},${e.rotation}|${(sd.categories || []).length}|${(sd.series || []).length}|${(e.data || []).length}`)
         } else if (e.type === 'image') {
           parts.push(`i:${e.id}:${e.src}:${e.x},${e.y},${e.w},${e.h},${e.rotation}`)
         } else if (e.type === 'table') {
@@ -309,7 +310,7 @@ export function SlideThumbnail({ slide, slideNumber, isActive }) {
     const onLive = (e) => {
       const d = e?.detail || {}
       if (!d || d.slideId !== slide.id) return
-      setLiveOverrides(prev => ({ ...prev, [d.id]: { x: d.x, y: d.y, rotation: d.rotation } }))
+      setLiveOverrides(prev => ({ ...prev, [d.id]: { x: d.x, y: d.y, w: d.w, h: d.h, rotation: d.rotation } }))
     }
     const onEnd = (e) => {
       const d = e?.detail || {}

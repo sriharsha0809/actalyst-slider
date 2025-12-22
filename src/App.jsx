@@ -20,13 +20,22 @@ import LandingPage from './components/LandingPage.jsx'
 import SimpleChartEditor from './components/SimpleChartEditor.jsx'
 
 function AppContent() {
-  const [showLandingPage, setShowLandingPage] = useState(true)
+  // Initialize showLandingPage from sessionStorage, default to true if not set
+  const [showLandingPage, setShowLandingPage] = useState(() => {
+    const saved = sessionStorage.getItem('ppt-slider-show-landing')
+    return saved !== null ? JSON.parse(saved) : true
+  })
   const [showSidebar, setShowSidebar] = useState(true)
   const [presenting, setPresenting] = useState(false)
   const [presentationMode, setPresentationMode] = useState(null) // 'manual' or 'auto'
   const [activeTab, setActiveTab] = useState('Insert')
   const [showFileMenu, setShowFileMenu] = useState(false)
   const [fileName, setFileName] = useState('Untitled Presentation')
+
+  // Persist showLandingPage state to sessionStorage whenever it changes
+  React.useEffect(() => {
+    sessionStorage.setItem('ppt-slider-show-landing', JSON.stringify(showLandingPage))
+  }, [showLandingPage])
 
   // Zoom state (Keynote-like transform scale)
   const [zoom, setZoom] = useState(1) // 1 = 100%

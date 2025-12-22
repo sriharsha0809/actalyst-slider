@@ -254,6 +254,18 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     return false
   }
 
+  // Sync motion values with element data when it changes (e.g., from external updates)
+  // This ensures watermarks and other elements render at correct positions
+  useEffect(() => {
+    if (!isDraggingRef.current && !resize && !rotating) {
+      xMv.set(el.x || 0)
+      yMv.set(el.y || 0)
+      wMv.set(el.w || 0)
+      hMv.set(el.h || 0)
+    }
+  }, [el.x, el.y, el.w, el.h, xMv, yMv, wMv, hMv, resize, rotating])
+
+
   // Convert element coordinates to responsive values
   const getResponsiveStyle = useCallback(() => {
     // With transform-based zoom, element coords stay in reference pixels
@@ -413,8 +425,8 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
 
   const liveRafRef = useRef(null)
   const animatingCountRef = useRef(0)
-  const emitLive = (x, y) => {
-    try { window.dispatchEvent(new CustomEvent('liveElementMove', { detail: { slideId, id: el.id, x, y, rotation: Number.isFinite(el.rotation) ? el.rotation : 0 } })) } catch { }
+  const emitLive = (x, y, w, h) => {
+    try { window.dispatchEvent(new CustomEvent('liveElementMove', { detail: { slideId, id: el.id, x, y, w, h, rotation: Number.isFinite(el.rotation) ? el.rotation : 0 } })) } catch { }
   }
   const stopLive = () => {
     if (liveRafRef.current) { try { cancelAnimationFrame(liveRafRef.current) } catch { }; liveRafRef.current = null }
@@ -467,7 +479,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     xMv.set(nx)
     yMv.set(ny)
     // Emit live movement for thumbnails to mirror without store churn
-    emitLive(nx, ny)
+    emitLive(nx, ny, el.w, el.h)
     // Track velocity
     lastMoveRef.current = { x: nx, y: ny, t: performance.now() }
   }
@@ -514,7 +526,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     const tick = () => {
       const cx2 = xMv.get()
       const cy2 = yMv.get()
-      emitLive(cx2, cy2)
+      emitLive(cx2, cy2, el.w, el.h)
       if (animatingCountRef.current > 0) {
         liveRafRef.current = requestAnimationFrame(tick)
       }
@@ -649,6 +661,33 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     const scale = Math.min(scaleX, scaleY)
     const MARGIN = 0
 
+    // Element-type-aware minimum sizes.
+    // Charts should never be resized below their visual minimum (to keep
+    // Recharts layouts usable), while other elements can go smaller.
+    // Tables have minimum sizes based on their row/column counts.
+    const baseMinW = 40
+    const baseMinH = 40
+    let minW = baseMinW
+    let minH = baseMinH
+
+    if (el.type === 'chart') {
+      minW = Math.max(baseMinW, 200)
+      minH = Math.max(baseMinH, 200)
+    } else if (el.type === 'table') {
+      // Minimum table size = sum of minimum row heights and column widths
+      // Account for cell padding (6px * 2 = 12px per cell) and borders
+      const minRowHeight = 24 // Minimum content height
+      const minColWidth = 36 // Minimum content width
+      const cellPadding = 12 // 6px padding on each side
+      const rows = el.rows || 1
+      const cols = el.cols || 1
+
+      // Each row needs: minRowHeight + cellPadding + borders
+      // Each column needs: minColWidth + (no extra padding needed as it's already in width)
+      minW = cols * minColWidth + 2 // +2 for table border
+      minH = rows * (minRowHeight + cellPadding) + 2 // +2 for table border
+    }
+
     // Convert pixel deltas to logical coordinates
     const logicalDx = (e.clientX - r.startX) / scale
     const logicalDy = (e.clientY - r.startY) / scale
@@ -667,7 +706,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       // Use horizontal movement as the primary driver (like Keynote)
       const signX = r.dir.includes('e') ? 1 : -1
       newW = r.start.w + signX * logicalDx
-      newW = Math.max(40, Math.min(newW, REF_WIDTH))
+      newW = Math.max(minW, Math.min(newW, REF_WIDTH))
       newH = newW / aspect
 
       // Position so the opposite corner stays anchored
@@ -680,15 +719,15 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     } else {
       if (r.dir.includes('e')) {
         // Expanding eastward - stay within slide boundary
-        w = Math.max(40, Math.min(REF_WIDTH - x, r.start.w + logicalDx))
+        w = Math.max(minW, Math.min(REF_WIDTH - x, r.start.w + logicalDx))
       }
       if (r.dir.includes('s')) {
         // Expanding southward - stay within slide boundary
-        h = Math.max(40, Math.min(REF_HEIGHT - y, r.start.h + logicalDy))
+        h = Math.max(minH, Math.min(REF_HEIGHT - y, r.start.h + logicalDy))
       }
       if (r.dir.includes('w')) {
         // Expanding westward - allow slight negative position to reach edge
-        const newW = Math.max(40, r.start.w - logicalDx)
+        const newW = Math.max(minW, r.start.w - logicalDx)
         const newX = Math.max(-MARGIN, r.start.x + logicalDx) // Allow slight negative
         // Apply with generous bounds
         if (newX + newW <= REF_WIDTH + MARGIN * 2) {
@@ -698,7 +737,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       }
       if (r.dir.includes('n')) {
         // Expanding northward - allow slight negative position to reach edge
-        const newH = Math.max(40, r.start.h - logicalDy)
+        const newH = Math.max(minH, r.start.h - logicalDy)
         const newY = Math.max(-MARGIN, r.start.y + logicalDy) // Allow slight negative
         // Apply with generous bounds
         if (newY + newH <= REF_HEIGHT + MARGIN * 2) {
@@ -713,36 +752,34 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
     if (x < 0) { w += x; x = 0 }
     if (y < 0) { h += y; y = 0 }
     // Ensure size is within bounds and element stays inside the slide
-    w = Math.max(40, Math.min(w, REF_WIDTH - x))
-    h = Math.max(40, Math.min(h, REF_HEIGHT - y))
+    w = Math.max(minW, Math.min(w, REF_WIDTH - x))
+    h = Math.max(minH, Math.min(h, REF_HEIGHT - y))
     x = Math.max(0, Math.min(x, REF_WIDTH - w))
     y = Math.max(0, Math.min(y, REF_HEIGHT - h))
 
-    if (el.type === 'image') {
-      // Live visual update via motion values
-      xMv.set(x)
-      yMv.set(y)
-      wMv.set(w)
-      hMv.set(h)
+    // Live visual update via motion values for ALL elements
+    xMv.set(x)
+    yMv.set(y)
+    wMv.set(w)
+    hMv.set(h)
 
-      // Throttle store updates to once per frame using requestAnimationFrame
-      resizeLatestRef.current = { x, y, w, h }
-      if (!resizeRafRef.current) {
-        const step = () => {
-          const latest = resizeLatestRef.current
-          if (latest) {
-            onChange(latest)
-            resizeRafRef.current = requestAnimationFrame(step)
-          } else {
-            resizeRafRef.current = null
-          }
+    // Throttle store updates to once per frame using requestAnimationFrame
+    resizeLatestRef.current = { x, y, w, h }
+    if (!resizeRafRef.current) {
+      const step = () => {
+        const latest = resizeLatestRef.current
+        if (latest) {
+          // Emit live event for sidebar/presentation
+          emitLive(latest.x, latest.y, latest.w, latest.h)
+          // Dispatch store update (React render)
+          onChange(latest)
+          resizeRafRef.current = requestAnimationFrame(step)
+        } else {
+          resizeRafRef.current = null
         }
-        resizeRafRef.current = requestAnimationFrame(step)
       }
-      return
+      resizeRafRef.current = requestAnimationFrame(step)
     }
-
-    onChange({ x, y, w, h })
   }
 
   const endResize = () => {
@@ -803,11 +840,14 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
   const localScale = responsiveCoords.scale || 1
   const { scale: _omitScale, ...coords } = responsiveCoords
 
-  // Keep motion values in sync when props change (and not actively dragging)
+  // Keep motion values in sync when props change (and not actively dragging/resizing)
   useEffect(() => { if (!isDraggingRef.current) xMv.set(el.x || 0) }, [el.x])
   useEffect(() => { if (!isDraggingRef.current) yMv.set(el.y || 0) }, [el.y])
-  useEffect(() => { if (!resize && el.type === 'image') wMv.set(el.w || 0) }, [el.w, el.type, resize])
-  useEffect(() => { if (!resize && el.type === 'image') hMv.set(el.h || 0) }, [el.h, el.type, resize])
+  // IMPORTANT: sync width/height for ALL element types so that when text boxes
+  // auto-grow (or tables/charts resize via other tools), the main canvas box
+  // matches what SlideView renders.
+  useEffect(() => { if (!resize) wMv.set(el.w || 0) }, [el.w, resize])
+  useEffect(() => { if (!resize) hMv.set(el.h || 0) }, [el.h, resize])
 
   // When a text box reaches the slide bottom, stop animating height changes so it
   // feels like a hard boundary, just like Keynote.
@@ -876,7 +916,7 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
       className={`absolute`}
       style={{
         ...boxStyle,
-        zIndex: el.isWatermark ? 5 : (selected ? 20 : 10),
+        zIndex: el.isWatermark ? 1 : (selected ? 20 : 10),
         pointerEvents: el.isWatermark ? 'none' : 'auto',
         userSelect: el.isWatermark ? 'none' : 'auto',
         WebkitUserSelect: el.isWatermark ? 'none' : 'auto',
@@ -885,9 +925,9 @@ function ElementBox({ el, selected, onSelect, onDelete, onChange, editingTextId,
         y: yMv,
         rotate: Number.isFinite(el.rotation) ? el.rotation : 0,
         scale: drag ? 1.015 : 1,
-        // For images, width/height animate via motion values
-        width: el.type === 'image' ? wMv : el.w,
-        height: el.type === 'image' ? hMv : el.h,
+        // For all elements, width/height animate via motion values for smooth resize
+        width: wMv,
+        height: hMv,
       }}
       onMouseDown={onMouseDown}
       onPointerDown={(e) => {
@@ -1739,7 +1779,105 @@ function toStructuredFromFlat(el) {
 
 function TableElement({ el, editing, selected = true, onSelect, onChange, stopEditing, scale = 1 }) {
   const [editingCellIndex, setEditingCellIndex] = useState(null)
+  const [resizingRow, setResizingRow] = useState(null) // { index, startY, startHeight }
+  const [resizingCol, setResizingCol] = useState(null) // { index, startX, startWidth }
   const tableRef = useRef(null)
+
+  // Ensure table has rowHeights and colWidths arrays (backward compatibility)
+  const ensureTableDimensions = () => {
+    const needsRowHeights = !Array.isArray(el.rowHeights) || el.rowHeights.length !== el.rows
+    const needsColWidths = !Array.isArray(el.colWidths) || el.colWidths.length !== el.cols
+
+    if (needsRowHeights || needsColWidths) {
+      const patch = {}
+      if (needsRowHeights) {
+        const equalHeight = el.h / el.rows
+        patch.rowHeights = Array(el.rows).fill(equalHeight)
+      }
+      if (needsColWidths) {
+        const equalWidth = el.w / el.cols
+        patch.colWidths = Array(el.cols).fill(equalWidth)
+      }
+      onChange(patch)
+    }
+  }
+
+  // Initialize dimensions on mount
+  React.useEffect(() => {
+    ensureTableDimensions()
+  }, [])
+
+  // Get row heights and column widths (with fallback)
+  const rowHeights = Array.isArray(el.rowHeights) && el.rowHeights.length === el.rows
+    ? el.rowHeights
+    : Array(el.rows).fill(el.h / el.rows)
+  const colWidths = Array.isArray(el.colWidths) && el.colWidths.length === el.cols
+    ? el.colWidths
+    : Array(el.cols).fill(el.w / el.cols)
+
+  // Measure actual content height of a row
+  const measureRowHeight = (rowIndex) => {
+    if (!tableRef.current) return rowHeights[rowIndex]
+
+    try {
+      const rowCells = []
+      for (let c = 0; c < el.cols; c++) {
+        const cellIndex = rowIndex * el.cols + c
+        rowCells.push(el.cells[cellIndex])
+      }
+
+      // Create temporary hidden element to measure natural height
+      const tempTable = document.createElement('table')
+      tempTable.style.position = 'absolute'
+      tempTable.style.visibility = 'hidden'
+      tempTable.style.width = `${el.w * scale}px`
+      tempTable.style.borderCollapse = 'collapse'
+      tempTable.style.tableLayout = 'fixed'
+
+      const tempRow = document.createElement('tr')
+      rowCells.forEach((cell, c) => {
+        const td = document.createElement('td')
+        td.style.width = `${colWidths[c] * scale}px`
+        td.style.padding = '6px'
+        td.style.fontSize = `${(cell?.styles?.fontSize || 12) * scale}px`
+        td.style.fontFamily = cell?.styles?.fontFamily || 'Inter, system-ui, sans-serif'
+        td.style.fontWeight = cell?.styles?.bold ? '700' : '400'
+        td.style.whiteSpace = 'pre-wrap'
+        td.style.wordBreak = 'break-word'
+        td.textContent = cell?.text || ''
+        tempRow.appendChild(td)
+      })
+
+      tempTable.appendChild(tempRow)
+      document.body.appendChild(tempTable)
+      const height = tempRow.offsetHeight / scale
+      document.body.removeChild(tempTable)
+
+      return Math.max(24, height) // Minimum 24px
+    } catch (e) {
+      console.error('[TableElement] Error measuring row height:', e)
+      return rowHeights[rowIndex]
+    }
+  }
+
+  // Auto-expand row if content requires more space
+  const autoExpandRow = (rowIndex) => {
+    const measuredHeight = measureRowHeight(rowIndex)
+    const currentHeight = rowHeights[rowIndex]
+
+    if (measuredHeight > currentHeight) {
+      const newRowHeights = [...rowHeights]
+      newRowHeights[rowIndex] = measuredHeight
+
+      // Update total table height
+      const newTotalHeight = newRowHeights.reduce((sum, h) => sum + h, 0)
+
+      onChange({
+        rowHeights: newRowHeights,
+        h: newTotalHeight
+      })
+    }
+  }
 
   // Use scaled cell dimensions so positioning matches the rendered size
   const cellWidthPx = (el.w * scale) / el.cols
@@ -1773,6 +1911,10 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
     const newCells = [...el.cells]
     newCells[cellIndex] = { ...newCells[cellIndex], text: newText }
     onChange({ cells: newCells })
+
+    // Auto-expand row after editing completes
+    const rowIndex = Math.floor(cellIndex / el.cols)
+    setTimeout(() => autoExpandRow(rowIndex), 0)
   }
 
   const handleWrapperDblClick = (e) => {
@@ -1828,157 +1970,463 @@ function TableElement({ el, editing, selected = true, onSelect, onChange, stopEd
     return () => window.removeEventListener('editTableCell', onEditCell)
   }, [el.id, el.rows, el.cols])
 
+  // Handle resize drag events
+  React.useEffect(() => {
+    if (!resizingRow && !resizingCol) return
+
+    const handleMouseMove = (e) => {
+      if (resizingRow) {
+        const deltaY = (e.clientY - resizingRow.startY) / scale
+        const newHeight = Math.max(24, resizingRow.startHeight + deltaY)
+
+        const newRowHeights = [...rowHeights]
+        newRowHeights[resizingRow.index] = newHeight
+
+        const newTotalHeight = newRowHeights.reduce((sum, h) => sum + h, 0)
+
+        // Calculate minimum table height (accounting for padding and borders)
+        const minRowHeight = 24
+        const cellPadding = 12
+        const minTableHeight = el.rows * (minRowHeight + cellPadding) + 2
+
+        // Block resize if trying to go below minimum
+        if (newTotalHeight < minTableHeight) {
+          return // Don't apply the change
+        }
+
+        onChange({
+          rowHeights: newRowHeights,
+          h: newTotalHeight
+        })
+      } else if (resizingCol) {
+        const deltaX = (e.clientX - resizingCol.startX) / scale
+        const newWidth = Math.max(36, resizingCol.startWidth + deltaX)
+
+        const newColWidths = [...colWidths]
+        newColWidths[resizingCol.index] = newWidth
+
+        const newTotalWidth = newColWidths.reduce((sum, w) => sum + w, 0)
+
+        // Calculate minimum table width (accounting for borders)
+        const minColWidth = 36
+        const minTableWidth = el.cols * minColWidth + 2
+
+        // Block resize if trying to go below minimum
+        if (newTotalWidth < minTableWidth) {
+          return // Don't apply the change
+        }
+
+        onChange({
+          colWidths: newColWidths,
+          w: newTotalWidth
+        })
+      }
+    }
+
+    const handleMouseUp = () => {
+      setResizingRow(null)
+      setResizingCol(null)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [resizingRow, resizingCol, rowHeights, colWidths, scale])
+
+  // After all hooks, decide what to render. When no cell is being edited,
+  // use a static <table> layout that matches SlideView (thumbnail/presentation)
+  // so borders and row heights expand with content.
+  if (editingCellIndex === null) {
+    const rows = el.rows || 0
+    const cols = el.cols || 0
+
+    // Handle row resize drag
+    const handleRowResizeStart = (e, rowIndex) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setResizingRow({
+        index: rowIndex,
+        startY: e.clientY,
+        startHeight: rowHeights[rowIndex]
+      })
+    }
+
+    // Handle column resize drag
+    const handleColResizeStart = (e, colIndex) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setResizingCol({
+        index: colIndex,
+        startX: e.clientX,
+        startWidth: colWidths[colIndex]
+      })
+    }
+
+    return (
+      <div
+        className="w-full h-full relative"
+        style={{
+          background: '#fff',
+          border: `1px solid ${el.borderColor || '#000'}`,
+          boxSizing: 'border-box',
+          overflow: 'visible',
+        }}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (typeof onSelect === 'function') onSelect()
+        }}
+        onDoubleClick={(e) => {
+          // Enter edit mode on first cell when the user double‑clicks the table
+          e.stopPropagation()
+          if (typeof onSelect === 'function') onSelect()
+          if (rows > 0 && cols > 0) setEditingCellIndex(0)
+        }}
+      >
+        <table
+          style={{
+            width: '100%',
+            height: '100%',
+            borderCollapse: 'collapse',
+            tableLayout: 'fixed',
+          }}
+        >
+          <colgroup>
+            {colWidths.map((width, c) => (
+              <col key={c} style={{ width: `${(width / el.w) * 100}%` }} />
+            ))}
+          </colgroup>
+          <tbody>
+            {Array.from({ length: rows }).map((_, r) => (
+              <tr key={r} style={{ height: `${rowHeights[r] * scale}px` }}>
+                {Array.from({ length: cols }).map((__, c) => {
+                  const idx = r * cols + c
+                  const cell = el.cells?.[idx]
+                  const isHeader = !!el.headerRow && r === 0
+
+                  const bgBase = (cell?.styles?.bgColor)
+                    ? cell.styles.bgColor
+                    : (isHeader ? (el.headerBg || '#f3f4f6') : (el.cellBg || '#ffffff'))
+                  const bgAlpha = (cell?.styles?.bgColorAlpha != null)
+                    ? cell.styles.bgColorAlpha
+                    : (isHeader ? (el.headerBgAlpha != null ? el.headerBgAlpha : 100) : 100)
+                  const bg = withAlpha(bgBase, bgAlpha)
+
+                  const fgBase = isHeader
+                    ? (el.headerTextColor || '#111827')
+                    : (cell?.styles?.color || '#111827')
+                  const fgAlpha = isHeader
+                    ? (el.headerTextAlpha != null ? el.headerTextAlpha : 100)
+                    : (cell?.styles?.colorAlpha != null ? cell.styles.colorAlpha : 100)
+                  const fg = withAlpha(fgBase, fgAlpha)
+
+                  const align = cell?.styles?.align || 'center'
+                  const valign = cell?.styles?.valign || 'middle'
+
+                  const borderBase = isHeader && el.headerBorderColor
+                    ? el.headerBorderColor
+                    : (el.borderColor || '#000000')
+                  const borderAlpha = isHeader && el.headerBorderColor
+                    ? (el.headerBorderAlpha != null ? el.headerBorderAlpha : 100)
+                    : (el.borderAlpha != null ? el.borderAlpha : 100)
+                  const cellBorderColor = withAlpha(borderBase, borderAlpha)
+
+                  return (
+                    <td
+                      key={c}
+                      onDoubleClick={(e) => {
+                        // Enter edit mode for the specific cell that was double‑clicked
+                        e.stopPropagation()
+                        if (typeof onSelect === 'function') onSelect()
+                        setEditingCellIndex(idx)
+                      }}
+                      style={{
+                        boxSizing: 'border-box',
+                        borderRight: `1px solid ${cellBorderColor}`,
+                        borderBottom: `1px solid ${cellBorderColor}`,
+                        background: bg,
+                        color: fg,
+                        padding: 6,
+                        textAlign: align,
+                        verticalAlign: valign === 'bottom' ? 'bottom' : (valign === 'top' ? 'top' : 'middle'),
+                        fontSize: (cell?.styles?.fontSize || 12),
+                        fontFamily: cell?.styles?.fontFamily || 'Inter, system-ui, sans-serif',
+                        fontWeight: cell?.styles?.bold ? 700 : 400,
+                        fontStyle: cell?.styles?.italic ? 'italic' : 'normal',
+                        textDecoration: cell?.styles?.underline ? 'underline' : 'none',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        overflow: 'visible',
+                      }}
+                    >
+                      {cell?.text || ''}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Row resize handles - only show when table is selected */}
+        {selected && Array.from({ length: rows }).map((_, r) => {
+          // Calculate cumulative height up to this row
+          let cumulativeHeight = 0
+          for (let i = 0; i <= r; i++) {
+            cumulativeHeight += rowHeights[i] * scale
+          }
+
+          return (
+            <div
+              key={`row-handle-${r}`}
+              onMouseDown={(e) => handleRowResizeStart(e, r)}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: cumulativeHeight - 2,
+                width: '100%',
+                height: 4,
+                cursor: 'row-resize',
+                zIndex: 10,
+                background: 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(59, 130, 246, 0.3)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent'
+              }}
+            />
+          )
+        })}
+
+        {/* Column resize handles - only show when table is selected */}
+        {selected && Array.from({ length: cols }).map((_, c) => {
+          // Calculate cumulative width up to this column
+          let cumulativeWidth = 0
+          for (let i = 0; i <= c; i++) {
+            cumulativeWidth += (colWidths[i] / el.w) * 100
+          }
+
+          return (
+            <div
+              key={`col-handle-${c}`}
+              onMouseDown={(e) => handleColResizeStart(e, c)}
+              style={{
+                position: 'absolute',
+                left: `${cumulativeWidth}%`,
+                top: 0,
+                width: 4,
+                height: '100%',
+                cursor: 'col-resize',
+                zIndex: 10,
+                background: 'transparent',
+                transform: 'translateX(-2px)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(59, 130, 246, 0.3)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent'
+              }}
+            />
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Editing mode: use table layout with FIXED heights (matching thumbnail view)
   return (
     <div
       ref={tableRef}
-      className="w-full h-full relative"
-      style={{ boxSizing: 'border-box', overflow: 'hidden', background: '#ffffff', border: `1px solid ${el.borderColor || '#000000'}` }}
+      className="w-full h-full"
+      style={{
+        background: '#fff',
+        border: `1px solid ${el.borderColor || '#000'}`,
+        boxSizing: 'border-box',
+        overflow: 'visible',
+      }}
       onClick={(e) => {
         e.stopPropagation()
         if (typeof onSelect === 'function') onSelect()
       }}
       onDoubleClick={handleWrapperDblClick}
     >
-      {el.cells.map((cell, index) => {
-        const row = Math.floor(index / el.cols)
-        const col = index % el.cols
-        const isEditing = editingCellIndex === index
-        const isHeader = !!el.headerRow && row === 0
+      <table
+        style={{
+          width: '100%',
+          height: '100%',
+          borderCollapse: 'collapse',
+          tableLayout: 'fixed',
+        }}
+      >
+        <colgroup>
+          {colWidths.map((width, c) => (
+            <col key={c} style={{ width: `${(width / el.w) * 100}%` }} />
+          ))}
+        </colgroup>
+        <tbody>
+          {Array.from({ length: el.rows }).map((_, r) => (
+            <tr key={r} style={{ height: `${rowHeights[r] * scale}px` }}>
+              {Array.from({ length: el.cols }).map((__, c) => {
+                const index = r * el.cols + c
+                const cell = el.cells?.[index]
+                const isEditing = editingCellIndex === index
+                const isHeader = !!el.headerRow && r === 0
 
-        const bgBase = (cell.styles?.bgColor)
-          ? cell.styles.bgColor
-          : (isHeader ? (el.headerBg || '#f3f4f6') : (el.cellBg || '#ffffff'))
-        const bgAlpha = (cell.styles?.bgColorAlpha != null)
-          ? cell.styles.bgColorAlpha
-          : (isHeader ? (el.headerBgAlpha != null ? el.headerBgAlpha : 100) : 100)
-        const bg = withAlpha(bgBase, bgAlpha)
+                const bgBase = (cell?.styles?.bgColor)
+                  ? cell.styles.bgColor
+                  : (isHeader ? (el.headerBg || '#f3f4f6') : (el.cellBg || '#ffffff'))
+                const bgAlpha = (cell?.styles?.bgColorAlpha != null)
+                  ? cell.styles.bgColorAlpha
+                  : (isHeader ? (el.headerBgAlpha != null ? el.headerBgAlpha : 100) : 100)
+                const bg = withAlpha(bgBase, bgAlpha)
 
-        const fgBase = isHeader ? (el.headerTextColor || '#111827') : (cell.styles?.color || '#111827')
-        const fgAlpha = isHeader ? (el.headerTextAlpha != null ? el.headerTextAlpha : 100) : (cell.styles?.colorAlpha != null ? cell.styles.colorAlpha : 100)
-        const fg = withAlpha(fgBase, fgAlpha)
+                const fgBase = isHeader
+                  ? (el.headerTextColor || '#111827')
+                  : (cell?.styles?.color || '#111827')
+                const fgAlpha = isHeader
+                  ? (el.headerTextAlpha != null ? el.headerTextAlpha : 100)
+                  : (cell?.styles?.colorAlpha != null ? cell.styles.colorAlpha : 100)
+                const fg = withAlpha(fgBase, fgAlpha)
 
-        const valign = cell.styles?.valign || 'middle'
-        const align = cell.styles?.align || 'center'
-        const borderBase = isHeader && el.headerBorderColor ? el.headerBorderColor : (el.borderColor || '#000000')
-        const borderAlpha = isHeader && el.headerBorderColor ? (el.headerBorderAlpha != null ? el.headerBorderAlpha : 100) : (el.borderAlpha != null ? el.borderAlpha : 100)
-        const cellBorderColor = withAlpha(borderBase, borderAlpha)
+                const align = cell?.styles?.align || 'center'
+                const valign = cell?.styles?.valign || 'middle'
 
-        return (
-          <div
-            key={cell.id}
-            id={`table-cell-wrap-${cell.id}`}
-            data-table-cell
-            className="absolute"
-            style={{
-              boxSizing: 'border-box',
-              left: col * cellWidthPx,
-              top: row * cellHeightPx,
-              width: cellWidthPx,
-              height: cellHeightPx,
-              borderRight: `1px solid ${cellBorderColor}`,
-              borderBottom: `1px solid ${cellBorderColor}`,
-            }}
-            onMouseDown={(e) => {
-              // Track selected cell even when not editing so sidebar ops can use it
-              try { if (typeof window !== 'undefined') window.currentSelectedTableCell = { id: el.id, cellIndex: index } } catch { }
-            }}
-            onDoubleClick={(e) => {
-              console.log('[TableElement] cell double-click index', index, 'table', el.id)
-              e.stopPropagation()
-              setEditingCellIndex(index)
-            }}
-          >
-            {isEditing ? (
-              <div
-                id={`table-cell-${cell.id}`}
-                contentEditable
-                suppressContentEditableWarning
-                aria-label={`Table cell ${index + 1}`}
-                onBlur={(e) => {
-                  commitCell(index, e.currentTarget.textContent || '')
-                  // Keep editing unless user clicks inside slide container but outside this table
-                  const target = e?.relatedTarget || document.activeElement
-                  const withinSlide = (target instanceof Element) ? !!target.closest('[data-slide-container]') : false
-                  const withinTable = (target instanceof Element) ? !!target.closest('[data-table-cell]') : false
-                  const keepSidebar = typeof window !== 'undefined' && window.keepTableEditing
-                  // If user interacted with sidebar/tools, do NOT refocus immediately to allow dropdowns/inputs to work
-                  if (keepSidebar) {
-                    // Preserve editing state by not clearing editingCellIndex
-                    return
-                  }
-                  if (!withinSlide || withinTable) {
-                    const id = `table-cell-${cell.id}`
-                    requestAnimationFrame(() => {
-                      const ta = document.getElementById(id)
-                      if (ta) { try { ta.focus() } catch { } }
-                    })
-                  } else {
-                    setEditingCellIndex(null)
-                  }
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault() } }}
-                onPaste={(e) => {
-                  try {
-                    e.preventDefault()
-                    const txt = (e.clipboardData || window.clipboardData).getData('text') || ''
-                    const sanitized = txt.replace(/\r?\n/g, ' ')
-                    const ok = document.execCommand && document.execCommand('insertText', false, sanitized)
-                    if (!ok) {
-                      const sel = window.getSelection && window.getSelection()
-                      if (sel && sel.getRangeAt && sel.rangeCount) {
-                        const r = sel.getRangeAt(0); r.deleteContents(); r.insertNode(document.createTextNode(sanitized))
-                      } else {
-                        e.currentTarget.textContent += sanitized
-                      }
-                    }
-                  } catch { }
-                }}
-                className="w-full h-full p-2 outline-none"
-                style={{
-                  boxSizing: 'border-box',
-                  background: bg,
-                  color: fg,
-                  fontSize: `${(cell.styles?.fontSize || 14) * scale}px`,
-                  fontFamily: cell.styles?.fontFamily || 'Inter, system-ui, sans-serif',
-                  fontWeight: cell.styles?.bold ? 700 : 400,
-                  fontStyle: cell.styles?.italic ? 'italic' : 'normal',
-                  textDecoration: cell.styles?.underline ? 'underline' : 'none',
-                  textAlign: align,
-                  display: 'flex',
-                  alignItems: valign === 'middle' ? 'center' : (valign === 'bottom' ? 'flex-end' : 'flex-start'),
-                  justifyContent: align === 'right' ? 'flex-end' : (align === 'center' ? 'center' : 'flex-start'),
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  overflow: 'hidden'
-                }}
-              >{cell.text}</div>
-            ) : (
-              <div
-                className="w-full h-full p-2 select-none"
-                style={{
-                  background: bg,
-                  color: fg,
-                  fontSize: `${(cell.styles?.fontSize || 14) * scale}px`,
-                  fontFamily: cell.styles?.fontFamily || 'Inter, system-ui, sans-serif',
-                  fontWeight: cell.styles?.bold ? 700 : 400,
-                  fontStyle: cell.styles?.italic ? 'italic' : 'normal',
-                  textDecoration: cell.styles?.underline ? 'underline' : 'none',
-                  textAlign: align,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  alignItems: valign === 'middle' ? 'center' : (valign === 'bottom' ? 'flex-end' : 'flex-start'),
-                  justifyContent: align === 'right' ? 'flex-end' : (align === 'center' ? 'center' : 'flex-start')
-                }}
-              >
-                {cell.text}
-              </div>
-            )}
-          </div>
-        )
-      })}
+                const borderBase = isHeader && el.headerBorderColor
+                  ? el.headerBorderColor
+                  : (el.borderColor || '#000000')
+                const borderAlpha = isHeader && el.headerBorderColor
+                  ? (el.headerBorderAlpha != null ? el.headerBorderAlpha : 100)
+                  : (el.borderAlpha != null ? el.borderAlpha : 100)
+                const cellBorderColor = withAlpha(borderBase, borderAlpha)
+
+                return (
+                  <td
+                    key={c}
+                    data-table-cell
+                    onMouseDown={(e) => {
+                      // Track selected cell even when not editing so sidebar ops can use it
+                      try { if (typeof window !== 'undefined') window.currentSelectedTableCell = { id: el.id, cellIndex: index } } catch { }
+                    }}
+                    onDoubleClick={(e) => {
+                      console.log('[TableElement] cell double-click index', index, 'table', el.id)
+                      e.stopPropagation()
+                      if (typeof onSelect === 'function') onSelect()
+                      setEditingCellIndex(index)
+                    }}
+                    style={{
+                      boxSizing: 'border-box',
+                      borderRight: `1px solid ${cellBorderColor}`,
+                      borderBottom: `1px solid ${cellBorderColor}`,
+                      background: bg,
+                      color: fg,
+                      padding: 0,
+                      textAlign: align,
+                      verticalAlign: valign === 'bottom' ? 'bottom' : (valign === 'top' ? 'top' : 'middle'),
+                      fontSize: (cell?.styles?.fontSize || 12),
+                      fontFamily: cell?.styles?.fontFamily || 'Inter, system-ui, sans-serif',
+                      fontWeight: cell?.styles?.bold ? 700 : 400,
+                      fontStyle: cell?.styles?.italic ? 'italic' : 'normal',
+                      textDecoration: cell?.styles?.underline ? 'underline' : 'none',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      overflow: 'visible',
+                    }}
+                  >
+                    {isEditing ? (
+                      <div
+                        id={`table-cell-${cell.id}`}
+                        contentEditable
+                        suppressContentEditableWarning
+                        aria-label={`Table cell ${index + 1}`}
+                        onBlur={(e) => {
+                          commitCell(index, e.currentTarget.textContent || '')
+                          // Keep editing unless user clicks inside slide container but outside this table
+                          const target = e?.relatedTarget || document.activeElement
+                          const withinSlide = (target instanceof Element) ? !!target.closest('[data-slide-container]') : false
+                          const withinTable = (target instanceof Element) ? !!target.closest('[data-table-cell]') : false
+                          const keepSidebar = typeof window !== 'undefined' && window.keepTableEditing
+                          // If user interacted with sidebar/tools, do NOT refocus immediately to allow dropdowns/inputs to work
+                          if (keepSidebar) {
+                            // Preserve editing state by not clearing editingCellIndex
+                            return
+                          }
+                          if (!withinSlide || withinTable) {
+                            const id = `table-cell-${cell.id}`
+                            requestAnimationFrame(() => {
+                              const ta = document.getElementById(id)
+                              if (ta) { try { ta.focus() } catch { } }
+                            })
+                          } else {
+                            setEditingCellIndex(null)
+                          }
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault() } }}
+                        onPaste={(e) => {
+                          try {
+                            e.preventDefault()
+                            const txt = (e.clipboardData || window.clipboardData).getData('text') || ''
+                            const sanitized = txt.replace(/\r?\n/g, ' ')
+                            const ok = document.execCommand && document.execCommand('insertText', false, sanitized)
+                            if (!ok) {
+                              const sel = window.getSelection && window.getSelection()
+                              if (sel && sel.getRangeAt && sel.rangeCount) {
+                                const r = sel.getRangeAt(0); r.deleteContents(); r.insertNode(document.createTextNode(sanitized))
+                              } else {
+                                e.currentTarget.textContent += sanitized
+                              }
+                            }
+                          } catch { }
+                        }}
+                        className="w-full outline-none"
+                        style={{
+                          boxSizing: 'border-box',
+                          minHeight: '100%',
+                          padding: `${6 * scale}px`,
+                          fontSize: `${(cell?.styles?.fontSize || 12) * scale}px`,
+                          fontFamily: cell?.styles?.fontFamily || 'Inter, system-ui, sans-serif',
+                          fontWeight: cell?.styles?.bold ? 700 : 400,
+                          fontStyle: cell?.styles?.italic ? 'italic' : 'normal',
+                          textDecoration: cell?.styles?.underline ? 'underline' : 'none',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          overflow: 'visible',
+                          color: 'inherit'
+                        }}
+                      >{cell?.text || ''}</div>
+                    ) : (
+                      <div
+                        className="w-full select-none"
+                        style={{
+                          boxSizing: 'border-box',
+                          minHeight: '100%',
+                          padding: `${6 * scale}px`,
+                          fontSize: `${(cell?.styles?.fontSize || 12) * scale}px`,
+                          fontFamily: cell?.styles?.fontFamily || 'Inter, system-ui, sans-serif',
+                          fontWeight: cell?.styles?.bold ? 700 : 400,
+                          fontStyle: cell?.styles?.italic ? 'italic' : 'normal',
+                          textDecoration: cell?.styles?.underline ? 'underline' : 'none',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          overflow: 'visible',
+                        }}
+                      >
+                        {cell?.text || ''}
+                      </div>
+                    )}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -2116,10 +2564,11 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
             fontWeight: stylesSafe.bold ? 700 : 400,
             fontStyle: stylesSafe.italic ? 'italic' : 'normal',
             textDecoration: stylesSafe.underline ? 'underline' : 'none',
-            overflow: 'hidden', // never let rendered text extend beyond the box
+            // Match SlideView: flex container controls vertical align, let
+            // content overflow naturally so layout matches thumbnails/presentation.
             display: 'flex',
             flexDirection: 'column',
-            alignItems: getHorizontalAlignment(),
+            textAlign: align,
             ...getVerticalAlignStyle(),
             pointerEvents: 'none', // let wrapper capture drag/resize when not editing
           }}
@@ -2138,7 +2587,6 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 textAlign: stylesSafe.align || 'left',
-                textOverflow: 'ellipsis',
                 width: '100%'
               }}
               dangerouslySetInnerHTML={{ __html: el.html }}
@@ -2180,17 +2628,17 @@ function EditableText({ el, editing, onChange, stopEditing, scale = 1 }) {
         fontWeight: stylesSafe2.bold ? 700 : 400,
         fontStyle: stylesSafe2.italic ? 'italic' : 'normal',
         textDecoration: stylesSafe2.underline ? 'underline' : 'none',
-        overflow: 'hidden', // clamp visible text to the box bounds
+        // Match SlideView: use flex + valign, and let content overflow
+        // naturally instead of clipping inside the design canvas.
         display: 'flex',
         flexDirection: 'column',
-        alignItems: getHorizontalAlignment(),
+        textAlign: align,
         ...getVerticalAlignStyle(),
       }}>
         <div style={{
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           textAlign: stylesSafe2.align || 'left',
-          textOverflow: 'ellipsis',
           width: '100%',
           pointerEvents: 'none',
         }}>

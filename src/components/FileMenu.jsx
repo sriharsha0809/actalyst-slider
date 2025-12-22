@@ -24,9 +24,9 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
   }
 
   const requestClose = () => {
-    try { setClosing(true) } catch {}
+    try { setClosing(true) } catch { }
     // Wait for animation to finish
-    setTimeout(() => { try { onClose?.() } catch {} }, 450)
+    setTimeout(() => { try { onClose?.() } catch { } }, 450)
   }
 
   const handleFileSelect = (event) => {
@@ -46,19 +46,19 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
           // If not JSON, try to parse as HTML/PPT format
           const parser = new DOMParser()
           const doc = parser.parseFromString(content, 'text/html')
-          
+
           // Extract slides from HTML
           const slides = []
           const slideElements = doc.querySelectorAll('.slide')
-          
+
           slideElements.forEach((slideEl, index) => {
-      const elements = []
+            const elements = []
             // Charts
             const chartEls = slideEl.querySelectorAll('[data-el-type="chart"][data-el-chart]')
             chartEls.forEach(node => {
               const style = node.style
               let payload = null
-              try { payload = JSON.parse(decodeURIComponent(node.getAttribute('data-el-chart') || '')) } catch {}
+              try { payload = JSON.parse(decodeURIComponent(node.getAttribute('data-el-chart') || '')) } catch { }
               if (payload) {
                 elements.push({
                   id: `element_${Date.now()}_${Math.random()}`,
@@ -75,13 +75,13 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
                 })
               }
             })
-            
+
             // Text blocks
             const textElements = slideEl.querySelectorAll('div[style*="position: absolute"]:not([data-el-type])')
-            
+
             textElements.forEach(textEl => {
               const style = textEl.style
-              
+
               elements.push({
                 id: `element_${Date.now()}_${Math.random()}`,
                 type: 'text',
@@ -103,7 +103,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
                 }
               })
             })
-            
+
             slides.push({
               id: `slide_${Date.now()}_${index}`,
               name: `Slide ${index + 1}`,
@@ -130,7 +130,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
               }]
             })
           })
-          
+
           presentationData = {
             slides: slides.length > 0 ? slides : [{
               id: `slide_${Date.now()}`,
@@ -167,17 +167,17 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
 
         // Load the presentation data
         dispatch({ type: 'LOAD_PRESENTATION', data: presentationData })
-        
+
         // Extract filename and notify parent
         const fileName = file.name.replace(/\.(ppt|json|html)$/i, '')
         onFileOpen?.(fileName)
-        
+
         alert(`Presentation "${fileName}" loaded successfully!`)
       } catch (error) {
         alert('Error loading file: ' + error.message)
       }
     }
-    
+
     reader.readAsText(file)
     event.target.value = '' // Reset file input
   }
@@ -187,7 +187,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
   const saveBlob = async (blob, suggestedName) => {
     // Legacy IE/Edge fallback
     if (typeof navigator !== 'undefined' && navigator.msSaveOrOpenBlob) {
-      try { navigator.msSaveOrOpenBlob(blob, suggestedName); return suggestedName } catch {}
+      try { navigator.msSaveOrOpenBlob(blob, suggestedName); return suggestedName } catch { }
     }
 
     if (supportsFilePicker()) {
@@ -199,7 +199,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
         })
         const writable = await handle.createWritable()
         // ensure overwrite
-        try { await writable.truncate(0) } catch {}
+        try { await writable.truncate(0) } catch { }
         // write blob (ArrayBuffer path for broader compat)
         const ab = await blob.arrayBuffer()
         await writable.write(new Uint8Array(ab))
@@ -278,7 +278,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
         else if (el.type === 'image' && el.src) {
           s.addImage({ data: el.src, x, y, w, h, rotate: Number.isFinite(el.rotation) ? el.rotation : 0 })
         }
-        else if ([ 'rect','square','circle','triangle','diamond','star','message' ].includes(el.type)) {
+        else if (['rect', 'square', 'circle', 'triangle', 'diamond', 'star', 'message'].includes(el.type)) {
           let shape = 'rect'
           if (el.type === 'circle') shape = 'ellipse'
           else if (el.type === 'triangle') shape = 'triangle'
@@ -312,7 +312,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
             const toSeries = (data) => {
               // data can be number[] or number[][]
               if (Array.isArray(data) && data.length && Array.isArray(data[0])) {
-                return data.map((arr, i) => ({ name: `Series ${i+1}`, labels: el.labels, values: arr }))
+                return data.map((arr, i) => ({ name: `Series ${i + 1}`, labels: el.labels, values: arr }))
               }
               return [{ name: 'Series 1', labels: el.labels, values: data }]
             }
@@ -320,7 +320,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
             const chartTypeMap = { bar: 'bar', column: 'bar', line: 'line', pie: 'pie', area: 'area' }
             const cType = chartTypeMap[el.chartType] || 'bar'
             s.addChart(cType, series, { x, y, w, h, chartColors: Array.isArray(el.colors) ? el.colors : undefined })
-          } catch {}
+          } catch { }
         }
       })
     })
@@ -329,7 +329,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
     return blob
   }
 
-  const stripHtml = (html='') => {
+  const stripHtml = (html = '') => {
     const tmp = document.createElement('div')
     tmp.innerHTML = html
     return tmp.textContent || tmp.innerText || ''
@@ -527,7 +527,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-      
+
       alert('✅ Presentation exported as Word document successfully!')
     } catch (error) {
       alert('❌ Error exporting to Word: ' + error.message)
@@ -543,42 +543,42 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
       const slideHeight = 540
       const padding = 40
       const slideSpacing = 60
-      
+
       canvas.width = slideWidth + (padding * 2)
       canvas.height = (slideHeight + slideSpacing) * state.slides.length + padding * 2
-      
+
       // White background
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-      
+
       // Title
       ctx.fillStyle = '#1f2937'
       ctx.font = 'bold 24px Arial'
       ctx.fillText('📊 PPT Slide Maker Presentation', padding, padding + 20)
-      
+
       // Info
       ctx.font = '16px Arial'
       ctx.fillText(`📋 Total Slides: ${state.slides.length}`, padding, padding + 50)
       ctx.fillText(`📅 ${new Date().toLocaleString()}`, padding, padding + 75)
-      
+
       let yOffset = padding + 100
-      
+
       // Draw each slide
       state.slides.forEach((slide, index) => {
         // Slide background
         ctx.fillStyle = slide.background || '#ffffff'
         ctx.fillRect(padding, yOffset, slideWidth, slideHeight)
-        
+
         // Slide border
         ctx.strokeStyle = '#e5e7eb'
         ctx.lineWidth = 2
         ctx.strokeRect(padding, yOffset, slideWidth, slideHeight)
-        
+
         // Slide title
         ctx.fillStyle = '#374151'
         ctx.font = 'bold 16px Arial'
         ctx.fillText(slide.name || `Slide ${index + 1}`, padding, yOffset - 10)
-        
+
         // Draw elements (simplified for canvas)
         slide.elements.forEach(el => {
           if (el.type === 'text') {
@@ -587,10 +587,10 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
             ctx.fillText(el.text || '', padding + el.x, yOffset + el.y + 20)
           }
         })
-        
+
         yOffset += slideHeight + slideSpacing
       })
-      
+
       // Convert to blob and download
       canvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob)
@@ -602,7 +602,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
         link.click()
         document.body.removeChild(link)
         URL.revokeObjectURL(url)
-        
+
         alert('✅ Presentation exported as image successfully!')
       }, 'image/png')
 
@@ -674,6 +674,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
     applyThemeBackground(pendingTheme, applyThemeToAllSlides)
     setShowThemeConfirm(false)
     setPendingTheme(null)
+    requestClose()  // Navigate back to main app after applying theme
   }
 
   const handleThemeCancel = () => {
@@ -692,7 +693,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
         id: `element_${Date.now()}_${index}_${elIndex}_${Math.random()}`
       }))
     }))
-    
+
     // Load the template as the new presentation
     const newPresentationData = {
       slides: templateSlides,
@@ -702,7 +703,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
       history: [],
       historyIndex: -1
     }
-    
+
     dispatch({ type: 'LOAD_PRESENTATION', data: newPresentationData })
     onFileOpen?.(template.name)
     requestClose()
@@ -729,7 +730,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
     if (!pendingTemplate) return
     try {
       await handleSave()
-    } catch {}
+    } catch { }
     applyTemplate(pendingTemplate)
     setShowTemplateConfirm(false)
     setPendingTemplate(null)
@@ -776,7 +777,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
       `}</style>
       {/* Full-screen File View with frosted overlay */}
       <div className="fixed inset-0 z-50 flex h-screen w-full bg-white/30 backdrop-blur-xl transition-all duration-500 ease-out" onClick={() => requestClose()}>
-        <div className={`flex flex-col md:flex-row w-full h-full ${closing ? 'paper-unfold-exit' : 'paper-fold-enter'}`} onClick={(e)=>e.stopPropagation()}>
+        <div className={`flex flex-col md:flex-row w-full h-full ${closing ? 'paper-unfold-exit' : 'paper-fold-enter'}`} onClick={(e) => e.stopPropagation()}>
           {/* Left Pane - File Actions */}
           <div className="w-full md:w-1/4 bg-white/50 backdrop-blur-2xl border-b md:border-b-0 md:border-r border-white/40 shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8 md:p-10 flex flex-col gap-6 text-gray-700 relative">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">File</h2>
@@ -805,7 +806,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
                       <button
                         key={subIndex}
                         onClick={() => {
-                        subItem.action()
+                          subItem.action()
                           setShowShareSubmenu(false)
                           requestClose()
                         }}
@@ -1006,7 +1007,7 @@ export default function FileMenu({ isOpen, onClose, onFileOpen, onSave }) {
               <button
                 className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium hover:from-blue-600 hover:to-blue-700 hover:shadow-lg hover:scale-105 transition-all duration-200"
                 onClick={async () => {
-                  try { await handleSave() } catch {}
+                  try { await handleSave() } catch { }
                   dispatch({ type: 'NEW_PRESENTATION' })
                   onFileOpen?.('Untitled Presentation')
                   setShowNewConfirm(false)

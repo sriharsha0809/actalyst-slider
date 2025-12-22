@@ -138,12 +138,12 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
       }
       editorRef.current.focus()
       // Place caret at end so user can continue typing after existing content
-      try { setCaretToEnd() } catch {}
+      try { setCaretToEnd() } catch { }
       captureSnapshot()
       // Initialize desired typing state to off on new element
       desiredTypingRef.current = { bold: false, italic: false, underline: false }
       // Prefer using CSS spans when styling
-      try { document.execCommand('styleWithCSS', false, true) } catch {}
+      try { document.execCommand('styleWithCSS', false, true) } catch { }
     }
   }, [el.id])
 
@@ -223,7 +223,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
       sel.removeAllRanges()
       sel.addRange(range)
       editor.focus()
-    } catch {}
+    } catch { }
   }
 
   function captureSnapshot() {
@@ -299,7 +299,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     if (Math.abs(clampedLogical - currentH) < 1) return
     try {
       onChange({ h: clampedLogical })
-    } catch {}
+    } catch { }
   }
 
   // Component-scope getCurrentFontFamily function
@@ -310,14 +310,14 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     if (!selection || selection.rangeCount === 0) return ''
     const range = selection.getRangeAt(0)
     if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return ''
-    
+
     if (selection.isCollapsed) {
       const node = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer
       if (!node || node === editor) return editor.style.fontFamily || el.styles?.fontFamily || ''
       const computedFont = window.getComputedStyle(node).fontFamily || ''
       return normalizeDisplayFont(computedFont)
     }
-    
+
     const families = collectFontFamilies(editor, range)
     if (families.size === 0) return ''
     if (families.size === 1) {
@@ -330,42 +330,42 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
   // Helper function to normalize font family for display in dropdown
   const normalizeDisplayFont = (fontFamily) => {
     if (!fontFamily) return ''
-    
+
     // Common font family mappings to match our dropdown options
     const fontMappings = {
       'inter': 'Inter, system-ui, sans-serif',
-      'arial': 'Arial, sans-serif', 
+      'arial': 'Arial, sans-serif',
       'times new roman': "'Times New Roman', serif",
       'courier new': "'Courier New', monospace",
       'georgia': 'Georgia, serif',
       'verdana': 'Verdana, sans-serif'
     }
-    
+
     const normalized = fontFamily.toLowerCase().replace(/["']/g, '')
-    
+
     // Check if it matches any of our dropdown options exactly
     const dropdownOptions = [
       'Inter, system-ui, sans-serif',
       'Arial, sans-serif',
       "'Times New Roman', serif",
-      "'Courier New', monospace", 
+      "'Courier New', monospace",
       'Georgia, serif',
       'Verdana, sans-serif'
     ]
-    
+
     for (const option of dropdownOptions) {
       if (fontFamily.includes(option.split(',')[0].replace(/["']/g, ''))) {
         return option
       }
     }
-    
+
     // Check font mappings
     for (const [key, value] of Object.entries(fontMappings)) {
       if (normalized.includes(key)) {
         return value
       }
     }
-    
+
     return fontFamily
   }
 
@@ -397,15 +397,15 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     try {
       const v = document.queryCommandState('bold')
       if (typeof v === 'boolean') { next.bold = v; hadCmdInfo = true }
-    } catch {}
+    } catch { }
     try {
       const v = document.queryCommandState('italic')
       if (typeof v === 'boolean') { next.italic = v; hadCmdInfo = true }
-    } catch {}
+    } catch { }
     try {
       const v = document.queryCommandState('underline')
       if (typeof v === 'boolean') { next.underline = v; hadCmdInfo = true }
-    } catch {}
+    } catch { }
 
     // Fallback via computed style on selection start
     if (!hadCmdInfo) {
@@ -456,9 +456,9 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     // Candidate quadrants
     const candidates = [
       { key: 'TR', availW: spaceRight, availH: spaceTop, left: () => selRect.right - tw - margin, top: () => selRect.top - th - margin },
-      { key: 'TL', availW: spaceLeft,  availH: spaceTop, left: () => selRect.left + margin,      top: () => selRect.top - th - margin },
+      { key: 'TL', availW: spaceLeft, availH: spaceTop, left: () => selRect.left + margin, top: () => selRect.top - th - margin },
       { key: 'BR', availW: spaceRight, availH: spaceBottom, left: () => selRect.right - tw - margin, top: () => selRect.bottom + margin },
-      { key: 'BL', availW: spaceLeft,  availH: spaceBottom, left: () => selRect.left + margin,      top: () => selRect.bottom + margin },
+      { key: 'BL', availW: spaceLeft, availH: spaceBottom, left: () => selRect.left + margin, top: () => selRect.bottom + margin },
     ]
 
     // Primary preference per spec (more width side, more height side)
@@ -480,10 +480,10 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     if (!chosen) {
       const fitting = withScores.filter(c => c.fits)
       if (fitting.length) {
-        fitting.sort((a,b) => b.score - a.score)
+        fitting.sort((a, b) => b.score - a.score)
         chosen = fitting[0]
       } else {
-        withScores.sort((a,b) => b.area - a.area)
+        withScores.sort((a, b) => b.area - a.area)
         chosen = withScores[0]
       }
     }
@@ -534,7 +534,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
 
   // Normalize paragraph behavior for Enter key
   useEffect(() => {
-    try { document.execCommand('defaultParagraphSeparator', false, 'div') } catch {}
+    try { document.execCommand('defaultParagraphSeparator', false, 'div') } catch { }
   }, [])
 
   useEffect(() => {
@@ -562,24 +562,72 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
       captureSnapshot()
 
       const selection = window.getSelection()
-      let storedRange = null
+      if (!selection || selection.rangeCount === 0) return
 
-      if (selection && selection.rangeCount > 0) {
-        const currentRange = selection.getRangeAt(0)
-        if (editor.contains(currentRange.commonAncestorContainer)) {
-          storedRange = currentRange.cloneRange()
+      const range = selection.getRangeAt(0)
+      if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return
+
+      // For bold, italic, underline at collapsed caret (no selection), use manual span insertion
+      // to avoid execCommand creating block elements that cause line breaks
+      if (selection.isCollapsed && ['bold', 'italic', 'underline'].includes(command)) {
+        // Get current computed styles at caret position
+        const node = range.startContainer.nodeType === Node.TEXT_NODE
+          ? range.startContainer.parentElement
+          : range.startContainer
+        const computedStyle = node ? window.getComputedStyle(node) : null
+
+        // Determine current state of the style
+        let isCurrentlyOn = false
+        if (command === 'bold') {
+          isCurrentlyOn = computedStyle && (parseInt(computedStyle.fontWeight, 10) || 400) >= 600
+        } else if (command === 'italic') {
+          isCurrentlyOn = computedStyle && computedStyle.fontStyle === 'italic'
+        } else if (command === 'underline') {
+          isCurrentlyOn = computedStyle && (computedStyle.textDecorationLine || computedStyle.textDecoration || '').includes('underline')
         }
-      }
-      
-      editorRef.current.focus()
-      
-      if (storedRange && selection) {
+
+        // Create a styled span with zero-width space as a marker
+        const span = document.createElement('span')
+        const zws = document.createTextNode('\u200B') // zero-width space
+
+        // Apply inline styles to toggle the formatting
+        if (command === 'bold') {
+          span.style.fontWeight = isCurrentlyOn ? 'normal' : 'bold'
+        } else if (command === 'italic') {
+          span.style.fontStyle = isCurrentlyOn ? 'normal' : 'italic'
+        } else if (command === 'underline') {
+          span.style.textDecoration = isCurrentlyOn ? 'none' : 'underline'
+        }
+
+        span.appendChild(zws)
+        range.insertNode(span)
+
+        // Move caret after the zero-width space so typing continues with the style
+        const newRange = document.createRange()
+        newRange.setStartAfter(zws)
+        newRange.collapse(true)
         selection.removeAllRanges()
-        selection.addRange(storedRange)
+        selection.addRange(newRange)
+
+        // Update desired typing state
+        desiredTypingRef.current[command] = !isCurrentlyOn
+
+        emitChange()
+        captureSnapshot()
+        refreshActiveFormats()
+        return
       }
+
+      // For non-collapsed selections (actual text selected) or other commands, use execCommand
+      editorRef.current.focus()
+
+      const storedRange = range.cloneRange()
+      selection.removeAllRanges()
+      selection.addRange(storedRange)
 
       document.execCommand(command, false, value)
       cleanupAccidentalBreak()
+
       // Update desired typing state at collapsed caret for upcoming text
       try {
         const sel = window.getSelection()
@@ -589,7 +637,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
             desiredTypingRef.current[command] = after
           }
         }
-      } catch {}
+      } catch { }
 
       if (isOverflowing()) {
         restoreSnapshot()
@@ -794,7 +842,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
           const inEditor = editor && editor.contains(range.startContainer) && editor.contains(range.endContainer)
           if (inEditor && sel.isCollapsed) {
             for (const [cmd, val] of Object.entries(partial || {})) {
-              if (['bold','italic','underline'].includes(cmd)) {
+              if (['bold', 'italic', 'underline'].includes(cmd)) {
                 let current
                 try { current = document.queryCommandState(cmd) } catch { current = undefined }
                 if (typeof current === 'boolean' && typeof val === 'boolean' && current !== val) {
@@ -805,7 +853,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
             }
           }
         }
-      } catch {}
+      } catch { }
     },
     getTypingState: () => ({ ...desiredTypingRef.current }),
     isCollapsedSelection: () => {
@@ -856,13 +904,13 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
           }
         }
       }
-    } catch {}
+    } catch { }
 
     // Enforce desired typing for upcoming text at collapsed caret (user-controlled)
     try {
       const sel = window.getSelection()
       if (sel && sel.isCollapsed) {
-        ;['bold','italic','underline'].forEach((cmd) => {
+        ;['bold', 'italic', 'underline'].forEach((cmd) => {
           const desired = desiredTypingRef.current[cmd]
           if (typeof desired === 'boolean') {
             let current
@@ -873,7 +921,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
           }
         })
       }
-    } catch {}
+    } catch { }
     captureSnapshot()
   }
 
@@ -902,7 +950,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
 
     try {
       event.preventDefault()
-    } catch {}
+    } catch { }
 
     const clip = (event.clipboardData || window.clipboardData)
     const pasted = clip ? (clip.getData('text/plain') || '') : ''
@@ -1019,12 +1067,12 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     }
     if (command === 'foreColor') {
       const current = cs && cs.color
-      const same = !!current && !!value && current.replace(/\s+/g,'') === (value + '').replace(/\s+/g,'')
+      const same = !!current && !!value && current.replace(/\s+/g, '') === (value + '').replace(/\s+/g, '')
       return applyStyleToSelection({ color: same ? '' : value })
     }
     if (command === 'backColor' || command === 'hiliteColor') {
       const current = cs && (cs.backgroundColor || '')
-      const same = !!current && !!value && current.replace(/\s+/g,'') === (value + '').replace(/\s+/g,'')
+      const same = !!current && !!value && current.replace(/\s+/g, '') === (value + '').replace(/\s+/g, '')
       return applyStyleToSelection({ backgroundColor: same ? '' : value })
     }
     return false
@@ -1076,7 +1124,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
         try { state = document.queryCommandState(command) } catch { state = undefined }
         if (typeof state === 'boolean') desiredTypingRef.current[command] = state
       }
-    } catch {}
+    } catch { }
 
     if (isOverflowing()) {
       restoreSnapshot()
@@ -1090,29 +1138,29 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
   const getCurrentListStyle = () => {
     const editor = editorRef.current
     if (!editor) return 'none'
-    
+
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return 'none'
-    
+
     const range = selection.getRangeAt(0)
     if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return 'none'
-    
+
     // Check if we're in a list context
     let element = range.startContainer
     if (element.nodeType === Node.TEXT_NODE) {
       element = element.parentElement
     }
-    
+
     // Look for list indicators in the text
     const text = editor.textContent || ''
     const lines = text.split('\n')
     const currentLine = lines[0] // Simplified - just check first line
-    
+
     if (currentLine.trim().startsWith('•')) return 'bullet'
     if (/^\d+\./.test(currentLine.trim())) return 'number'
     if (/^[A-Z]+\./.test(currentLine.trim())) return 'alpha'
     if (/^[IVX]+\./.test(currentLine.trim())) return 'roman'
-    
+
     return 'none'
   }
 
@@ -1127,11 +1175,11 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
     if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return
 
     captureSnapshot()
-    
+
     // Simple and direct approach using execCommand
     try {
       document.execCommand('fontName', false, fontFamily)
-      
+
       // Clean up any font tags that might be created
       const fontTags = editor.querySelectorAll('font')
       fontTags.forEach(fontTag => {
@@ -1140,7 +1188,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
         span.innerHTML = fontTag.innerHTML
         fontTag.replaceWith(span)
       })
-      
+
       emitChange()
       captureSnapshot()
       setCurrentFontFamily(fontFamily)
@@ -1152,7 +1200,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
   }
 
   // Case transform helpers for mini toolbar
-  const toTitleCase = (s='') => s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  const toTitleCase = (s = '') => s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
   const applyCaseTransform = (mode /* 'upper'|'lower'|'title' */) => {
     const editor = editorRef.current
     if (!editor) return false
@@ -1164,7 +1212,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
 
     captureSnapshot()
     const text = sel.toString()
-    const convert = (t='') => mode === 'upper' ? t.toUpperCase() : mode === 'lower' ? t.toLowerCase() : toTitleCase(t)
+    const convert = (t = '') => mode === 'upper' ? t.toUpperCase() : mode === 'lower' ? t.toLowerCase() : toTitleCase(t)
     const transformed = convert(text)
 
     // Focus and restore range, then insert transformed text (may flatten formatting across the selection)
@@ -1381,10 +1429,10 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
             const makeRgba = (color) => {
               const str = String(color)
               if (str.startsWith('rgba')) return str
-              if (str.startsWith('rgb(')) return str.replace('rgb(', 'rgba(').replace(/\)$/,'') + `, ${alpha})`
+              if (str.startsWith('rgb(')) return str.replace('rgb(', 'rgba(').replace(/\)$/, '') + `, ${alpha})`
               if (str[0] === '#') {
-                const hex = str.replace('#','')
-                const v = hex.length === 3 ? hex.split('').map(ch=>ch+ch).join('') : hex
+                const hex = str.replace('#', '')
+                const v = hex.length === 3 ? hex.split('').map(ch => ch + ch).join('') : hex
                 const int = parseInt(v, 16)
                 const r = (int >> 16) & 255
                 const g = (int >> 8) & 255
@@ -1403,10 +1451,10 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
             if (opacity == null || opacity >= 1) return base
             if (!base) return base
             if (String(base).startsWith('rgba')) return base
-            if (String(base).startsWith('rgb(')) return String(base).replace('rgb(', 'rgba(').replace(/\)$/,'') + `, ${opacity})`
+            if (String(base).startsWith('rgb(')) return String(base).replace('rgb(', 'rgba(').replace(/\)$/, '') + `, ${opacity})`
             if (String(base)[0] === '#') {
-              const hex = String(base).replace('#','')
-              const v = hex.length === 3 ? hex.split('').map(ch=>ch+ch).join('') : hex
+              const hex = String(base).replace('#', '')
+              const v = hex.length === 3 ? hex.split('').map(ch => ch + ch).join('') : hex
               const int = parseInt(v, 16)
               const r = (int >> 16) & 255
               const g = (int >> 8) & 255
@@ -1469,7 +1517,7 @@ const RichTextEditor = forwardRef(({ el, onChange, onBlur, scale = 1 }, ref) => 
                 captureSnapshot()
                 try {
                   document.execCommand('insertLineBreak')
-                } catch {}
+                } catch { }
                 emitChange()
                 autoResizeElementHeight()
                 captureSnapshot()

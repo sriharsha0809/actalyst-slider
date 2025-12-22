@@ -313,6 +313,27 @@ function SlideStage() {
   // Content animations handle the rest
   const animClass = 'slide-anim-fade'
 
+  // Listen for live element movement to mirror in presentation mode
+  const [liveOverrides, setLiveOverrides] = useState({})
+  useEffect(() => {
+    const onLive = (e) => {
+      const d = e?.detail || {}
+      if (!d || !slide || d.slideId !== slide.id) return
+      setLiveOverrides(prev => ({ ...prev, [d.id]: { x: d.x, y: d.y, w: d.w, h: d.h, rotation: d.rotation } }))
+    }
+    const onEnd = (e) => {
+      const d = e?.detail || {}
+      if (!d || !slide || d.slideId !== slide.id) return
+      setLiveOverrides(prev => { const n = { ...prev }; delete n[d.id]; return n })
+    }
+    window.addEventListener('liveElementMove', onLive)
+    window.addEventListener('liveElementMoveEnd', onEnd)
+    return () => {
+      window.removeEventListener('liveElementMove', onLive)
+      window.removeEventListener('liveElementMoveEnd', onEnd)
+    }
+  }, [slide?.id])
+
   return (
     <div className="absolute inset-0" style={{ background: 'transparent' }}>
       {/* Outer wrapper handles centering and scaling only */}
@@ -330,7 +351,7 @@ function SlideStage() {
         {/* Inner wrapper handles slide-in animation (does not affect scale) */}
         <div className={animClass} style={{ position: 'absolute', inset: 0 }}>
           {slide && (
-            <SlideView data={slide} scale={1} mode="presentation" animateKey={slide.id} />
+            <SlideView data={slide} scale={1} mode="presentation" animateKey={slide.id} liveOverrides={liveOverrides} />
           )}
         </div>
       </div>

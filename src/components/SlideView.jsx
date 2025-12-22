@@ -465,39 +465,127 @@ function RenderElement({ el, animateKey, hidePlaceholders = false }) {
         )
       )
     case 'table': {
-      // Simple non-interactive table rendering
+      // Non-interactive table rendering for viewer/presentation.
+      // Rows should expand vertically to show full cell content.
       const rows = el.rows || 0
       const cols = el.cols || 0
-      const cw = el.w / (cols || 1)
-      const ch = el.h / (rows || 1)
+
+      // Get custom dimensions with fallback to equal distribution
+      const rowHeights = Array.isArray(el.rowHeights) && el.rowHeights.length === rows
+        ? el.rowHeights
+        : Array(rows).fill(el.h / rows)
+      const colWidths = Array.isArray(el.colWidths) && el.colWidths.length === cols
+        ? el.colWidths
+        : Array(cols).fill(el.w / cols)
+
       const hexToRgb = (hex) => {
-        try { const m = String(hex || '').replace('#', ''); const v = m.length === 3 ? m.split('').map(ch => ch + ch).join('') : m; const int = parseInt(v, 16); return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 } } catch { return { r: 0, g: 0, b: 0 } }
+        try {
+          const m = String(hex || '').replace('#', '')
+          const v = m.length === 3 ? m.split('').map(ch => ch + ch).join('') : m
+          const int = parseInt(v, 16)
+          return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 }
+        } catch {
+          return { r: 0, g: 0, b: 0 }
+        }
       }
-      const withAlpha = (hex, aPct = 100) => { const a = Math.max(0, Math.min(100, aPct)); if (a >= 100 || !hex || /^rgba?/i.test(hex)) return hex || '#000'; const { r, g, b } = hexToRgb(hex); return `rgba(${r}, ${g}, ${b}, ${a / 100})` }
+      const withAlpha = (hex, aPct = 100) => {
+        const a = Math.max(0, Math.min(100, aPct))
+        if (a >= 100 || !hex || /^rgba?/i.test(hex)) return hex || '#000'
+        const { r, g, b } = hexToRgb(hex)
+        return `rgba(${r}, ${g}, ${b}, ${a / 100})`
+      }
+
       return (
-        <div className="w-full h-full" style={{ background: '#fff', border: `1px solid ${el.borderColor || '#000'}`, position: 'relative', boxSizing: 'border-box', overflow: 'hidden' }}>
-          {Array.from({ length: rows }).map((_, r) => (
-            <div key={r} style={{ position: 'absolute', left: 0, top: r * ch, width: '100%', height: ch }}>
-              {Array.from({ length: cols }).map((__, c) => {
-                const idx = r * cols + c
-                const cell = el.cells?.[idx]
-                const isHeader = !!el.headerRow && r === 0
-                const bgBase = (cell?.styles?.bgColor) ? cell.styles.bgColor : (isHeader ? (el.headerBg || '#f3f4f6') : (el.cellBg || '#ffffff'))
-                const bgAlpha = (cell?.styles?.bgColorAlpha != null) ? cell.styles.bgColorAlpha : (isHeader ? (el.headerBgAlpha != null ? el.headerBgAlpha : 100) : 100)
-                const bg = withAlpha(bgBase, bgAlpha)
-                const fgBase = isHeader ? (el.headerTextColor || '#111827') : (cell?.styles?.color || '#111827')
-                const fgAlpha = isHeader ? (el.headerTextAlpha != null ? el.headerTextAlpha : 100) : (cell?.styles?.colorAlpha != null ? cell.styles.colorAlpha : 100)
-                const fg = withAlpha(fgBase, fgAlpha)
-                const align = cell?.styles?.align || 'center'
-                const valign = cell?.styles?.valign || 'middle'
-                return (
-                  <div key={c} style={{ position: 'absolute', left: c * cw, top: 0, width: cw, height: ch, boxSizing: 'border-box', borderRight: `1px solid ${el.borderColor || '#000'}`, borderBottom: `1px solid ${el.borderColor || '#000'}`, background: bg, color: fg, display: 'flex', alignItems: valign === 'middle' ? 'center' : (valign === 'bottom' ? 'flex-end' : 'flex-start'), justifyContent: align === 'right' ? 'flex-end' : (align === 'center' ? 'center' : 'flex-start'), padding: 6, overflow: 'hidden' }}>
-                    <span className="truncate" style={{ fontSize: (cell?.styles?.fontSize || 12) }}>{cell?.text || ''}</span>
-                  </div>
-                )
-              })}
-            </div>
-          ))}
+        <div
+          className="w-full h-full"
+          style={{
+            background: '#fff',
+            border: `1px solid ${el.borderColor || '#000'}`,
+            boxSizing: 'border-box',
+            // Let content grow beyond the originally authored height when needed
+            overflow: 'visible',
+          }}
+        >
+          <table
+            style={{
+              width: '100%',
+              height: '100%',
+              borderCollapse: 'collapse',
+              tableLayout: 'fixed',
+            }}
+          >
+            <colgroup>
+              {colWidths.map((width, c) => (
+                <col key={c} style={{ width: `${(width / el.w) * 100}%` }} />
+              ))}
+            </colgroup>
+            <tbody>
+              {Array.from({ length: rows }).map((_, r) => (
+                <tr key={r} style={{ height: `${rowHeights[r]}px` }}>
+                  {Array.from({ length: cols }).map((__, c) => {
+                    const idx = r * cols + c
+                    const cell = el.cells?.[idx]
+                    const isHeader = !!el.headerRow && r === 0
+
+                    const bgBase = (cell?.styles?.bgColor)
+                      ? cell.styles.bgColor
+                      : (isHeader ? (el.headerBg || '#f3f4f6') : (el.cellBg || '#ffffff'))
+                    const bgAlpha = (cell?.styles?.bgColorAlpha != null)
+                      ? cell.styles.bgColorAlpha
+                      : (isHeader ? (el.headerBgAlpha != null ? el.headerBgAlpha : 100) : 100)
+                    const bg = withAlpha(bgBase, bgAlpha)
+
+                    const fgBase = isHeader
+                      ? (el.headerTextColor || '#111827')
+                      : (cell?.styles?.color || '#111827')
+                    const fgAlpha = isHeader
+                      ? (el.headerTextAlpha != null ? el.headerTextAlpha : 100)
+                      : (cell?.styles?.colorAlpha != null ? cell.styles.colorAlpha : 100)
+                    const fg = withAlpha(fgBase, fgAlpha)
+
+                    const align = cell?.styles?.align || 'center'
+                    const valign = cell?.styles?.valign || 'middle'
+
+                    // Respect header-specific border colors/opacity when present
+                    const borderBase = isHeader && el.headerBorderColor
+                      ? el.headerBorderColor
+                      : (el.borderColor || '#000000')
+                    const borderAlpha = isHeader && el.headerBorderColor
+                      ? (el.headerBorderAlpha != null ? el.headerBorderAlpha : 100)
+                      : (el.borderAlpha != null ? el.borderAlpha : 100)
+                    const cellBorderColor = withAlpha(borderBase, borderAlpha)
+
+                    return (
+                      <td
+                        key={c}
+                        style={{
+                          boxSizing: 'border-box',
+                          borderRight: `1px solid ${cellBorderColor}`,
+                          borderBottom: `1px solid ${cellBorderColor}`,
+                          background: bg,
+                          color: fg,
+                          padding: 6,
+                          textAlign: align,
+                          verticalAlign: valign === 'bottom' ? 'bottom' : (valign === 'top' ? 'top' : 'middle'),
+                          fontSize: (cell?.styles?.fontSize || 12),
+                          fontFamily: cell?.styles?.fontFamily || 'Inter, system-ui, sans-serif',
+                          fontWeight: cell?.styles?.bold ? 700 : 400,
+                          fontStyle: cell?.styles?.italic ? 'italic' : 'normal',
+                          textDecoration: cell?.styles?.underline ? 'underline' : 'none',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          // Let long text grow the row height instead of clipping
+                          overflow: 'visible',
+                        }}
+                      >
+                        {cell?.text || ''}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )
     }
@@ -517,6 +605,9 @@ function SlideViewBase({ data, scale = 1, animateKey = null, mode = 'viewer', li
         const ey = Number.isFinite(ov?.y) ? ov.y : el.y
         const er = Number.isFinite(ov?.rotation) ? ov.rotation : (el.rotation || 0)
 
+        const ew = Number.isFinite(ov?.w) ? ov.w : el.w
+        const eh = Number.isFinite(ov?.h) ? ov.h : el.h
+
         // Animation props
         const isPresentation = mode === 'presentation'
         const animClass = isPresentation ? 'element-anim-enter' : ''
@@ -531,13 +622,22 @@ function SlideViewBase({ data, scale = 1, animateKey = null, mode = 'viewer', li
             style={{
               left: ex,
               top: ey,
-              width: el.w,
-              height: el.h,
-              transform: `rotate(${er}deg)`,
+              width: ew,
+              height: eh,
               animationDelay: animDelay
             }}
           >
-            <RenderElement el={el} animateKey={animateKey} hidePlaceholders={hidePlaceholders} />
+            {/* Separate wrapper for rotation to prevent animation from overriding it */}
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                transform: `rotate(${er}deg)`,
+                transformOrigin: 'center'
+              }}
+            >
+              <RenderElement el={el} animateKey={animateKey} hidePlaceholders={hidePlaceholders} />
+            </div>
           </div>
         )
       })}

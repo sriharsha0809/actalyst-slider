@@ -150,6 +150,10 @@ export default function TableStylePanel() {
     const info = typeof window !== 'undefined' ? window.currentEditingTableCell : null
     const currentRow = (info && info.id === table.id) ? Math.floor(info.cellIndex / cols) : (table.rows - 1)
 
+    // Calculate new row height (use average of existing rows)
+    const rowHeights = Array.isArray(table.rowHeights) ? table.rowHeights : Array(table.rows).fill(table.h / table.rows)
+    const avgRowHeight = rowHeights.reduce((sum, h) => sum + h, 0) / rowHeights.length
+
     if (scope === 'cell' && info && info.id === table.id) {
       const insertAfter = currentRow
       const rows = table.rows + 1
@@ -161,7 +165,13 @@ export default function TableStylePanel() {
           for (let c = 0; c < cols; c++) newCells.push({ id: genId(), text: '', styles: { ...(table.cells[0]?.styles || {}) } })
         }
       }
-      update({ rows, cells: newCells })
+
+      // Insert new row height
+      const newRowHeights = [...rowHeights]
+      newRowHeights.splice(insertAfter + 1, 0, avgRowHeight)
+      const newTotalHeight = newRowHeights.reduce((sum, h) => sum + h, 0)
+
+      update({ rows, cells: newCells, rowHeights: newRowHeights, h: newTotalHeight })
       setTimeout(() => dispatchEditCell(Math.min(rows * cols - 1, (insertAfter + 1) * cols + (info.cellIndex % cols))), 0)
       return
     }
@@ -177,7 +187,13 @@ export default function TableStylePanel() {
         for (let c = 0; c < cols; c++) newCells.push({ id: crypto.randomUUID?.() || `${Date.now()}-${r}-${c}`, text: '', styles: { ...(table.cells[0]?.styles || {}) } })
       }
     }
-    update({ rows, cells: newCells })
+
+    // Insert new row height
+    const newRowHeights = [...rowHeights]
+    newRowHeights.splice(insertAfter + 1, 0, avgRowHeight)
+    const newTotalHeight = newRowHeights.reduce((sum, h) => sum + h, 0)
+
+    update({ rows, cells: newCells, rowHeights: newRowHeights, h: newTotalHeight })
   }
 
   const removeRow = () => {
@@ -191,6 +207,8 @@ export default function TableStylePanel() {
     const info = typeof window !== 'undefined' ? window.currentEditingTableCell : null
     const currentRow = (info && info.id === table.id) ? Math.floor(info.cellIndex / cols) : (table.rows - 1)
 
+    const rowHeights = Array.isArray(table.rowHeights) ? table.rowHeights : Array(table.rows).fill(table.h / table.rows)
+
     if (scope === 'cell' && info && info.id === table.id) {
       const targetRow = currentRow
       const rows = table.rows - 1
@@ -200,7 +218,12 @@ export default function TableStylePanel() {
         const rowStart = r * cols
         newCells.push(...table.cells.slice(rowStart, rowStart + cols))
       }
-      update({ rows, cells: newCells })
+
+      // Remove row height
+      const newRowHeights = rowHeights.filter((_, idx) => idx !== targetRow)
+      const newTotalHeight = newRowHeights.reduce((sum, h) => sum + h, 0)
+
+      update({ rows, cells: newCells, rowHeights: newRowHeights, h: newTotalHeight })
       const newFocusRow = Math.max(0, targetRow - 1)
       setTimeout(() => dispatchEditCell(Math.min(rows * cols - 1, newFocusRow * cols + (info.cellIndex % cols))), 0)
       return
@@ -208,7 +231,12 @@ export default function TableStylePanel() {
 
     const rows = table.rows - 1
     const newCells = table.cells.slice(0, rows * cols)
-    update({ rows, cells: newCells })
+
+    // Remove last row height
+    const newRowHeights = rowHeights.slice(0, rows)
+    const newTotalHeight = newRowHeights.reduce((sum, h) => sum + h, 0)
+
+    update({ rows, cells: newCells, rowHeights: newRowHeights, h: newTotalHeight })
   }
 
   const addCol = () => {
@@ -220,6 +248,10 @@ export default function TableStylePanel() {
     }
     const info = typeof window !== 'undefined' ? window.currentEditingTableCell : null
     const currentCol = (info && info.id === table.id) ? (info.cellIndex % table.cols) : (table.cols - 1)
+
+    // Calculate new column width (use average of existing columns)
+    const colWidths = Array.isArray(table.colWidths) ? table.colWidths : Array(table.cols).fill(table.w / table.cols)
+    const avgColWidth = colWidths.reduce((sum, w) => sum + w, 0) / colWidths.length
 
     if (scope === 'cell' && info && info.id === table.id) {
       const insertAfter = currentCol
@@ -233,7 +265,13 @@ export default function TableStylePanel() {
           if (c === insertAfter) newCells.push({ id: genId(), text: '', styles: { ...(table.cells[idx]?.styles || table.cells[0]?.styles || {}) } })
         }
       }
-      update({ cols, cells: newCells })
+
+      // Insert new column width
+      const newColWidths = [...colWidths]
+      newColWidths.splice(insertAfter + 1, 0, avgColWidth)
+      const newTotalWidth = newColWidths.reduce((sum, w) => sum + w, 0)
+
+      update({ cols, cells: newCells, colWidths: newColWidths, w: newTotalWidth })
       setTimeout(() => {
         const newCols = cols
         const row = Math.floor(info.cellIndex / (cols - 1))
@@ -255,7 +293,13 @@ export default function TableStylePanel() {
         }
       }
     }
-    update({ cols, cells: newCells })
+
+    // Insert new column width
+    const newColWidths = [...colWidths]
+    newColWidths.splice(insertAfter + 1, 0, avgColWidth)
+    const newTotalWidth = newColWidths.reduce((sum, w) => sum + w, 0)
+
+    update({ cols, cells: newCells, colWidths: newColWidths, w: newTotalWidth })
   }
 
   const removeCol = () => {
@@ -269,6 +313,8 @@ export default function TableStylePanel() {
     const info = typeof window !== 'undefined' ? window.currentEditingTableCell : null
     const currentCol = (info && info.id === table.id) ? (info.cellIndex % table.cols) : (table.cols - 1)
 
+    const colWidths = Array.isArray(table.colWidths) ? table.colWidths : Array(table.cols).fill(table.w / table.cols)
+
     if (scope === 'cell' && info && info.id === table.id) {
       const targetCol = currentCol
       const cols = table.cols - 1
@@ -281,7 +327,12 @@ export default function TableStylePanel() {
           newCells.push(table.cells[idx])
         }
       }
-      update({ cols, cells: newCells })
+
+      // Remove column width
+      const newColWidths = colWidths.filter((_, idx) => idx !== targetCol)
+      const newTotalWidth = newColWidths.reduce((sum, w) => sum + w, 0)
+
+      update({ cols, cells: newCells, colWidths: newColWidths, w: newTotalWidth })
       setTimeout(() => {
         const row = Math.floor(info.cellIndex / (cols + 1))
         const newCol = Math.max(0, Math.min(cols - 1, targetCol - 1))
@@ -297,7 +348,12 @@ export default function TableStylePanel() {
       const rowCells = table.cells.slice(rowStart, rowStart + cols)
       newCells.push(...rowCells)
     }
-    update({ cols, cells: newCells })
+
+    // Remove last column width
+    const newColWidths = colWidths.slice(0, cols)
+    const newTotalWidth = newColWidths.reduce((sum, w) => sum + w, 0)
+
+    update({ cols, cells: newCells, colWidths: newColWidths, w: newTotalWidth })
   }
 
   const Row = ({ label, children }) => (
